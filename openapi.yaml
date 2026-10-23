@@ -288,6 +288,17 @@ paths:
           default: false
           title: Include Deleted
         description: Показать историю прекращённых платежей
+      - name: q
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            maxLength: 100
+          - type: 'null'
+          description: Поиск по названию платежа без учёта регистра
+          title: Q
+        description: Поиск по названию платежа без учёта регистра
       responses:
         '200':
           description: Successful Response
@@ -376,6 +387,17 @@ paths:
           default: false
           title: Include Deleted
         description: Показать историю прекращённых платежей
+      - name: q
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            maxLength: 100
+          - type: 'null'
+          description: Поиск по названию платежа без учёта регистра
+          title: Q
+        description: Поиск по названию платежа без учёта регистра
       responses:
         '200':
           description: CSV-файл

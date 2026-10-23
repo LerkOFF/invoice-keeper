@@ -49,10 +49,27 @@ class OccurrenceFilter:
     due_from: date | None = None
     due_to: date | None = None
     include_deleted: bool = False
+    q: str | None = None  # поиск по названию платежа
 
 
-def filtered_statement(stmt: Select, flt: OccurrenceFilter, today: date) -> Select:
+def search_payment_ids(db: Session, q: str | None) -> list[int] | None:
+    """Платежи, в названии которых есть строка q, без учёта регистра.
+
+    Сравнение в Python, а не в SQL: lower() в SQLite не знает кириллицу. Платежей десятки, это дёшево.
+    """
+    needle = (q or "").strip().casefold()
+    if not needle:
+        return None
+    rows = db.execute(select(RecurringPayment.id, RecurringPayment.name))
+    return [payment_id for payment_id, name in rows if needle in name.casefold()]
+
+
+def filtered_statement(
+    stmt: Select, flt: OccurrenceFilter, today: date, payment_ids: list[int] | None = None
+) -> Select:
     stmt = stmt.join(RecurringPayment, PaymentOccurrence.recurring_id == RecurringPayment.id)
+    if payment_ids is not None:
+        stmt = stmt.where(PaymentOccurrence.recurring_id.in_(payment_ids))
     if not flt.include_deleted:
         stmt = stmt.where(RecurringPayment.deleted_at.is_(None))
     if flt.status is not None:
@@ -76,7 +93,10 @@ def list_occurrences(
     db: Session, flt: OccurrenceFilter, today: date, limit: int, offset: int
 ) -> list[PaymentOccurrence]:
     stmt = filtered_statement(
-        select(PaymentOccurrence).options(joinedload(PaymentOccurrence.recurring_payment)), flt, today
+        select(PaymentOccurrence).options(joinedload(PaymentOccurrence.recurring_payment)),
+        flt,
+        today,
+        search_payment_ids(db, flt.q),
     )
     stmt = stmt.order_by(PaymentOccurrence.due_date, PaymentOccurrence.id).limit(limit).offset(offset)
     return list(db.scalars(stmt).unique())
@@ -155,6 +175,7 @@ def summarize(
             ),
             flt,
             today,
+            search_payment_ids(db, flt.q),
         )
     )
     result = {currency: CurrencySummary(currency) for currency in Currency}

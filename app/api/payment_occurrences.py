@@ -54,8 +54,10 @@ def occurrence_filter(
     due_from: date | None = None,
     due_to: date | None = None,
     include_deleted: Annotated[bool, Query(description="Показать историю прекращённых платежей")] = False,
+    q: Annotated[str | None, Query(max_length=100, description="Поиск по названию платежа без учёта регистра")] = None,
 ) -> OccurrenceFilter:
     return OccurrenceFilter(
+        q=q,
         status=status_filter,
         overdue=overdue,
         currency=currency,

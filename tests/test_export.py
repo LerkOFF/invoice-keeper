@@ -49,3 +49,15 @@ def test_formula_like_names_are_escaped(admin):
 
 def test_export_needs_login(anon):
     assert anon.get(f"{B}/payment-occurrences/export").status_code == 401
+
+
+def test_search_by_name_is_case_insensitive_for_cyrillic(admin, user):
+    create(admin, name="Аренда офиса")
+    create(admin, name="Сервер Aeza", currency="USD", amount="20")
+    found = user.get(f"{B}/payment-occurrences", params={"q": "аРЕНДА"}).json()
+    assert found and {o["name"] for o in found} == {"Аренда офиса"}
+    assert user.get(f"{B}/payment-occurrences", params={"q": "aeza"}).json()[0]["name"] == "Сервер Aeza"
+    assert user.get(f"{B}/payment-occurrences", params={"q": "нет такого"}).json() == []
+    # поиск работает и в выгрузке
+    table = rows(admin.get(f"{B}/payment-occurrences/export", params={"q": "сервер"}))
+    assert {row[0] for row in table[1:]} == {"Сервер Aeza"}
