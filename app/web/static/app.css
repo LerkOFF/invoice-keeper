@@ -1,48 +1,50 @@
 :root {
-  --bg: #f4f6f9;
-  --surface: #ffffff;
-  --surface-2: #f8fafc;
-  --ink: #0b1220;
-  --muted: #5b6678;
-  --line: #e2e8f0;
-  --accent: #0ea5e9;
-  --accent-ink: #0369a1;
-  --primary: #0b1220;
+  --bg: #f5f3ee;
+  --surface: #fffefa;
+  --surface-2: #f4f1e9;
+  --ink: #263635;
+  --muted: #707b76;
+  --line: #e5e1d8;
+  --accent: #076465;
+  --accent-soft: #e2efec;
+  --accent-ink: #075759;
+  --primary: #076465;
   --primary-ink: #ffffff;
-  --header: #05070a;
-  --green: #15803d;
-  --green-bg: #dcfce7;
+  --header: #124f4f;
+  --green: #4f7564;
+  --green-bg: #e5eee7;
   --red: #b91c1c;
   --red-bg: #fee2e2;
-  --amber: #b45309;
-  --amber-bg: #fef3c7;
-  --gray-bg: #eef2f7;
-  --shadow: 0 1px 2px rgb(15 23 42 / 0.06), 0 6px 20px rgb(15 23 42 / 0.05);
+  --amber: #99502f;
+  --amber-bg: #f4e9df;
+  --gray-bg: #efede6;
+  --shadow: 0 1px 2px rgb(37 49 45 / 0.04), 0 8px 24px rgb(37 49 45 / 0.055);
   --radius: 14px;
   color-scheme: light;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #0a0e15;
-    --surface: #111826;
-    --surface-2: #0e1420;
-    --ink: #e8edf6;
-    --muted: #97a3b8;
-    --line: #202b3d;
-    --accent: #38bdf8;
-    --accent-ink: #7dd3fc;
-    --primary: #e8edf6;
-    --primary-ink: #0b1220;
-    --header: #030509;
-    --green: #4ade80;
-    --green-bg: rgb(74 222 128 / 0.14);
+    --bg: #111b1a;
+    --surface: #192423;
+    --surface-2: #1d2927;
+    --ink: #e9eeea;
+    --muted: #a2b0aa;
+    --line: #2b3a37;
+    --accent: #5ca4a7;
+    --accent-soft: #203c3b;
+    --accent-ink: #8ac4c3;
+    --primary: #5ca4a7;
+    --primary-ink: #10201f;
+    --header: #0a1212;
+    --green: #8aba9d;
+    --green-bg: rgb(138 186 157 / 0.14);
     --red: #f87171;
     --red-bg: rgb(248 113 113 / 0.15);
-    --amber: #fbbf24;
-    --amber-bg: rgb(251 191 36 / 0.14);
-    --gray-bg: #1a2335;
-    --shadow: 0 1px 2px rgb(0 0 0 / 0.4), 0 8px 24px rgb(0 0 0 / 0.3);
+    --amber: #d69a76;
+    --amber-bg: rgb(214 154 118 / 0.14);
+    --gray-bg: #25312f;
+    --shadow: 0 1px 2px rgb(0 0 0 / 0.24), 0 8px 24px rgb(0 0 0 / 0.2);
     color-scheme: dark;
   }
 }
@@ -77,8 +79,8 @@ button, input, select { font: inherit; color: inherit; }
   place-items: center;
   padding: 24px 16px;
   background:
-    radial-gradient(900px 420px at 85% -10%, rgb(14 165 233 / 0.18), transparent 60%),
-    radial-gradient(700px 360px at -10% 110%, rgb(14 165 233 / 0.10), transparent 60%),
+    radial-gradient(900px 420px at 85% -10%, rgb(7 100 101 / 0.14), transparent 60%),
+    radial-gradient(700px 360px at -10% 110%, rgb(92 164 167 / 0.12), transparent 60%),
     var(--bg);
 }
 
@@ -164,13 +166,13 @@ input:disabled, select:disabled { opacity: .6; cursor: not-allowed; }
 
 .role-badge {
   display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 11px; font-weight: 700;
-  text-transform: uppercase; letter-spacing: .04em; background: rgb(56 189 248 / .16); color: #7dd3fc;
+  text-transform: uppercase; letter-spacing: .04em; background: rgb(92 164 167 / .18); color: #b7dddd;
 }
 
 .tabs { max-width: 1160px; margin: 0 auto; padding: 0 20px; display: flex; gap: 4px; overflow-x: auto; }
 .tab {
   appearance: none; background: none; border: 0; cursor: pointer;
-  padding: 12px 14px; color: #9fb0c8; font-weight: 600; border-bottom: 2px solid transparent; white-space: nowrap;
+  padding: 12px 14px; color: #bed0cc; font-weight: 600; border-bottom: 2px solid transparent; white-space: nowrap;
 }
 .tab:hover { color: #fff; }
 .tab[aria-selected="true"] { color: #fff; border-bottom-color: var(--accent); }
@@ -182,14 +184,15 @@ main { max-width: 1160px; margin: 0 auto; padding: 24px 20px 64px; }
 .page-head p { margin: 4px 0 0; color: var(--muted); }
 
 .card {
-  background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+  background: color-mix(in srgb, var(--surface) 88%, var(--accent) 12%); border: 1px solid var(--line); border-radius: var(--radius);
   box-shadow: var(--shadow);
 }
 
 /* ---------- итоги ---------- */
 
 .summary { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin-bottom: 20px; }
-.sum-card { padding: 16px 18px; position: relative; overflow: hidden; }
+.sum-card { padding: 16px 18px; position: relative; overflow: hidden; background: color-mix(in srgb, var(--surface) 83%, var(--green) 17%); }
+.sum-card.has-overdue { background: color-mix(in srgb, var(--surface) 84%, var(--amber) 16%); }
 .sum-card::before { content: ""; position: absolute; inset: 0 auto 0 0; width: 4px; background: var(--accent); opacity: .85; }
 .sum-card.has-overdue::before { background: var(--red); }
 .sum-head { display: flex; align-items: center; justify-content: space-between; font-size: 13px; font-weight: 700; color: var(--muted); }
@@ -230,6 +233,9 @@ th.right, td.right { text-align: right; }
 td.actions { text-align: right; white-space: nowrap; }
 td.actions .btn + .btn { margin-left: 6px; }
 
+tr.row-paid td { background: color-mix(in srgb, var(--surface) 88%, var(--green) 12%); }
+tr.row-soon td, tr.row-late td { background: color-mix(in srgb, var(--surface) 88%, var(--amber) 12%); }
+tr.row-overdue td { background: color-mix(in srgb, var(--surface) 91%, var(--red) 9%); }
 tr.row-overdue td:first-child { box-shadow: inset 4px 0 0 var(--red); }
 tr.row-deleted { opacity: .62; }
 
@@ -243,10 +249,10 @@ tr.row-deleted { opacity: .62; }
   font-size: 12.5px; font-weight: 650; white-space: nowrap; background: var(--gray-bg); color: var(--muted);
 }
 .badge::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
-.badge.paid { background: var(--green-bg); color: var(--green); }
+.badge.paid { background: color-mix(in srgb, var(--green-bg) 76%, transparent); color: var(--green); }
 .badge.late { background: var(--amber-bg); color: var(--amber); }
 .badge.overdue { background: var(--red-bg); color: var(--red); }
-.badge.soon { background: var(--amber-bg); color: var(--amber); }
+.badge.soon { background: color-mix(in srgb, var(--amber-bg) 76%, transparent); color: var(--amber); }
 
 .empty { padding: 48px 20px; text-align: center; color: var(--muted); }
 .empty strong { display: block; color: var(--ink); font-size: 16px; margin-bottom: 4px; }

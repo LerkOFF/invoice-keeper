@@ -544,7 +544,13 @@ function occurrencesTable(items, reload) {
 function occurrenceRow(o, reload) {
   const status = statusOf(o);
   const note = dueNote(o);
-  const rowClass = [o.status === "unpaid" && o.is_overdue ? "row-overdue" : "", o.payment_deleted ? "row-deleted" : ""].join(" ");
+  const rowClass = [
+    o.status === "unpaid" && o.is_overdue ? "row-overdue" : "",
+    status.cls === "paid" ? "row-paid" : "",
+    status.cls === "soon" ? "row-soon" : "",
+    status.cls === "late" ? "row-late" : "",
+    o.payment_deleted ? "row-deleted" : "",
+  ].join(" ");
 
   let actions = [receiptsButton(o, reload)];
   if (!o.payment_deleted) {
