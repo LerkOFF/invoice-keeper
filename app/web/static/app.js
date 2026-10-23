@@ -15,7 +15,8 @@ const state = {
   me: null,
   asOf: null, // «сегодня» по часовому поясу сервера
   tab: "payments",
-  filters: { status: "all", currency: "", scope: "all", deleted: false, on: "" },
+  filters: { status: "all", currency: "", scope: "all", deleted: false, on: "", q: "" },
+  sort: { key: "due", dir: 1 },
   cal: null, // { year, month, selected }
   budgetYear: null,
 };
@@ -499,6 +500,7 @@ async function paymentsView(main) {
       overdue: f.status === "overdue" ? "true" : undefined,
       currency: f.currency,
       include_deleted: f.deleted ? "true" : undefined,
+      q: f.q.trim() || undefined,
       ...range,
     };
     const csvUrl = new URL(`${API}/payment-occurrences/export`, location.origin);
@@ -513,8 +515,25 @@ async function paymentsView(main) {
     if (!f.on) state.asOf = summary.as_of;
     summaryBox.replaceChildren(...summary.currencies.map((c) => summaryCard(c, f.on ? summary.as_of : null)));
     counter.textContent = items.length ? `Показано: ${items.length}` : "";
-    listBox.replaceChildren(items.length ? occurrencesTable(items, reload) : emptyPayments());
+    lastItems = items;
+    renderList();
   }
+
+  let lastItems = [];
+  const renderList = () => listBox.replaceChildren(lastItems.length ? occurrencesTable(lastItems, reload, renderList) : emptyPayments());
+
+  let searchTimer;
+  const search = h("input", {
+    type: "search",
+    class: "search",
+    placeholder: "Поиск по названию",
+    "aria-label": "Поиск по названию",
+    value: state.filters.q,
+    oninput: (e) => {
+      clearTimeout(searchTimer);
+      searchTimer = setTimeout(() => { state.filters.q = e.target.value; reload().catch(report); }, 250);
+    },
+  });
 
   const currencySelect = h(
     "select",
@@ -526,6 +545,7 @@ async function paymentsView(main) {
   const toolbar = h(
     "div",
     { class: "toolbar" },
+    search,
     segmented(
       [
         { value: "all", label: "Все" },
@@ -580,12 +600,54 @@ function emptyPayments() {
   return h("div", { class: "empty" }, h("strong", {}, "Платежей по этим условиям нет"), none);
 }
 
-function occurrencesTable(items, reload) {
+// Сортировка таблицы на клиенте: ключ столбца и направление, при равенстве по сроку
+const SORT_KEYS = {
+  name: (o) => o.name.toLocaleLowerCase("ru"),
+  amount: (o) => Number(o.amount),
+  due: (o) => o.due_date,
+  status: (o) => ({ overdue: 0, soon: 1, "": 2, late: 3, paid: 4 })[statusOf(o).cls] ?? 2,
+  paid: (o) => o.paid_at || "",
+};
+
+function sortedItems(items) {
+  const { key, dir } = state.sort;
+  const value = SORT_KEYS[key] || SORT_KEYS.due;
+  const cmp = (x, y) => (x < y ? -1 : x > y ? 1 : 0);
+  return [...items].sort((a, b) => dir * (cmp(value(a), value(b)) || cmp(a.due_date, b.due_date) || a.id - b.id));
+}
+
+function sortHeader(label, key, rerender, cls = "") {
+  const active = state.sort.key === key;
+  const toggle = () => {
+    state.sort = { key, dir: active ? -state.sort.dir : 1 };
+    rerender();
+  };
+  return h(
+    "th",
+    { class: cls, "aria-sort": active ? (state.sort.dir > 0 ? "ascending" : "descending") : "none" },
+    h("button", { type: "button", class: `th-sort ${active ? "active" : ""}`, onclick: toggle }, label, active ? (state.sort.dir > 0 ? " ↑" : " ↓") : ""),
+  );
+}
+
+function occurrencesTable(items, reload, rerender) {
   return h(
     "table",
     {},
-    h("thead", {}, h("tr", {}, h("th", {}, "Платёж"), h("th", { class: "right" }, "Сумма"), h("th", {}, "Срок"), h("th", {}, "Статус"), h("th", {}, "Оплачено"), h("th", {}, ""))),
-    h("tbody", {}, items.map((o) => occurrenceRow(o, reload))),
+    h(
+      "thead",
+      {},
+      h(
+        "tr",
+        {},
+        sortHeader("Платёж", "name", rerender),
+        sortHeader("Сумма", "amount", rerender, "right"),
+        sortHeader("Срок", "due", rerender),
+        sortHeader("Статус", "status", rerender),
+        sortHeader("Оплачено", "paid", rerender),
+        h("th", {}, ""),
+      ),
+    ),
+    h("tbody", {}, sortedItems(items).map((o) => occurrenceRow(o, reload))),
   );
 }
 
