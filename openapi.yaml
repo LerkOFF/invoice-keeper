@@ -334,7 +334,11 @@ paths:
       tags:
       - summary
       summary: Итоговые суммы платежей по валютам
-      description: Суммы считаются отдельно по RUB, USD и EUR, без конвертации. Все три валюты есть всегда.
+      description: 'Суммы считаются отдельно по RUB, USD и EUR, без конвертации. Все три валюты есть всегда.
+
+
+        Параметр `on` даёт итоги на дату: считаются периоды со сроком не позже этой даты (если не задан
+        `due_to`), оплата, отмеченная позже `on`, ещё не учитывается, просрочка считается на `on`.'
       operationId: payments_summary
       security:
       - HTTPBearer: []
@@ -357,6 +361,17 @@ paths:
             format: date
           - type: 'null'
           title: Due To
+      - name: 'on'
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            format: date
+          - type: 'null'
+          description: Итоги на эту дату, по умолчанию сегодня
+          title: 'On'
+        description: Итоги на эту дату, по умолчанию сегодня
       - name: include_deleted
         in: query
         required: false
@@ -373,6 +388,115 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SummaryOut'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/payments/budget:
+    get:
+      tags:
+      - summary
+      summary: 'Бюджет: плановые расходы на месяц или год по валютам'
+      description: 'Считает плановые расходы по каждой валюте отдельно: будущие периоды вычисляются по
+        правилу повторения, поэтому бюджет можно строить и на год вперёд. `paid` это уже оплаченное, `remaining`
+        остаток. С `month` вернётся один месяц, без него год с разбивкой по месяцам.'
+      operationId: payments_budget
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: year
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: integer
+            maximum: 2100
+            minimum: 2000
+          - type: 'null'
+          description: По умолчанию текущий год
+          title: Year
+        description: По умолчанию текущий год
+      - name: month
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: integer
+            maximum: 12
+            minimum: 1
+          - type: 'null'
+          title: Month
+      - name: include_deleted
+        in: query
+        required: false
+        schema:
+          type: boolean
+          description: Учитывать историю прекращённых платежей
+          default: false
+          title: Include Deleted
+        description: Учитывать историю прекращённых платежей
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BudgetOut'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/payments/calendar:
+    get:
+      tags:
+      - summary
+      summary: Календарь оплат на месяц
+      description: 'Платежи месяца по дням. `status`: `paid`, `unpaid` или `planned` (период ещё не создан,
+        он вычислен по правилу повторения). Итоги месяца считаются по валютам отдельно.'
+      operationId: payments_calendar
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: year
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: integer
+            maximum: 2100
+            minimum: 2000
+          - type: 'null'
+          title: Year
+      - name: month
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: integer
+            maximum: 12
+            minimum: 1
+          - type: 'null'
+          title: Month
+      - name: include_deleted
+        in: query
+        required: false
+        schema:
+          type: boolean
+          description: Учитывать историю прекращённых платежей
+          default: false
+          title: Include Deleted
+        description: Учитывать историю прекращённых платежей
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CalendarOut'
         '422':
           description: Validation Error
           content:
@@ -631,6 +755,195 @@ components:
       - actor
       - action
       title: AuditEntryOut
+    BudgetLineOut:
+      properties:
+        currency:
+          $ref: '#/components/schemas/Currency'
+        planned:
+          type: string
+          title: Planned
+          description: 'Плановые расходы: все периоды выборки, включая будущие'
+          examples:
+          - '45000.00'
+        paid:
+          type: string
+          title: Paid
+          description: Из них уже оплачено
+        remaining:
+          type: string
+          title: Remaining
+          description: 'Осталось оплатить: planned минус paid'
+        count_planned:
+          type: integer
+          title: Count Planned
+        count_paid:
+          type: integer
+          title: Count Paid
+      type: object
+      required:
+      - currency
+      - planned
+      - paid
+      - remaining
+      - count_planned
+      - count_paid
+      title: BudgetLineOut
+    BudgetMonthOut:
+      properties:
+        month:
+          type: integer
+          maximum: 12.0
+          minimum: 1.0
+          title: Month
+        currencies:
+          items:
+            $ref: '#/components/schemas/BudgetLineOut'
+          type: array
+          title: Currencies
+      type: object
+      required:
+      - month
+      - currencies
+      title: BudgetMonthOut
+    BudgetOut:
+      properties:
+        year:
+          type: integer
+          title: Year
+        month:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Month
+          description: Пусто, если бюджет считается на год
+        currencies:
+          items:
+            $ref: '#/components/schemas/BudgetLineOut'
+          type: array
+          title: Currencies
+          description: Итог за выбранный месяц или за год, всегда все три валюты
+        months:
+          anyOf:
+          - items:
+              $ref: '#/components/schemas/BudgetMonthOut'
+            type: array
+          - type: 'null'
+          title: Months
+          description: Разбивка по месяцам, только для года
+      type: object
+      required:
+      - year
+      - month
+      - currencies
+      title: BudgetOut
+    CalendarDayOut:
+      properties:
+        day:
+          type: string
+          format: date
+          title: Day
+        items:
+          items:
+            $ref: '#/components/schemas/CalendarItemOut'
+          type: array
+          title: Items
+      type: object
+      required:
+      - day
+      - items
+      title: CalendarDayOut
+    CalendarItemOut:
+      properties:
+        occurrence_id:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Occurrence Id
+          description: Пусто у запланированного периода, которого в базе ещё нет
+        recurring_id:
+          type: integer
+          title: Recurring Id
+        name:
+          type: string
+          title: Name
+        amount:
+          type: string
+          title: Amount
+        currency:
+          $ref: '#/components/schemas/Currency'
+        due_date:
+          type: string
+          format: date
+          title: Due Date
+        status:
+          type: string
+          enum:
+          - paid
+          - unpaid
+          - planned
+          title: Status
+        paid_at:
+          anyOf:
+          - type: string
+            format: date
+          - type: 'null'
+          title: Paid At
+        is_overdue:
+          type: boolean
+          title: Is Overdue
+        overdue_days:
+          type: integer
+          title: Overdue Days
+        payment_deleted:
+          type: boolean
+          title: Payment Deleted
+      type: object
+      required:
+      - occurrence_id
+      - recurring_id
+      - name
+      - amount
+      - currency
+      - due_date
+      - status
+      - paid_at
+      - is_overdue
+      - overdue_days
+      - payment_deleted
+      title: CalendarItemOut
+    CalendarOut:
+      properties:
+        year:
+          type: integer
+          title: Year
+        month:
+          type: integer
+          title: Month
+        today:
+          type: string
+          format: date
+          title: Today
+          description: «Сегодня» по часовому поясу сервера
+        days:
+          items:
+            $ref: '#/components/schemas/CalendarDayOut'
+          type: array
+          title: Days
+          description: Только дни, в которые есть платежи
+        totals:
+          items:
+            $ref: '#/components/schemas/BudgetLineOut'
+          type: array
+          title: Totals
+          description: Итоги месяца по валютам
+      type: object
+      required:
+      - year
+      - month
+      - today
+      - days
+      - totals
+      title: CalendarOut
     Currency:
       type: string
       enum:

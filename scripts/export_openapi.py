@@ -16,7 +16,7 @@ ROOT = Path(__file__).resolve().parent.parent
 TARGET = ROOT / "openapi.yaml"
 
 # Приложению для сборки схемы нужна база, но данных оно не трогает: уводим её во временную папку
-os.environ.setdefault("DATABASE_URL", f"sqlite:///{tempfile.mkdtemp()}/openapi.db")
+os.environ["DATABASE_URL"] = f"sqlite:///{tempfile.mkdtemp()}/openapi.db"
 sys.path.insert(0, str(ROOT))
 
 from app.main import create_app  # noqa: E402

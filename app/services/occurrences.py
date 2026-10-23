@@ -137,8 +137,15 @@ class CurrencySummary:
         return Decimal(minor).scaleb(-2)
 
 
-def summarize(db: Session, flt: OccurrenceFilter, today: date) -> list[CurrencySummary]:
-    """Суммы по валютам. Валюты не конвертируются и не смешиваются."""
+def summarize(
+    db: Session, flt: OccurrenceFilter, today: date, on: date | None = None
+) -> list[CurrencySummary]:
+    """Суммы по валютам. Валюты не конвертируются и не смешиваются.
+
+    `on` показывает картину на прошедшую или будущую дату: оплата, отмеченная позже `on`, ещё не учитывается,
+    а просрочка считается относительно `on`.
+    """
+    ref = on or today
     rows = db.execute(
         filtered_statement(
             select(PaymentOccurrence, RecurringPayment.currency, RecurringPayment.amount_minor), flt, today
@@ -149,13 +156,14 @@ def summarize(db: Session, flt: OccurrenceFilter, today: date) -> list[CurrencyS
         item = result[Currency(currency)]
         item.total_minor += amount_minor
         item.count_total += 1
-        if occurrence.status == _PAID:
+        is_paid = occurrence.status == _PAID and (on is None or occurrence.paid_at is None or occurrence.paid_at <= on)
+        if is_paid:
             item.paid_minor += amount_minor
             item.count_paid += 1
         else:
             item.unpaid_minor += amount_minor
             item.count_unpaid += 1
-            if occurrence.due_date < today:
+            if occurrence.due_date < ref:
                 item.overdue_minor += amount_minor
                 item.count_overdue += 1
     return list(result.values())
