@@ -173,7 +173,7 @@ python3 scripts/demo.py
 
 ```bash
 python3 -m venv .venv && .venv/bin/pip install -r requirements-dev.txt
-.venv/bin/pytest                                   # ~280 тестов
+.venv/bin/pytest                                   # ~295 тестов
 .venv/bin/uvicorn app.main:app --reload            # без Docker, база в ./data
 .venv/bin/python scripts/export_openapi.py         # пересобрать openapi.yaml
 ```
@@ -196,7 +196,7 @@ docs/          план работ и архитектура
 ## Если что-то не так
 
 - **Ошибка про `env_file` или `required`:** обновите Docker Compose до v2.24+ или просто выполните `cp .env.example .env`.
-- **Порт 8000 занят:** измените `8000:8000` на другой порт слева в `docker-compose.yml`.
+- **Порт 8000 занят:** добавьте в `.env` строку `APP_PORT=8001` (или другой свободный порт) и перезапустите.
 - **Напоминания не приходят:** проверьте `TELEGRAM_BOT_TOKEN` и `TELEGRAM_CHAT_ID`, бот должен быть в чате и иметь право писать.
   Причина видна в логе: `docker compose logs app`.
 - **Забыли пароль администратора:** он лежит в `.env`, поменяйте и выполните `docker compose up -d`.
