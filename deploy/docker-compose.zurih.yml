@@ -9,6 +9,8 @@ services:
   app:
     extra_hosts:
       - "mail-relay:172.31.77.1"
+      # переходный период: пока домен не в DNS, письма идут через Яндекс тем же шлюзом
+      - "smtp.yandex.ru:172.31.77.1"
     stop_grace_period: 20s
 
 networks:
