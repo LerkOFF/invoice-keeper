@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import APIRouter, FastAPI
 
-from app.api import auth
+from app.api import auth, payment_occurrences, recurring_payments, summary
 from app.core.clock import today
 from app.core.config import get_settings
 from app.core.db import SessionLocal, init_db
@@ -47,6 +47,9 @@ def create_app() -> FastAPI:
         return {"status": "ok"}
 
     api.include_router(auth.router)
+    api.include_router(recurring_payments.router)
+    api.include_router(payment_occurrences.router)
+    api.include_router(summary.router)
 
     app.include_router(api)
     return app

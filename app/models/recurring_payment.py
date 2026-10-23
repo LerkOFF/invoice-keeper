@@ -35,7 +35,7 @@ class RecurringPayment(Base):
 
     @property
     def amount(self) -> Decimal:
-        return Decimal(self.amount_minor) / 100
+        return Decimal(self.amount_minor).scaleb(-2)
 
     @amount.setter
     def amount(self, value: Decimal | int | str) -> None:

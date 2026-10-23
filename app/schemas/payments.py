@@ -1,0 +1,74 @@
+from datetime import date, datetime
+from decimal import Decimal
+from typing import Annotated
+
+from pydantic import BaseModel, ConfigDict, Field
+
+from app.models import Currency, OccurrenceStatus, Period
+
+Money = Annotated[Decimal, Field(gt=0, max_digits=12, decimal_places=2, examples=["45000.00"])]
+
+
+class RecurringPaymentCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=200, examples=["Аренда офиса"])
+    amount: Money
+    currency: Currency
+    first_due_date: date = Field(description="Дата ближайшей оплаты, от неё считаются все периоды")
+    period: Period = Period.MONTHLY
+
+
+class RecurringPaymentOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    name: str
+    amount: Decimal = Field(description="Строка с двумя знаками после точки", examples=["45000.00"])
+    currency: Currency
+    first_due_date: date
+    period: Period
+    created_at: datetime
+    deleted_at: datetime | None = Field(description="Заполнено у прекращённого платежа")
+
+
+class OccurrenceOut(BaseModel):
+    id: int
+    recurring_id: int
+    name: str
+    amount: Decimal = Field(examples=["45000.00"])
+    currency: Currency
+    due_date: date
+    status: OccurrenceStatus
+    paid_at: date | None = Field(description="Фактическая дата оплаты")
+    is_overdue: bool = Field(description="Не оплачен после срока либо оплачен позже срока")
+    overdue_days: int = Field(description="Дней просрочки, 0 если просрочки нет")
+    reminded_at: datetime | None = Field(description="Когда ушло напоминание в Telegram")
+    payment_deleted: bool = Field(description="Регулярный платёж прекращён, период остался в истории")
+
+
+class OccurrenceUpdate(BaseModel):
+    """Подтверждение или отмена оплаты и правка фактической даты."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    status: OccurrenceStatus | None = Field(default=None, description="paid или unpaid")
+    paid_at: date | None = Field(
+        default=None,
+        description="Фактическая дата оплаты. При status=paid без даты ставится сегодняшняя",
+    )
+
+
+class CurrencySummaryOut(BaseModel):
+    currency: Currency
+    total: Decimal = Field(description="Все периоды выборки")
+    paid: Decimal
+    unpaid: Decimal
+    overdue: Decimal = Field(description="Неоплаченные периоды после срока")
+    count_total: int
+    count_paid: int
+    count_unpaid: int
+    count_overdue: int
+
+
+class SummaryOut(BaseModel):
+    as_of: date = Field(description="Дата, на которую считается просрочка")
+    currencies: list[CurrencySummaryOut]

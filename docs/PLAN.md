@@ -26,12 +26,12 @@
 - [x] Без авторизации панель и данные недоступны (401)
 
 ## Этап 3. Платежи и периоды
-- [ ] `GET/POST /recurring-payments`, `DELETE /recurring-payments/{id}` (мягкое удаление)
+- [x] `GET/POST /recurring-payments`, `DELETE /recurring-payments/{id}` (мягкое удаление)
 - [x] Генерация периодов от якоря, конец месяца обрезается до последнего дня
-- [ ] `GET /payment-occurrences`, `GET/PATCH /payment-occurrences/{id}`
-- [ ] Просрочка вычисляется, оплата в день срока вовремя
-- [ ] Отмена оплаты очищает дату, исправление даты пересчитывает просрочку
-- [ ] `GET /payments/summary` по валютам
+- [x] `GET /payment-occurrences`, `GET/PATCH /payment-occurrences/{id}`
+- [x] Просрочка вычисляется, оплата в день срока вовремя
+- [x] Отмена оплаты очищает дату, исправление даты пересчитывает просрочку
+- [x] `GET /payments/summary` по валютам
 
 ## Этап 4. Пользователи
 - [ ] `GET/POST /users`, `PATCH/DELETE /users/{id}` только для админа

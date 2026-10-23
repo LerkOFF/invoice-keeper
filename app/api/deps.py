@@ -1,9 +1,11 @@
+from datetime import date
 from typing import Annotated
 
 from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
+from app.core.clock import today as today_in_tz
 from app.core.config import Settings, get_settings
 from app.core.db import get_db
 from app.services.auth import Principal, get_principal
@@ -15,6 +17,14 @@ bearer_scheme = HTTPBearer(auto_error=False, description="Токен из POST /
 
 DbDep = Annotated[Session, Depends(get_db)]
 SettingsDep = Annotated[Settings, Depends(get_settings)]
+
+
+def current_date() -> date:
+    """«Сегодня» в часовом поясе приложения. Зависимость, чтобы тесты могли подменить дату."""
+    return today_in_tz()
+
+
+TodayDep = Annotated[date, Depends(current_date)]
 
 
 def extract_token(request: Request, credentials: HTTPAuthorizationCredentials | None) -> str | None:
