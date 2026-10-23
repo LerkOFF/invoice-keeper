@@ -1,4 +1,4 @@
-// Invoice Keeper: панель без сборки и внешних зависимостей, оформление в стиле кабинета my.aeza.ru.
+// Invoice Keeper: панель без сборки и внешних зависимостей, оформление в стиле кабинета my.aeza.ru (светлая и тёмная тема).
 // Все данные в DOM попадают через textContent, поэтому названия платежей не могут внедрить разметку.
 
 const API = "/api/v1";
@@ -101,6 +101,11 @@ const I18N = {
     "shell.api": "API и Swagger",
     "shell.menu": "Меню",
     "shell.language": "Язык",
+    "theme.title": "Цветовая тема",
+    "theme.current": "Тема: {mode}",
+    "theme.system": "Системная",
+    "theme.light": "Светлая",
+    "theme.dark": "Тёмная",
     "role.admin": "админ",
     "role.user": "пользователь",
 
@@ -433,6 +438,11 @@ const I18N = {
     "shell.api": "API & Swagger",
     "shell.menu": "Menu",
     "shell.language": "Language",
+    "theme.title": "Color theme",
+    "theme.current": "Theme: {mode}",
+    "theme.system": "System",
+    "theme.light": "Light",
+    "theme.dark": "Dark",
     "role.admin": "admin",
     "role.user": "user",
 
@@ -829,9 +839,12 @@ const ICONS = {
   book: ["m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2Z"],
   check: ["M20 6 9 17l-5-5"],
   download: ["M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4", "m7 10 5 5 5-5", "M12 15V3"],
+  sun: [{ circle: [12, 12, 4] }, "M12 2v2", "M12 20v2", "m4.93 4.93 1.41 1.41", "m17.66 17.66 1.41 1.41", "M2 12h2", "M20 12h2", "m6.34 17.66-1.41 1.41", "m19.07 4.93-1.41 1.41"],
+  moon: ["M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"],
+  monitor: [{ rect: [2, 3, 20, 14, 2] }, "M8 21h8", "M12 17v4"],
 };
 
-function icon(name) {
+function icon(name, extra = "") {
   const parts = (ICONS[name] || []).map((part) => {
     if (typeof part === "string") return svg("path", { d: part });
     if (part.circle) {
@@ -841,7 +854,7 @@ function icon(name) {
     const [x, y, width, height, rx] = part.rect;
     return svg("rect", { x, y, width, height, rx });
   });
-  return svg("svg", { class: "ic", viewBox: "0 0 24 24", "aria-hidden": "true", focusable: "false" }, ...parts);
+  return svg("svg", { class: extra ? `ic ${extra}` : "ic", viewBox: "0 0 24 24", "aria-hidden": "true", focusable: "false" }, ...parts);
 }
 
 // Флаги в кружке, как у выбора языка в кабинете: свои SVG, эмодзи-флаги Windows не рисует
@@ -1120,58 +1133,132 @@ function setLang(id) {
   else showLogin();
 }
 
-function closeLangMenus(except = null) {
-  for (const el of document.querySelectorAll(".lang.open")) {
-    if (el === except) continue;
-    el.classList.remove("open");
-    el.querySelector(".lang-toggle").setAttribute("aria-expanded", "false");
+// ---------- тема: системная, светлая или тёмная, как настройка «Цветовая тема» в кабинете aeza ----------
+
+const THEMES = ["system", "light", "dark"];
+const THEME_KEY = "ik-theme";
+const THEME_COLORS = { light: "#f4f4f4", dark: "#000000" };
+const darkQuery = window.matchMedia("(prefers-color-scheme: dark)");
+
+function savedTheme() {
+  try {
+    const value = localStorage.getItem(THEME_KEY);
+    return THEMES.includes(value) ? value : "system";
+  } catch {
+    return "system";
   }
 }
 
-// Выбор языка: пункт меню с флагом, список всплывает с масштабом 0.95 → 1 за 0.2 с
-function langSelect(direction = "up") {
-  const current = LANGS.find((l) => l.id === lang);
-  const wrap = h("div", { class: `lang ${direction === "down" ? "down" : ""}` });
+let theme = savedTheme();
+
+// Цвета переключает CSS (color-scheme и light-dark), здесь только атрибут на <html> и цвет строки браузера
+function applyTheme() {
+  const root = document.documentElement;
+  if (theme === "system") root.removeAttribute("data-theme");
+  else root.setAttribute("data-theme", theme);
+  const resolved = theme === "system" ? (darkQuery.matches ? "dark" : "light") : theme;
+  for (const meta of document.querySelectorAll('meta[name="theme-color"]')) {
+    const own = (meta.getAttribute("media") || "").includes("dark") ? "dark" : "light";
+    meta.setAttribute("content", THEME_COLORS[theme === "system" ? own : resolved]);
+  }
+}
+
+function setTheme(id) {
+  if (!THEMES.includes(id) || id === theme) return;
+  theme = id;
+  try {
+    localStorage.setItem(THEME_KEY, id);
+  } catch {
+    /* приватный режим: тема просто не запомнится */
+  }
+  const root = document.documentElement;
+  root.classList.add("theme-fade");
+  applyTheme();
+  setTimeout(() => root.classList.remove("theme-fade"), 350);
+  for (const el of document.querySelectorAll('.picker[data-picker="theme"]')) {
+    el.replaceWith(themeSelect(el.classList.contains("down") ? "down" : "up"));
+  }
+}
+
+applyTheme();
+darkQuery.addEventListener("change", applyTheme);
+
+// ---------- всплывающий список в сайдбаре: язык и тема ----------
+
+function closePickers(except = null) {
+  for (const el of document.querySelectorAll(".picker.open")) {
+    if (el === except) continue;
+    el.classList.remove("open");
+    el.querySelector(".picker-toggle").setAttribute("aria-expanded", "false");
+  }
+}
+
+// Пункт сайдбара со списком: всплывает масштабом 0.95 → 1 за 0.2 с, как выпадающие списки кабинета
+function picker({ kind, direction, title, current, trailing, options, selected, onPick }) {
+  const wrap = h("div", { class: `picker ${direction === "down" ? "down" : ""}`, "data-picker": kind });
   const toggle = h(
     "button",
-    {
-      type: "button",
-      class: "nav-item lang-toggle",
-      "aria-haspopup": "menu",
-      "aria-expanded": "false",
-      title: t("shell.language"),
-    },
-    h("span", { class: "lang-current" }, flag(current.id), current.label),
-    icon("globe"),
+    { type: "button", class: "nav-item picker-toggle", "aria-haspopup": "menu", "aria-expanded": "false", title },
+    h("span", { class: "picker-current" }, current),
+    icon(trailing),
   );
   const menu = h(
     "div",
-    { class: "lang-menu", role: "menu", "aria-label": t("shell.language") },
-    LANGS.map((l) =>
+    { class: "picker-menu", role: "menu", "aria-label": title },
+    options.map((o) =>
       h(
         "button",
         {
           type: "button",
-          class: "lang-option",
+          class: "picker-option",
           role: "menuitemradio",
-          lang: l.id,
-          "aria-checked": String(l.id === lang),
-          onclick: () => { closeLangMenus(); setLang(l.id); },
+          lang: o.lang,
+          "aria-checked": String(o.id === selected),
+          onclick: () => { closePickers(); onPick(o.id); },
         },
-        flag(l.id),
-        l.label,
-        l.id === lang ? icon("check") : null,
+        o.lead,
+        o.label,
+        o.id === selected ? icon("check", "tick") : null,
       ),
     ),
   );
   toggle.addEventListener("click", () => {
     const open = !wrap.classList.contains("open");
-    closeLangMenus(wrap);
+    closePickers(wrap);
     wrap.classList.toggle("open", open);
     toggle.setAttribute("aria-expanded", String(open));
   });
   wrap.append(toggle, menu);
   return wrap;
+}
+
+function langSelect(direction = "up") {
+  const current = LANGS.find((l) => l.id === lang);
+  return picker({
+    kind: "lang",
+    direction,
+    title: t("shell.language"),
+    current: [flag(current.id), current.label],
+    trailing: "globe",
+    options: LANGS.map((l) => ({ id: l.id, label: l.label, lead: flag(l.id), lang: l.id })),
+    selected: lang,
+    onPick: setLang,
+  });
+}
+
+const THEME_ICONS = { system: "monitor", light: "sun", dark: "moon" };
+
+function themeSelect(direction = "up") {
+  return picker({
+    kind: "theme",
+    direction,
+    title: t("theme.title"),
+    current: t("theme.current", { mode: t(`theme.${theme}`).toLowerCase() }),
+    trailing: THEME_ICONS[theme],
+    options: THEMES.map((id) => ({ id, label: t(`theme.${id}`), lead: icon(THEME_ICONS[id]) })),
+    selected: theme,
+    onPick: setTheme,
+  });
 }
 
 // ---------- вход и выход ----------
@@ -1232,7 +1319,7 @@ function showLogin(notice = "") {
     h(
       "div",
       { class: "auth" },
-      h("div", { class: "auth-lang" }, langSelect("down")),
+      h("div", { class: "auth-tools" }, langSelect("down"), themeSelect("down")),
       h(
         "div",
         { class: "auth-card" },
@@ -1372,6 +1459,7 @@ async function showApp() {
         { class: "side-links" },
         h("a", { class: "nav-item", href: `${API}/docs`, target: "_blank", rel: "noopener" }, h("span", {}, t("shell.api")), icon("book")),
         langSelect("up"),
+        themeSelect("up"),
       ),
       h("div", { class: "side-logo" }, h("img", { src: "/static/brand/logo-mark.svg", alt: "", width: 32, height: 32 }), "Invoice Keeper"),
     ),
@@ -2691,12 +2779,12 @@ async function linkDialog(m, reload) {
 // ---------- старт ----------
 
 document.addEventListener("click", (event) => {
-  for (const el of document.querySelectorAll(".lang.open")) if (!el.contains(event.target)) closeLangMenus();
+  for (const el of document.querySelectorAll(".picker.open")) if (!el.contains(event.target)) closePickers();
 });
 
 document.addEventListener("keydown", (event) => {
   if (event.key !== "Escape") return;
-  closeLangMenus();
+  closePickers();
   setNavOpen(false);
 });
 
