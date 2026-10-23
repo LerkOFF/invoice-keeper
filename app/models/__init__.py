@@ -1,5 +1,5 @@
 from app.models.audit import AuditEntry
-from app.models.delivery import ReminderDelivery
+from app.models.delivery import OverdueDelivery, ReminderDelivery
 from app.models.messenger import MessengerLink, MessengerLinkCode
 from app.models.enums import Currency, OccurrenceStatus, Period, Role
 from app.models.payment_occurrence import PaymentOccurrence
@@ -16,6 +16,7 @@ __all__ = [
     "MessengerLink",
     "MessengerLinkCode",
     "OccurrenceReceipt",
+    "OverdueDelivery",
     "PaymentOccurrence",
     "Period",
     "RecurringPayment",

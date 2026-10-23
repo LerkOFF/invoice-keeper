@@ -50,6 +50,8 @@ class Settings(BaseSettings):
 
     app_timezone: str = "Europe/Moscow"
     reminder_days: int = 3
+    # Повторное напоминание на следующий день после срока, если период так и не оплатили
+    overdue_reminders: bool = True
     scheduler_enabled: bool = True
     scheduler_interval_seconds: float = 60
     session_ttl_hours: int = 12

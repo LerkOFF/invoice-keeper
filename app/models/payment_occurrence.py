@@ -25,11 +25,16 @@ class PaymentOccurrence(Base):
     status: Mapped[str] = mapped_column(String(8), default=OccurrenceStatus.UNPAID.value)
     paid_at: Mapped[date | None] = mapped_column(Date)
     reminded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # Повторное напоминание о просрочке ушло по всем каналам
+    overdue_reminded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     # Сумма периода в минорных единицах: фиксируется при создании, правка платежа не меняет историю
     amount_minor: Mapped[int | None] = mapped_column(Integer)
 
     recurring_payment: Mapped["RecurringPayment"] = relationship(back_populates="occurrences")
     deliveries: Mapped[list["ReminderDelivery"]] = relationship(
+        lazy="selectin", cascade="all, delete-orphan", passive_deletes=True
+    )
+    overdue_deliveries: Mapped[list["OverdueDelivery"]] = relationship(
         lazy="selectin", cascade="all, delete-orphan", passive_deletes=True
     )
     receipts: Mapped[list["OccurrenceReceipt"]] = relationship(

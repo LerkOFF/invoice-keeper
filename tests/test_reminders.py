@@ -126,7 +126,9 @@ def test_next_period_gets_its_own_reminder(db):
     later = date(2026, 11, 24)  # через три дня до следующего срока 24 ноября
     ensure_occurrences(db, payment, later + timedelta(days=0))
     db.commit()
-    assert run(db, notifier, today=date(2026, 11, 21)) == 1
+    # повторное напоминание о просроченном первом периоде проверяется в test_overdue_reminders.py
+    only_due = Settings(reminder_days=3, overdue_reminders=False)
+    assert run(db, notifier, today=date(2026, 11, 21), settings=only_due) == 1
     assert len(notifier.messages) == 2
 
 

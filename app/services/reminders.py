@@ -1,13 +1,15 @@
 import logging
 import threading
 from collections.abc import Callable, Iterable
+from dataclasses import dataclass
 from datetime import UTC, date, datetime, timedelta
+from zoneinfo import ZoneInfo
 
 from sqlalchemy import select, update
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import InstrumentedAttribute, Session, joinedload
 
 from app.core.config import Settings
-from app.models import OccurrenceStatus, PaymentOccurrence, RecurringPayment, ReminderDelivery
+from app.models import OccurrenceStatus, OverdueDelivery, PaymentOccurrence, RecurringPayment, ReminderDelivery
 from app.services import audit
 from app.services.notify import Notifier, NotifyError, Reminder
 
@@ -44,6 +46,59 @@ def build_message(occurrence: PaymentOccurrence, today: date) -> str:
     )
 
 
+def build_overdue_message(occurrence: PaymentOccurrence, today: date) -> str:
+    payment = occurrence.recurring_payment
+    return (
+        "⚠️ Платёж просрочен\n\n"
+        f"Платёж: {payment.name}\n"
+        f"Сумма: {format_money(occurrence.amount, payment.currency)}\n"
+        f"Срок был: {occurrence.due_date:%d.%m.%Y} (просрочен на {(today - occurrence.due_date).days} дн.)\n"
+        "Оплата так и не отмечена."
+    )
+
+
+@dataclass(frozen=True)
+class _Kind:
+    """Вид напоминания: где учитывать доставки, чем отмечать «отправлено везде», как писать в журнал."""
+
+    delivery: type
+    marker: InstrumentedAttribute
+    action: str
+    label: str
+
+
+DUE = _Kind(ReminderDelivery, PaymentOccurrence.reminded_at, "reminder.sent", "Напоминание")
+OVERDUE = _Kind(OverdueDelivery, PaymentOccurrence.overdue_reminded_at, "reminder.overdue_sent", "Напоминание о просрочке")
+
+
+def _local_date(moment: datetime, timezone: str) -> date:
+    # SQLite возвращает время без пояса, в базу мы всегда пишем UTC
+    aware = moment if moment.tzinfo else moment.replace(tzinfo=UTC)
+    return aware.astimezone(ZoneInfo(timezone)).date()
+
+
+def _pending_overdue(db: Session, today: date, timezone: str) -> list[PaymentOccurrence]:
+    """Неоплаченные периоды, срок которых прошёл, а первое напоминание уходило ещё до срока.
+
+    Если первое напоминание само пришло уже после срока (платёж добавили просроченным),
+    в нём уже сказано «просрочен», и второе не нужно.
+    """
+    stmt = (
+        select(PaymentOccurrence)
+        .join(RecurringPayment, PaymentOccurrence.recurring_id == RecurringPayment.id)
+        .options(joinedload(PaymentOccurrence.recurring_payment))
+        .where(
+            RecurringPayment.deleted_at.is_(None),
+            PaymentOccurrence.status == OccurrenceStatus.UNPAID.value,
+            PaymentOccurrence.due_date < today,
+            PaymentOccurrence.reminded_at.is_not(None),
+            PaymentOccurrence.overdue_reminded_at.is_(None),
+        )
+        .order_by(PaymentOccurrence.due_date, PaymentOccurrence.id)
+    )
+    return [o for o in db.scalars(stmt).unique() if _local_date(o.reminded_at, timezone) <= o.due_date]
+
+
 def _pending(db: Session, today: date, reminder_days: int) -> list[PaymentOccurrence]:
     """Неоплаченные периоды живых платежей, до срока которых осталось не больше reminder_days
     (в том числе уже просроченные), и по которым напоминание ещё не уходило."""
@@ -62,7 +117,7 @@ def _pending(db: Session, today: date, reminder_days: int) -> list[PaymentOccurr
     return list(db.scalars(stmt).unique())
 
 
-def build_reminder(occurrence: PaymentOccurrence, today: date) -> Reminder:
+def build_reminder(occurrence: PaymentOccurrence, today: date, overdue_notice: bool = False) -> Reminder:
     payment = occurrence.recurring_payment
     return Reminder(
         occurrence_id=occurrence.id,
@@ -72,7 +127,8 @@ def build_reminder(occurrence: PaymentOccurrence, today: date) -> Reminder:
         currency=payment.currency,
         due_date=occurrence.due_date,
         days_left=(occurrence.due_date - today).days,
-        text=build_message(occurrence, today),
+        text=build_overdue_message(occurrence, today) if overdue_notice else build_message(occurrence, today),
+        overdue_notice=overdue_notice,
     )
 
 
@@ -110,50 +166,64 @@ def send_due_reminders(
     down: set[str] = set()
     with _run_lock:
         for occurrence in _pending(db, today, settings.reminder_days):
-            # свежий запрос, а не occurrence.deliveries: сессия могла пережить прошлый проход
-            delivered = set(
-                db.scalars(select(ReminderDelivery.channel).where(ReminderDelivery.occurrence_id == occurrence.id))
-            )
             reminder = build_reminder(occurrence, today)
-            progressed = False
-
-            for channel in channels:
-                if channel.name in delivered or channel.name in down:
-                    continue
-                try:
-                    channel.send(reminder)
-                except NotifyError as error:
-                    logger.error("Напоминание по периоду %s не ушло (%s): %s", occurrence.id, channel.name, error)
-                    if ":" in channel.name and is_permanent(error):
-                        # личный чат закрыт навсегда (бот заблокирован): больше не пытаемся для этого периода
-                        occurrence.deliveries.append(ReminderDelivery(channel=channel.name))
-                        delivered.add(channel.name)
-                        continue
-                    down.add(channel.name)  # канал недоступен: не долбим его остальными периодами
-                    continue
-                occurrence.deliveries.append(ReminderDelivery(channel=channel.name))
-                delivered.add(channel.name)
-                progressed = True
-                audit.record(
-                    db,
-                    "reminder.sent",
-                    audit.SYSTEM,
-                    "occurrence",
-                    occurrence.id,
-                    {"name": reminder.name, "due_date": occurrence.due_date.isoformat(), "channel": channel.name},
-                )
-                logger.info("Напоминание отправлено (%s): период %s, срок %s", channel.name, occurrence.id, occurrence.due_date)
-
-            if all(c.name in delivered for c in channels):
-                db.execute(
-                    update(PaymentOccurrence)
-                    .where(PaymentOccurrence.id == occurrence.id, PaymentOccurrence.reminded_at.is_(None))
-                    .values(reminded_at=datetime.now(UTC))
-                )
-            db.commit()
-            if progressed:
-                sent += 1
+            sent += _deliver(db, occurrence, reminder, channels, down, is_permanent, DUE)
+        if settings.overdue_reminders:
+            for occurrence in _pending_overdue(db, today, settings.app_timezone):
+                reminder = build_reminder(occurrence, today, overdue_notice=True)
+                sent += _deliver(db, occurrence, reminder, channels, down, is_permanent, OVERDUE)
     return sent
+
+
+def _deliver(
+    db: Session,
+    occurrence: PaymentOccurrence,
+    reminder: Reminder,
+    channels: list[Notifier],
+    down: set[str],
+    is_permanent: Callable[[Exception], bool],
+    kind: _Kind,
+) -> int:
+    """Рассылает одно напоминание по каналам, где его ещё не было. Вернёт 1, если ушла хоть одна доставка."""
+    # свежий запрос, а не связь у периода: сессия могла пережить прошлый проход
+    delivered = set(db.scalars(select(kind.delivery.channel).where(kind.delivery.occurrence_id == occurrence.id)))
+    progressed = False
+
+    for channel in channels:
+        if channel.name in delivered or channel.name in down:
+            continue
+        try:
+            channel.send(reminder)
+        except NotifyError as error:
+            logger.error("%s по периоду %s не ушло (%s): %s", kind.label, occurrence.id, channel.name, error)
+            if ":" in channel.name and is_permanent(error):
+                # личный чат закрыт навсегда (бот заблокирован): больше не пытаемся для этого периода
+                db.add(kind.delivery(occurrence_id=occurrence.id, channel=channel.name))
+                delivered.add(channel.name)
+                continue
+            down.add(channel.name)  # канал недоступен: не долбим его остальными периодами
+            continue
+        db.add(kind.delivery(occurrence_id=occurrence.id, channel=channel.name))
+        delivered.add(channel.name)
+        progressed = True
+        audit.record(
+            db,
+            kind.action,
+            audit.SYSTEM,
+            "occurrence",
+            occurrence.id,
+            {"name": reminder.name, "due_date": occurrence.due_date.isoformat(), "channel": channel.name},
+        )
+        logger.info("%s отправлено (%s): период %s, срок %s", kind.label, channel.name, occurrence.id, occurrence.due_date)
+
+    if all(c.name in delivered for c in channels):
+        db.execute(
+            update(PaymentOccurrence)
+            .where(PaymentOccurrence.id == occurrence.id, kind.marker.is_(None))
+            .values({kind.marker: datetime.now(UTC)})
+        )
+    db.commit()
+    return 1 if progressed else 0
 
 
 def run_reminders(

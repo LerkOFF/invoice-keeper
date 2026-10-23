@@ -20,3 +20,15 @@ class ReminderDelivery(Base):
     occurrence_id: Mapped[int] = mapped_column(ForeignKey("payment_occurrences.id", ondelete="CASCADE"), index=True)
     channel: Mapped[str] = mapped_column(String(16))
     sent_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
+
+
+class OverdueDelivery(Base):
+    """Повторное напоминание о просрочке, доставленное по каналу. Одно на период и канал."""
+
+    __tablename__ = "overdue_deliveries"
+    __table_args__ = (UniqueConstraint("occurrence_id", "channel", name="uq_overdue_occurrence_channel"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    occurrence_id: Mapped[int] = mapped_column(ForeignKey("payment_occurrences.id", ondelete="CASCADE"), index=True)
+    channel: Mapped[str] = mapped_column(String(16))
+    sent_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)

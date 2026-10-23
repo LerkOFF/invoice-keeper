@@ -44,7 +44,7 @@ class WebhookNotifier:
 
     def send(self, reminder: Reminder) -> None:
         self.post(
-            "reminder.due",
+            "reminder.overdue" if reminder.overdue_notice else "reminder.due",
             {
                 "occurrence_id": reminder.occurrence_id,
                 "payment_id": reminder.payment_id,

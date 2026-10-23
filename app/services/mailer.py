@@ -30,7 +30,9 @@ def build_email(reminder: Reminder, settings: Settings) -> EmailMessage:
     panel_url = settings.public_url.rstrip("/")
 
     message = EmailMessage()
-    message["Subject"] = _one_line(f"Напоминание об оплате: {reminder.name}, {money} до {due}")
+    title = "Платёж просрочен" if reminder.overdue_notice else "Напоминание об оплате"
+    subject = f"{reminder.name}, {money}, срок был {due}" if reminder.overdue_notice else f"{reminder.name}, {money} до {due}"
+    message["Subject"] = _one_line(f"{title}: {subject}")
     message["From"] = settings.smtp_from
     message["To"] = ", ".join(settings.smtp_recipients)
     message["Date"] = formatdate(localtime=False)
@@ -39,7 +41,7 @@ def build_email(reminder: Reminder, settings: Settings) -> EmailMessage:
     panel = f'<p><a href="{escape(panel_url, quote=True)}">Открыть панель</a></p>' if panel_url else ""
     message.add_alternative(
         '<html><body style="font-family:sans-serif">'
-        "<h2>Напоминание об оплате</h2>"
+        f"<h2>{title}</h2>"
         f"<p><b>Платёж:</b> {escape(reminder.name)}<br><b>Сумма:</b> {escape(money)}<br>"
         f"<b>Срок оплаты:</b> {due} ({_days_phrase(reminder.days_left)})</p>{panel}</body></html>",
         subtype="html",

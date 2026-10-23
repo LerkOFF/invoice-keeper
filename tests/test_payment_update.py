@@ -117,6 +117,7 @@ def test_migration_adds_amount_column_to_old_database(tmp_path):
     migrate(engine)
     migrate(engine)  # повторный запуск безвреден
 
-    assert "amount_minor" in {c["name"] for c in inspect(engine).get_columns("payment_occurrences")}
+    columns = {c["name"] for c in inspect(engine).get_columns("payment_occurrences")}
+    assert {"amount_minor", "overdue_reminded_at"} <= columns
     with engine.connect() as conn:
         assert conn.execute(text("SELECT amount_minor FROM payment_occurrences")).scalar() == 4500000

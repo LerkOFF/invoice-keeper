@@ -20,6 +20,7 @@ class Reminder:
     due_date: date
     days_left: int  # отрицательное значение: период уже просрочен
     text: str  # готовый текст для мессенджеров
+    overdue_notice: bool = False  # повторное напоминание: срок прошёл, а оплаты нет
 
     @property
     def is_overdue(self) -> bool:

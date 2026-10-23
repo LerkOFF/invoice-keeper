@@ -55,6 +55,8 @@ def migrate(target: Engine) -> None:
         columns = {column["name"] for column in inspect(conn).get_columns("payment_occurrences")}
         if "amount_minor" not in columns:
             conn.execute(text("ALTER TABLE payment_occurrences ADD COLUMN amount_minor INTEGER"))
+        if "overdue_reminded_at" not in columns:
+            conn.execute(text("ALTER TABLE payment_occurrences ADD COLUMN overdue_reminded_at DATETIME"))
         # периоды из старой базы получают текущую сумму своего платежа
         conn.execute(
             text(
