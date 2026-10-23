@@ -28,8 +28,8 @@ Python, FastAPI, SQLAlchemy, SQLite в volume, фоновый планировщ
 
 ## Состояние
 - Обязательная часть и критерии приёмки закрыты (см. статус в `docs/PLAN.md`).
-- Бонусы сделаны все, кроме email через SMTP: его владелец отложил (2026-10-23), не делать без отдельной просьбы.
-  Канал встаёт рядом с Telegram и webhook по интерфейсу `Notifier` (`app/services/notify.py`), доставка учитывается в `reminder_deliveries`.
+- Бонусы сделаны все, включая email через SMTP. Каналы (Telegram, email, webhook) по интерфейсу `Notifier` (`app/services/notify.py`), доставка учитывается в `reminder_deliveries`.
+- Прод: zurih, выкладка только через git (`git pull` в каталоге на сервере), см. `docs/deployment.md`.
 - Схема создаётся `create_all`: новые таблицы появляются сами, а новые колонки в существующих таблицах нет. Нужна колонка: новая таблица или миграция.
 - В том же репозитории параллельно может работать другая сессия: перед коммитом смотреть `git status`, коммитить свои файлы явно.
 - Проверка перед сдачей: `.venv/bin/pytest`, `python3 scripts/export_openapi.py --check`, `python3 scripts/demo.py` на поднятом `docker compose up`.

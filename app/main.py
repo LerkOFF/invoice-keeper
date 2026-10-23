@@ -54,7 +54,7 @@ async def lifespan(_app: FastAPI):
     if active:
         logger.info("Каналы напоминаний: %s", ", ".join(active))
     else:
-        logger.warning("Ни один канал напоминаний не настроен (Telegram, webhook): напоминания не будут отправляться")
+        logger.warning("Ни один канал напоминаний не настроен (Telegram, email, webhook): напоминания не будут отправляться")
 
     task = None
     if settings.scheduler_enabled:

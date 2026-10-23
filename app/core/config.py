@@ -18,6 +18,17 @@ class Settings(BaseSettings):
     telegram_allowed_user_ids: str = ""
     telegram_poll_timeout: int = 8
 
+    # Email-оповещения через SMTP: включаются, когда заданы хост, отправитель и получатели
+    smtp_host: str = ""
+    smtp_port: int = 465
+    smtp_user: str = ""
+    smtp_password: str = ""
+    smtp_from: str = ""
+    smtp_to: str = ""  # адреса через запятую
+    smtp_security: str = "ssl"  # ssl (порт 465), starttls (587) или none
+    # Адрес панели для ссылки в письме, например https://keeper.example.com
+    public_url: str = ""
+
     # Webhook: напоминания и события на указанный адрес, подпись HMAC-SHA256 при заданном секрете
     webhook_url: str = ""
     webhook_secret: str = ""
@@ -40,6 +51,10 @@ class Settings(BaseSettings):
     seed_demo_data: bool = True
     seed_user_login: str = "user"
     seed_user_password: str = "user-pass-123"
+
+    @property
+    def smtp_recipients(self) -> list[str]:
+        return [a.strip() for a in self.smtp_to.replace(";", ",").split(",") if a.strip()]
 
     @property
     def webhook_event_filters(self) -> list[str]:

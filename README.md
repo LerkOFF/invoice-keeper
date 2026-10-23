@@ -80,6 +80,8 @@ docker compose up --build
 - **Бюджет** (вкладка «Бюджет»): плановые расходы на год и по месяцам, отдельно по каждой валюте, оплачено и остаток.
 - **Итоги на дату**: поле «Итоги на дату» во вкладке «Платежи» или `GET /api/v1/payments/summary?on=2026-09-30`.
 - **Чеки и ссылки**: кнопка «Чеки» у периода. Можно прикрепить ссылку или файл (PDF, PNG, JPEG, WebP до 5 МБ).
+- **Email**: задайте `SMTP_HOST`, `SMTP_FROM` и `SMTP_TO` (плюс логин и пароль), и напоминания будут приходить письмом.
+  Для Яндекса: `smtp.yandex.ru`, порт `465`, `SMTP_SECURITY=ssl`, пароль приложения.
 - **Webhook**: задайте `WEBHOOK_URL`, и напоминания (`reminder.due`) и события журнала будут уходить POST-запросом с JSON.
   С `WEBHOOK_SECRET` у запроса будет подпись `X-Invoice-Keeper-Signature: sha256=<HMAC-SHA256 тела>`.
   Поля `text` и `content` подходят для входящих webhook Slack, Mattermost и Discord: адрес такого webhook можно указать напрямую.
@@ -157,6 +159,8 @@ python3 scripts/demo.py
 | `REMINDER_DAYS` | `3` | за сколько дней до срока напоминать |
 | `TELEGRAM_BUTTONS_ENABLED` | `true` | кнопка «Оплачено» в напоминаниях |
 | `TELEGRAM_ALLOWED_USER_IDS` | пусто | сузить круг нажимающих до списка Telegram id |
+| `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURITY` | пусто, `465`, `ssl` | почтовый сервер для писем |
+| `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM`, `SMTP_TO` | пусто | ящик отправителя и получатели через запятую |
 | `WEBHOOK_URL`, `WEBHOOK_SECRET` | пусто | webhook для напоминаний и событий, секрет подписи |
 | `WEBHOOK_EVENTS` | `payment.,occurrence.,receipt.,user.` | какие события журнала отправлять |
 | `RECEIPT_MAX_MB`, `RECEIPTS_PER_PERIOD` | `5`, `10` | лимиты чеков |
