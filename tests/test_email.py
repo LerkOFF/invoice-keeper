@@ -149,3 +149,53 @@ def test_email_channel_takes_part_in_reminders(db):
     assert send_due_reminders(db, [EmailNotifier(Settings(**CONFIG))], Settings(), TODAY) == 0
     assert len(FakeSMTP.instances) == 1
     assert [d.channel for d in db.scalars(select(ReminderDelivery))] == ["email"]
+
+
+# ---------- оформление в стиле сайта ----------
+
+
+def _html(message):
+    return message_from_bytes(message.as_bytes(), policy=policy.default).get_body(("html",)).get_content()
+
+
+def test_logo_is_embedded_not_loaded_from_the_internet():
+    message = build_email(reminder(), Settings(**CONFIG))
+    html = _html(message)
+    assert 'src="cid:invoice-keeper-logo"' in html and "http" not in html.split("cid:")[0][-40:]
+    parsed = message_from_bytes(message.as_bytes(), policy=policy.default)
+    images = [p for p in parsed.walk() if p.get_content_type() == "image/png"]
+    assert len(images) == 1 and images[0]["Content-ID"] == "<invoice-keeper-logo>"
+
+
+@pytest.mark.parametrize(
+    ("over", "chip", "title", "color"),
+    [
+        ({"days_left": 2}, "Через 2 дн.", "Напоминание об оплате", "#ff7a00"),
+        ({"days_left": 1}, "Срок завтра", "Напоминание об оплате", "#ff7a00"),
+        ({"days_left": 0}, "Срок сегодня", "Напоминание об оплате", "#ff7a00"),
+        ({"days_left": -5}, "Просрочено на 5 дн.", "Напоминание об оплате", "#ff4757"),
+        ({"days_left": -3, "overdue_notice": True}, "Просрочено на 3 дн.", "Платёж просрочен", "#ff4757"),
+    ],
+)
+def test_every_kind_of_email_has_its_status_and_title(over, chip, title, color):
+    html = _html(build_email(reminder(**over), Settings(**CONFIG, public_url="https://keeper.example.com")))
+    assert chip in html and f">{title}<" in html and color in html
+    assert "45 000.00 RUB" in html and "Открыть панель" in html
+
+
+def test_overdue_notice_subject_and_text():
+    message = build_email(reminder(days_left=-3, overdue_notice=True), Settings(**CONFIG))
+    assert message["Subject"].startswith("Платёж просрочен: Аренда офиса, 45 000.00 RUB, срок был")
+    text = message_from_bytes(message.as_bytes(), policy=policy.default).get_body(("plain",)).get_content()
+    assert "Платёж просрочен" in text and "просрочен на 3 дн." in text
+
+
+def test_no_panel_button_without_public_url():
+    html = _html(build_email(reminder(), Settings(**CONFIG)))
+    assert "Открыть панель" not in html
+
+
+def test_preheader_and_dark_mode_support():
+    html = _html(build_email(reminder(), Settings(**CONFIG)))
+    assert "До срока оплаты осталось 2 дн." in html  # скрытый анонс для списка писем
+    assert 'name="color-scheme" content="light dark"' in html and "prefers-color-scheme: dark" in html
