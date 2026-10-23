@@ -137,7 +137,7 @@ docker compose up --build
 
 ## Скриншоты
 
-Сняты на тестовых данных из `SEED_DEMO_DATA`.
+Сняты на тестовых данных из `SEED_DEMO_DATA`, тёмная и светлая темы.
 
 <table>
   <tr>
@@ -151,6 +151,10 @@ docker compose up --build
   <tr>
     <td><img src="docs/screenshots/payments-en.png" alt="English"><br>Интерфейс на английском, переключатель в боковой панели</td>
     <td align="center"><img src="docs/screenshots/mobile.png" alt="Телефон" width="260"><br>На телефоне</td>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshots/payments-light.png" alt="Светлая тема"><br>Светлая тема: по умолчанию как в системе, переключатель в боковой панели</td>
+    <td align="center"><img src="docs/screenshots/mobile-light.png" alt="Телефон, светлая тема" width="260"><br>Телефон в светлой теме</td>
   </tr>
 </table>
 
