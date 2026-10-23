@@ -157,9 +157,9 @@ def test_failure_does_not_hammer_other_periods(db):
     calls = []
 
     class Counting(FakeNotifier):
-        def send(self, text, **kwargs):
-            calls.append(text)
-            super().send(text, **kwargs)
+        def send(self, reminder):
+            calls.append(reminder.text)
+            super().send(reminder)
 
     assert run(db, Counting(fail=True)) == 0
     assert len(calls) == 1

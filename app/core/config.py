@@ -18,6 +18,12 @@ class Settings(BaseSettings):
     telegram_allowed_user_ids: str = ""
     telegram_poll_timeout: int = 8
 
+    # Webhook: напоминания и события на указанный адрес, подпись HMAC-SHA256 при заданном секрете
+    webhook_url: str = ""
+    webhook_secret: str = ""
+    # События журнала для отправки: точные имена или группы с точкой (по умолчанию без входов и напоминаний)
+    webhook_events: str = "payment.,occurrence.,receipt.,user."
+
     # Чеки: куда класть файлы (по умолчанию рядом с базой, в volume) и лимиты
     receipts_dir: str = ""
     receipt_max_mb: int = 5
@@ -34,6 +40,10 @@ class Settings(BaseSettings):
     seed_demo_data: bool = True
     seed_user_login: str = "user"
     seed_user_password: str = "user-pass-123"
+
+    @property
+    def webhook_event_filters(self) -> list[str]:
+        return [e.strip() for e in self.webhook_events.split(",") if e.strip()]
 
     @property
     def allowed_telegram_ids(self) -> set[int]:

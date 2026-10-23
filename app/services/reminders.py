@@ -1,15 +1,15 @@
 import logging
 import threading
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from datetime import UTC, date, datetime, timedelta
 
 from sqlalchemy import select, update
 from sqlalchemy.orm import Session, joinedload
 
 from app.core.config import Settings
-from app.models import OccurrenceStatus, PaymentOccurrence, RecurringPayment
+from app.models import OccurrenceStatus, PaymentOccurrence, RecurringPayment, ReminderDelivery
 from app.services import audit
-from app.services.telegram import Notifier, TelegramError
+from app.services.notify import Notifier, NotifyError, Reminder
 
 logger = logging.getLogger("invoice_keeper")
 
@@ -62,49 +62,90 @@ def _pending(db: Session, today: date, reminder_days: int) -> list[PaymentOccurr
     return list(db.scalars(stmt).unique())
 
 
-def send_due_reminders(db: Session, notifier: Notifier, settings: Settings, today: date) -> int:
-    """Отправляет напоминания, возвращает число доставленных.
+def build_reminder(occurrence: PaymentOccurrence, today: date) -> Reminder:
+    payment = occurrence.recurring_payment
+    return Reminder(
+        occurrence_id=occurrence.id,
+        payment_id=payment.id,
+        name=payment.name,
+        amount=payment.amount,
+        currency=payment.currency,
+        due_date=occurrence.due_date,
+        days_left=(occurrence.due_date - today).days,
+        text=build_message(occurrence, today),
+    )
 
-    Без дублей: `reminded_at` ставится только после успешной отправки и только если
-    поле ещё пусто. Сбой Telegram оставляет период нетронутым, его подхватит следующий проход.
+
+def as_list(notifiers: Notifier | Iterable[Notifier]) -> list[Notifier]:
+    return list(notifiers) if isinstance(notifiers, (list, tuple)) else [notifiers]  # type: ignore[list-item]
+
+
+def send_due_reminders(
+    db: Session, notifiers: Notifier | Iterable[Notifier], settings: Settings, today: date
+) -> int:
+    """Отправляет напоминания по всем настроенным каналам, возвращает число периодов с новыми доставками.
+
+    Без дублей: каждая доставка записывается в `reminder_deliveries` (период + канал, уникально),
+    поэтому сбой одного канала не повторяет отправку в другие. `reminded_at` ставится, когда период
+    доставлен по всем настроенным каналам. Упавший канал пропускается до конца прохода,
+    его период остаётся в очереди и повторяется в следующий раз.
     """
-    if not notifier.configured:
-        logger.warning("Telegram не настроен, напоминания не отправляются")
+    channels = [n for n in as_list(notifiers) if n.configured]
+    if not channels:
+        logger.warning("Ни один канал напоминаний не настроен, напоминания не отправляются")
         return 0
 
     sent = 0
+    down: set[str] = set()
     with _run_lock:
         for occurrence in _pending(db, today, settings.reminder_days):
-            try:
-                notifier.send(build_message(occurrence, today), pay_button_for=occurrence.id)
-            except TelegramError as error:
-                logger.error("Напоминание по периоду %s не ушло: %s", occurrence.id, error)
-                break  # Telegram недоступен: не долбим остальные периоды, повторим в следующий проход
-
-            claimed = db.execute(
-                update(PaymentOccurrence)
-                .where(PaymentOccurrence.id == occurrence.id, PaymentOccurrence.reminded_at.is_(None))
-                .values(reminded_at=datetime.now(UTC))
+            # свежий запрос, а не occurrence.deliveries: сессия могла пережить прошлый проход
+            delivered = set(
+                db.scalars(select(ReminderDelivery.channel).where(ReminderDelivery.occurrence_id == occurrence.id))
             )
-            if claimed.rowcount:
+            reminder = build_reminder(occurrence, today)
+            progressed = False
+
+            for channel in channels:
+                if channel.name in delivered or channel.name in down:
+                    continue
+                try:
+                    channel.send(reminder)
+                except NotifyError as error:
+                    logger.error("Напоминание по периоду %s не ушло (%s): %s", occurrence.id, channel.name, error)
+                    down.add(channel.name)  # канал недоступен: не долбим его остальными периодами
+                    continue
+                occurrence.deliveries.append(ReminderDelivery(channel=channel.name))
+                delivered.add(channel.name)
+                progressed = True
                 audit.record(
                     db,
                     "reminder.sent",
                     audit.SYSTEM,
                     "occurrence",
                     occurrence.id,
-                    {"name": occurrence.recurring_payment.name, "due_date": occurrence.due_date.isoformat(), "channel": "telegram"},
+                    {"name": reminder.name, "due_date": occurrence.due_date.isoformat(), "channel": channel.name},
+                )
+                logger.info("Напоминание отправлено (%s): период %s, срок %s", channel.name, occurrence.id, occurrence.due_date)
+
+            if all(c.name in delivered for c in channels):
+                db.execute(
+                    update(PaymentOccurrence)
+                    .where(PaymentOccurrence.id == occurrence.id, PaymentOccurrence.reminded_at.is_(None))
+                    .values(reminded_at=datetime.now(UTC))
                 )
             db.commit()
-            if claimed.rowcount:
+            if progressed:
                 sent += 1
-                logger.info("Напоминание отправлено: период %s, срок %s", occurrence.id, occurrence.due_date)
     return sent
 
 
 def run_reminders(
-    session_factory: Callable[[], Session], notifier: Notifier, settings: Settings, today: date
+    session_factory: Callable[[], Session],
+    notifiers: Notifier | Iterable[Notifier],
+    settings: Settings,
+    today: date,
 ) -> int:
     """Отдельная сессия для фоновых вызовов (планировщик, задача после создания платежа)."""
     with session_factory() as db:
-        return send_due_reminders(db, notifier, settings, today)
+        return send_due_reminders(db, notifiers, settings, today)

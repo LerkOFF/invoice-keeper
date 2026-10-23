@@ -8,19 +8,21 @@ from sqlalchemy.orm import Session
 from app.core.config import Settings
 from app.services.periods import ensure_all_occurrences
 from app.services.reminders import send_due_reminders
-from app.services.telegram import Notifier
+from app.services.notify import Notifier
 
 logger = logging.getLogger("invoice_keeper")
 
 
-def tick(session_factory: Callable[[], Session], notifier: Notifier, settings: Settings, today: date) -> int:
+def tick(
+    session_factory: Callable[[], Session], notifiers: Notifier | list[Notifier], settings: Settings, today: date
+) -> int:
     """Один проход: догенерировать периоды, затем разослать напоминания."""
     with session_factory() as db:
         created = ensure_all_occurrences(db, today)
         db.commit()
         if created:
             logger.info("Создано новых периодов: %s", created)
-        return send_due_reminders(db, notifier, settings, today)
+        return send_due_reminders(db, notifiers, settings, today)
 
 
 async def scheduler_loop(job: Callable[[], object], interval_seconds: float) -> None:

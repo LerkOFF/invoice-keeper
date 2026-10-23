@@ -7,7 +7,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import func, select
 
 from app import main as main_module
-from app.api.deps import get_notifier
+from app.api.deps import get_notifiers
 from app.core.config import Settings
 from app.core.db import SessionLocal
 from app.models import PaymentOccurrence, RecurringPayment
@@ -19,7 +19,7 @@ from tests.conftest import logged_in
 
 
 def with_notifier(app, notifier):
-    app.dependency_overrides[get_notifier] = lambda: notifier
+    app.dependency_overrides[get_notifiers] = lambda: [notifier]
     return app
 
 
@@ -153,7 +153,7 @@ def test_app_runs_scheduler_in_background_and_stops_cleanly(monkeypatch):
     monkeypatch.setattr(
         main_module, "get_settings", lambda: Settings(scheduler_enabled=True, scheduler_interval_seconds=0.05)
     )
-    monkeypatch.setattr(main_module, "build_notifier", lambda _settings: notifier)
+    monkeypatch.setattr(main_module, "build_notifiers", lambda _settings: [notifier])
     monkeypatch.setattr(main_module, "today", lambda: TODAY)
 
     with TestClient(main_module.create_app()):

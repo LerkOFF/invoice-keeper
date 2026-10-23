@@ -3,7 +3,7 @@ from datetime import UTC, datetime
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Response, status
 from sqlalchemy import select
 
-from app.api.deps import AdminPrincipal, CurrentPrincipal, DbDep, NotifierDep, SettingsDep, TodayDep
+from app.api.deps import AdminPrincipal, CurrentPrincipal, DbDep, NotifiersDep, SettingsDep, TodayDep
 from app.core.db import SessionLocal
 from app.services import audit
 from app.models import RecurringPayment
@@ -43,7 +43,7 @@ def create_recurring_payment(
     db: DbDep,
     today: TodayDep,
     background: BackgroundTasks,
-    notifier: NotifierDep,
+    notifiers: NotifiersDep,
     settings: SettingsDep,
 ) -> RecurringPayment:
     payment = RecurringPayment(
@@ -71,7 +71,7 @@ def create_recurring_payment(
     )
     db.commit()
     # Платёж добавлен меньше чем за 3 дня до срока: напоминание уходит сразу, не дожидаясь планировщика
-    background.add_task(run_reminders, SessionLocal, notifier, settings, today)
+    background.add_task(run_reminders, SessionLocal, notifiers, settings, today)
     return payment
 
 

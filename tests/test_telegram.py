@@ -22,7 +22,7 @@ def test_sends_message_to_bot_api():
         seen["body"] = json.loads(request.content)
         return httpx.Response(200, json={"ok": True, "result": {}})
 
-    make(handler).send("привет")
+    make(handler).send_text("привет")
 
     assert seen["url"] == f"https://api.telegram.org/bot{TOKEN}/sendMessage"
     assert seen["body"]["chat_id"] == "-1001" and seen["body"]["text"] == "привет"
@@ -33,7 +33,7 @@ def test_custom_api_base():
     make(
         lambda r: seen.update(url=str(r.url)) or httpx.Response(200, json={"ok": True}),
         telegram_api_base="http://fake-telegram:8081/",
-    ).send("x")
+    ).send_text("x")
     assert seen["url"].startswith("http://fake-telegram:8081/bot")
 
 
@@ -41,7 +41,7 @@ def test_not_configured():
     notifier = TelegramNotifier(Settings(telegram_bot_token="", telegram_chat_id=""))
     assert notifier.configured is False
     with pytest.raises(TelegramError):
-        notifier.send("x")
+        notifier.send_text("x")
 
 
 def test_half_configured_is_not_configured():
@@ -54,7 +54,7 @@ def test_telegram_rejection_is_an_error_without_token():
         return httpx.Response(400, json={"ok": False, "description": "Bad Request: chat not found"})
 
     with pytest.raises(TelegramError) as error:
-        make(handler).send("x")
+        make(handler).send_text("x")
     assert "chat not found" in str(error.value) and TOKEN not in str(error.value)
 
 
@@ -63,7 +63,7 @@ def test_rate_limit_is_an_error():
         return httpx.Response(429, json={"ok": False, "description": "Too Many Requests"})
 
     with pytest.raises(TelegramError, match="429"):
-        make(handler).send("x")
+        make(handler).send_text("x")
 
 
 def test_network_failure_does_not_leak_token():
@@ -71,13 +71,13 @@ def test_network_failure_does_not_leak_token():
         raise httpx.ConnectError(f"cannot connect to {request.url}")
 
     with pytest.raises(TelegramError) as error:
-        make(handler).send("x")
+        make(handler).send_text("x")
     assert TOKEN not in str(error.value) and "ConnectError" in str(error.value)
 
 
 def test_non_json_response():
     with pytest.raises(TelegramError, match="не JSON"):
-        make(lambda _: httpx.Response(502, text="<html>bad gateway</html>")).send("x")
+        make(lambda _: httpx.Response(502, text="<html>bad gateway</html>")).send_text("x")
 
 
 def test_reminder_message_carries_pay_button():
@@ -87,7 +87,7 @@ def test_reminder_message_carries_pay_button():
         seen["body"] = json.loads(request.content)
         return httpx.Response(200, json={"ok": True, "result": {}})
 
-    make(handler, telegram_buttons_enabled=True).send("напоминание", pay_button_for=42)
+    make(handler, telegram_buttons_enabled=True).send_text("напоминание", pay_button_for=42)
 
     markup = seen["body"]["reply_markup"]["inline_keyboard"]
     assert markup == [[{"text": "✅ Оплачено", "callback_data": "paid:42"}]]
@@ -100,8 +100,8 @@ def test_no_button_without_period_or_when_disabled():
         seen.append(json.loads(request.content))
         return httpx.Response(200, json={"ok": True, "result": {}})
 
-    make(handler, telegram_buttons_enabled=True).send("без кнопки")
-    make(handler, telegram_buttons_enabled=False).send("кнопки выключены", pay_button_for=7)
+    make(handler, telegram_buttons_enabled=True).send_text("без кнопки")
+    make(handler, telegram_buttons_enabled=False).send_text("кнопки выключены", pay_button_for=7)
 
     assert all("reply_markup" not in body for body in seen)
 

@@ -17,6 +17,23 @@ class Actor:
 
 SYSTEM = Actor("system", "планировщик")
 
+ACTION_LABELS = {
+    "auth.login": "Вход",
+    "auth.login_failed": "Неудачный вход",
+    "auth.logout": "Выход",
+    "payment.create": "Платёж добавлен",
+    "payment.delete": "Платёж прекращён",
+    "occurrence.paid": "Оплата отмечена",
+    "occurrence.unpaid": "Оплата отменена",
+    "occurrence.paid_at_changed": "Дата оплаты исправлена",
+    "user.create": "Пользователь создан",
+    "user.update": "Пользователь изменён",
+    "user.delete": "Пользователь удалён",
+    "receipt.add": "Чек или ссылка добавлены",
+    "receipt.delete": "Чек или ссылка удалены",
+    "reminder.sent": "Напоминание отправлено",
+}
+
 
 def actor_of(principal: Principal) -> Actor:
     return Actor(principal.role.value, principal.login)
@@ -50,6 +67,19 @@ def record(
         ip=ip,
     )
     db.add(entry)
+    # Событие уйдёт на webhook после успешного коммита сессии (см. services/webhook.py)
+    subject = (details or {}).get("name") or (details or {}).get("login") or ""
+    label = ACTION_LABELS.get(action, action)
+    db.info.setdefault("audit_events", []).append(
+        {
+            "event": action,
+            "text": f"{label}: {subject}" if subject else label,
+            "at": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
+            "actor": {"type": actor.type, "name": actor.name},
+            "target": {"type": target_type, "id": target_id},
+            "details": details,
+        }
+    )
     return entry
 
 

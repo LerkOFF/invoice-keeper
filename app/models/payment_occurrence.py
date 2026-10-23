@@ -26,6 +26,9 @@ class PaymentOccurrence(Base):
     reminded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     recurring_payment: Mapped["RecurringPayment"] = relationship(back_populates="occurrences")
+    deliveries: Mapped[list["ReminderDelivery"]] = relationship(
+        lazy="selectin", cascade="all, delete-orphan", passive_deletes=True
+    )
     receipts: Mapped[list["OccurrenceReceipt"]] = relationship(
         order_by="OccurrenceReceipt.id", lazy="selectin", cascade="all, delete-orphan", passive_deletes=True
     )

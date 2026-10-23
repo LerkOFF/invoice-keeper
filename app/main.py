@@ -14,7 +14,8 @@ from app.core.config import get_settings
 from app.core.db import SessionLocal, init_db
 from app.scheduler import scheduler_loop, tick
 from app.seed import seed_demo_data
-from app.services.telegram import build_notifier
+from app.services import webhook  # noqa: F401  регистрирует отправку событий журнала после коммита
+from app.services.telegram import TelegramApi, build_notifiers
 from app.services.telegram_bot import bot_loop, build_bot
 from app.services.periods import ensure_all_occurrences
 
@@ -48,20 +49,23 @@ async def lifespan(_app: FastAPI):
         ensure_all_occurrences(db, today())
         db.commit()
 
-    notifier = build_notifier(settings)
-    if not notifier.configured:
-        logger.warning("TELEGRAM_BOT_TOKEN или TELEGRAM_CHAT_ID не заданы: напоминания не будут отправляться")
+    notifiers = build_notifiers(settings)
+    active = [n.name for n in notifiers if n.configured]
+    if active:
+        logger.info("Каналы напоминаний: %s", ", ".join(active))
+    else:
+        logger.warning("Ни один канал напоминаний не настроен (Telegram, webhook): напоминания не будут отправляться")
 
     task = None
     if settings.scheduler_enabled:
 
         def job() -> None:
-            tick(SessionLocal, notifier, settings, today())
+            tick(SessionLocal, notifiers, settings, today())
 
         task = asyncio.create_task(scheduler_loop(job, settings.scheduler_interval_seconds))
 
     bot_task = None
-    if settings.telegram_buttons_enabled and notifier.configured:
+    if settings.telegram_buttons_enabled and TelegramApi(settings).configured:
         bot_task = asyncio.create_task(bot_loop(build_bot(settings, SessionLocal)))
 
     yield

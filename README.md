@@ -72,6 +72,18 @@ docker compose up --build
 - Работает через long polling (`getUpdates`): публичный адрес и webhook не нужны. Если у бота уже включён webhook,
   Telegram ответит `Conflict`, в логе будет подсказка. Отключить кнопку: `TELEGRAM_BUTTONS_ENABLED=false`.
 
+## Что ещё умеет
+
+- **Журнал** (вкладка «Журнал», `GET /api/v1/audit-log`, только админ): входы и неудачные попытки, оплаты
+  (в том числе из Telegram), изменения платежей, пользователей и чеков, отправленные напоминания. Пароли туда не попадают.
+- **Календарь оплат** (вкладка «Календарь»): платежи месяца по дням, будущие месяцы считаются по правилу повторения.
+- **Бюджет** (вкладка «Бюджет»): плановые расходы на год и по месяцам, отдельно по каждой валюте, оплачено и остаток.
+- **Итоги на дату**: поле «Итоги на дату» во вкладке «Платежи» или `GET /api/v1/payments/summary?on=2026-09-30`.
+- **Чеки и ссылки**: кнопка «Чеки» у периода. Можно прикрепить ссылку или файл (PDF, PNG, JPEG, WebP до 5 МБ).
+- **Webhook**: задайте `WEBHOOK_URL`, и напоминания (`reminder.due`) и события журнала будут уходить POST-запросом с JSON.
+  С `WEBHOOK_SECRET` у запроса будет подпись `X-Invoice-Keeper-Signature: sha256=<HMAC-SHA256 тела>`.
+  Поля `text` и `content` подходят для входящих webhook Slack, Mattermost и Discord: адрес такого webhook можно указать напрямую.
+
 ## Проверка за минуту
 
 Скрипт проходит весь сценарий демонстрации и проверяет каждый шаг (нужен только Python 3.9+):
@@ -145,6 +157,9 @@ python3 scripts/demo.py
 | `REMINDER_DAYS` | `3` | за сколько дней до срока напоминать |
 | `TELEGRAM_BUTTONS_ENABLED` | `true` | кнопка «Оплачено» в напоминаниях |
 | `TELEGRAM_ALLOWED_USER_IDS` | пусто | сузить круг нажимающих до списка Telegram id |
+| `WEBHOOK_URL`, `WEBHOOK_SECRET` | пусто | webhook для напоминаний и событий, секрет подписи |
+| `WEBHOOK_EVENTS` | `payment.,occurrence.,receipt.,user.` | какие события журнала отправлять |
+| `RECEIPT_MAX_MB`, `RECEIPTS_PER_PERIOD` | `5`, `10` | лимиты чеков |
 | `SCHEDULER_INTERVAL_SECONDS` | `60` | как часто проверять сроки |
 | `SESSION_TTL_HOURS` | `12` | срок жизни сессии |
 | `COOKIE_SECURE` | `false` | включить за HTTPS |
@@ -154,7 +169,7 @@ python3 scripts/demo.py
 
 ```bash
 python3 -m venv .venv && .venv/bin/pip install -r requirements-dev.txt
-.venv/bin/pytest                                   # ~185 тестов
+.venv/bin/pytest                                   # ~280 тестов
 .venv/bin/uvicorn app.main:app --reload            # без Docker, база в ./data
 .venv/bin/python scripts/export_openapi.py         # пересобрать openapi.yaml
 ```

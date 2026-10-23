@@ -1,28 +1,18 @@
 import logging
-from typing import Any, Protocol
+from typing import Any
 
 import httpx
 
 from app.core.config import Settings
+from app.services.notify import Notifier, NotifyError, Reminder
 
 logger = logging.getLogger("invoice_keeper")
 
 PAY_CALLBACK_PREFIX = "paid:"
 
 
-class TelegramError(Exception):
+class TelegramError(NotifyError):
     """Запрос к Telegram не удался. В тексте ошибки токена бота нет и быть не должно."""
-
-
-class Notifier(Protocol):
-    """Канал напоминаний. Telegram сейчас единственный, email и webhook встанут рядом."""
-
-    @property
-    def configured(self) -> bool: ...
-
-    def send(self, text: str, *, pay_button_for: int | None = None) -> None:
-        """Отправляет сообщение. pay_button_for добавляет кнопку «Оплачено» для периода с этим id."""
-        ...
 
 
 class TelegramApi:
@@ -64,7 +54,12 @@ class TelegramApi:
 
 
 class TelegramNotifier(TelegramApi):
-    def send(self, text: str, *, pay_button_for: int | None = None) -> None:
+    name = "telegram"
+
+    def send(self, reminder: Reminder) -> None:
+        self.send_text(reminder.text, pay_button_for=reminder.occurrence_id)
+
+    def send_text(self, text: str, *, pay_button_for: int | None = None) -> None:
         payload: dict[str, Any] = {"chat_id": self.chat_id, "text": text, "disable_web_page_preview": True}
         if pay_button_for is not None and self._settings.telegram_buttons_enabled:
             payload["reply_markup"] = pay_keyboard(pay_button_for)
@@ -77,3 +72,10 @@ def pay_keyboard(occurrence_id: int) -> dict[str, Any]:
 
 def build_notifier(settings: Settings) -> Notifier:
     return TelegramNotifier(settings)
+
+
+def build_notifiers(settings: Settings) -> list[Notifier]:
+    """Все каналы напоминаний. Ненастроенные остаются в списке и пропускаются при отправке."""
+    from app.services.webhook import WebhookNotifier
+
+    return [TelegramNotifier(settings), WebhookNotifier(settings)]
