@@ -11,9 +11,12 @@ class Settings(BaseSettings):
 
     telegram_bot_token: str = ""
     telegram_chat_id: str = ""
+    telegram_api_base: str = "https://api.telegram.org"
 
     app_timezone: str = "Europe/Moscow"
     reminder_days: int = 3
+    scheduler_enabled: bool = True
+    scheduler_interval_seconds: float = 60
     secret_key: str = "change-me"
     session_ttl_hours: int = 12
     cookie_secure: bool = False

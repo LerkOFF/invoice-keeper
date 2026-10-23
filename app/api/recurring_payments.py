@@ -1,12 +1,14 @@
 from datetime import UTC, datetime
 
-from fastapi import APIRouter, HTTPException, Response, status
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Response, status
 from sqlalchemy import select
 
-from app.api.deps import AdminPrincipal, CurrentPrincipal, DbDep, TodayDep
+from app.api.deps import AdminPrincipal, CurrentPrincipal, DbDep, NotifierDep, SettingsDep, TodayDep
+from app.core.db import SessionLocal
 from app.models import RecurringPayment
 from app.schemas.payments import RecurringPaymentCreate, RecurringPaymentOut
 from app.services.periods import ensure_occurrences
+from app.services.reminders import run_reminders
 
 router = APIRouter(prefix="/recurring-payments", tags=["recurring-payments"])
 
@@ -35,7 +37,13 @@ def list_recurring_payments(
     summary="Создание регулярного платежа (администратор)",
 )
 def create_recurring_payment(
-    payload: RecurringPaymentCreate, _admin: AdminPrincipal, db: DbDep, today: TodayDep
+    payload: RecurringPaymentCreate,
+    _admin: AdminPrincipal,
+    db: DbDep,
+    today: TodayDep,
+    background: BackgroundTasks,
+    notifier: NotifierDep,
+    settings: SettingsDep,
 ) -> RecurringPayment:
     payment = RecurringPayment(
         name=payload.name.strip(),
@@ -48,6 +56,8 @@ def create_recurring_payment(
     db.flush()
     ensure_occurrences(db, payment, today)
     db.commit()
+    # Платёж добавлен меньше чем за 3 дня до срока: напоминание уходит сразу, не дожидаясь планировщика
+    background.add_task(run_reminders, SessionLocal, notifier, settings, today)
     return payment
 
 

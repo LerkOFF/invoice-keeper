@@ -9,6 +9,7 @@ from app.core.clock import today as today_in_tz
 from app.core.config import Settings, get_settings
 from app.core.db import get_db
 from app.services.auth import Principal, get_principal
+from app.services.telegram import Notifier, build_notifier
 
 SESSION_COOKIE = "session"
 
@@ -25,6 +26,14 @@ def current_date() -> date:
 
 
 TodayDep = Annotated[date, Depends(current_date)]
+
+
+def get_notifier(settings: SettingsDep) -> Notifier:
+    """Канал напоминаний. В тестах подменяется заглушкой через dependency_overrides."""
+    return build_notifier(settings)
+
+
+NotifierDep = Annotated[Notifier, Depends(get_notifier)]
 
 
 def extract_token(request: Request, credentials: HTTPAuthorizationCredentials | None) -> str | None:

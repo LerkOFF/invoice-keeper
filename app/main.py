@@ -1,3 +1,5 @@
+import asyncio
+import contextlib
 import logging
 from contextlib import asynccontextmanager
 
@@ -7,12 +9,20 @@ from app.api import auth, payment_occurrences, recurring_payments, summary, user
 from app.core.clock import today
 from app.core.config import get_settings
 from app.core.db import SessionLocal, init_db
+from app.scheduler import scheduler_loop, tick
 from app.seed import seed_demo_data
+from app.services.telegram import build_notifier
 from app.services.periods import ensure_all_occurrences
 
 API_PREFIX = "/api/v1"
 
 logger = logging.getLogger("invoice_keeper")
+if not logger.handlers:
+    _handler = logging.StreamHandler()
+    _handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(name)s: %(message)s"))
+    logger.addHandler(_handler)
+    logger.setLevel(logging.INFO)
+    logger.propagate = False
 
 
 @asynccontextmanager
@@ -26,7 +36,25 @@ async def lifespan(_app: FastAPI):
             seed_demo_data(db, settings)
         ensure_all_occurrences(db, today())
         db.commit()
+
+    notifier = build_notifier(settings)
+    if not notifier.configured:
+        logger.warning("TELEGRAM_BOT_TOKEN или TELEGRAM_CHAT_ID не заданы: напоминания не будут отправляться")
+
+    task = None
+    if settings.scheduler_enabled:
+
+        def job() -> None:
+            tick(SessionLocal, notifier, settings, today())
+
+        task = asyncio.create_task(scheduler_loop(job, settings.scheduler_interval_seconds))
+
     yield
+
+    if task is not None:
+        task.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await task
 
 
 def create_app() -> FastAPI:
