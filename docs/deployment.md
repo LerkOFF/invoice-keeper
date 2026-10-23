@@ -1,6 +1,6 @@
 # Выкладка
 
-Прод: сервер zurih (Ubuntu 24.04, Docker), адрес https://invoice-keeper.ru (запасной https://zu.oai.su). Выкладка только через git.
+Прод: сервер zurih (Ubuntu 24.04, Docker), адрес https://invoice-keeper.ru. Выкладка только через git.
 
 ## Устройство
 
@@ -10,7 +10,7 @@
 | секреты и настройки | `/opt/invoice-keeper/.env` (не в git), права `600` |
 | данные (SQLite, чеки) | Docker volume `invoice-keeper_invoice_data` |
 | приложение | контейнер `invoice-keeper-app-1`, `127.0.0.1:8090` |
-| HTTPS | nginx `zu.oai.su` → `127.0.0.1:8090`, сертификат Let's Encrypt (certbot); `/coin_radar/` остаётся за Coin Radar |
+| HTTPS | nginx `invoice-keeper.ru` и `www` → `127.0.0.1:8090` (`deploy/nginx-invoice-keeper.ru.conf`), сертификат Let's Encrypt (certbot), http редиректит на https |
 | SMTP | провайдер закрывает исходящий SMTP, поэтому служба `invoice-keeper-smtp-relay` держит SSH-туннель через сервер с открытым SMTP |
 
 В `.env` на сервере, помимо обычных настроек:
@@ -34,7 +34,7 @@ ssh zurih
 cd /opt/invoice-keeper && git pull --ff-only && docker compose up -d --build
 ```
 
-Данные лежат в volume и не теряются. Проверка: `curl -s https://zu.oai.su/api/v1/health`.
+Данные лежат в volume и не теряются. Проверка: `curl -s https://invoice-keeper.ru/api/v1/health`.
 
 ## Почта
 
