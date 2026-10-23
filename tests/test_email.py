@@ -199,3 +199,9 @@ def test_preheader_and_dark_mode_support():
     html = _html(build_email(reminder(), Settings(**CONFIG)))
     assert "До срока оплаты осталось 2 дн." in html  # скрытый анонс для списка писем
     assert 'name="color-scheme" content="light dark"' in html and "prefers-color-scheme: dark" in html
+
+
+def test_message_id_uses_sender_domain_and_marks_auto_generated():
+    message = build_email(reminder(), Settings(**CONFIG))
+    assert message["Message-ID"].endswith("@example.com>")
+    assert message["Auto-Submitted"] == "auto-generated"

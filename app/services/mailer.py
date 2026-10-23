@@ -3,7 +3,7 @@ import smtplib
 import ssl
 from email.message import EmailMessage
 from dataclasses import dataclass
-from email.utils import formatdate, make_msgid
+from email.utils import formatdate, make_msgid, parseaddr
 from html import escape
 from pathlib import Path
 
@@ -179,7 +179,10 @@ def build_email(reminder: Reminder, settings: Settings) -> EmailMessage:
     message["From"] = settings.smtp_from
     message["To"] = ", ".join(settings.smtp_recipients)
     message["Date"] = formatdate(localtime=False)
-    message["Message-ID"] = make_msgid(domain="invoice-keeper")
+    # Message-ID в домене отправителя: имя без зоны почтовики считают признаком спама
+    sender_domain = parseaddr(settings.smtp_from)[1].rpartition("@")[2] or "invoice-keeper.ru"
+    message["Message-ID"] = make_msgid(domain=sender_domain)
+    message["Auto-Submitted"] = "auto-generated"  # RFC 3834: автоматическое письмо, автоответы на него не нужны
     message.set_content(render_text(reminder, content, money, due, panel_url))
     message.add_alternative(render_html(reminder, content, money, due, panel_url, with_logo), subtype="html")
     if with_logo:
