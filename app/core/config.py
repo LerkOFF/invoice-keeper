@@ -34,6 +34,11 @@ class Settings(BaseSettings):
     smtp_from: str = ""
     smtp_to: str = ""  # адреса через запятую
     smtp_security: str = "ssl"  # ssl (порт 465), starttls (587) или none
+    # Контакты на странице «Помощь»: Telegram (@имя или t.me/имя), почта и любая ссылка. Пусто: не показываются
+    support_telegram: str = ""
+    support_email: str = ""
+    support_url: str = ""
+
     # Адрес панели для ссылки в письме, например https://keeper.example.com
     public_url: str = ""
 

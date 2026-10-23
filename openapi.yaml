@@ -1083,6 +1083,23 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/help:
+    get:
+      tags:
+      - help
+      summary: Сведения для страницы «Помощь»
+      description: Контакты поддержки из .env, боты и каналы напоминаний, настройки сроков. Доступно всем
+        вошедшим.
+      operationId: help_info
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HelpOut'
+      security:
+      - HTTPBearer: []
 components:
   schemas:
     AuditEntryOut:
@@ -1345,6 +1362,23 @@ components:
       - days
       - totals
       title: CalendarOut
+    ContactOut:
+      properties:
+        label:
+          type: string
+          title: Label
+          examples:
+          - '@joulerkOFF'
+        url:
+          type: string
+          title: Url
+          examples:
+          - https://t.me/joulerkOFF
+      type: object
+      required:
+      - label
+      - url
+      title: ContactOut
     Currency:
       type: string
       enum:
@@ -1422,6 +1456,67 @@ components:
           title: Detail
       type: object
       title: HTTPValidationError
+    HelpContactsOut:
+      properties:
+        telegram:
+          anyOf:
+          - $ref: '#/components/schemas/ContactOut'
+          - type: 'null'
+          description: Telegram для вопросов, SUPPORT_TELEGRAM
+        email:
+          anyOf:
+          - $ref: '#/components/schemas/ContactOut'
+          - type: 'null'
+          description: Почта для вопросов, SUPPORT_EMAIL
+        url:
+          anyOf:
+          - $ref: '#/components/schemas/ContactOut'
+          - type: 'null'
+          description: Ссылка, например на репозиторий или базу знаний, SUPPORT_URL
+      type: object
+      required:
+      - telegram
+      - email
+      - url
+      title: HelpContactsOut
+    HelpOut:
+      properties:
+        contacts:
+          $ref: '#/components/schemas/HelpContactsOut'
+        bots:
+          additionalProperties:
+            $ref: '#/components/schemas/ContactOut'
+          type: object
+          title: Bots
+          description: 'Боты напоминаний, которые настроены на сервере: telegram, max'
+        channels:
+          items:
+            type: string
+          type: array
+          title: Channels
+          description: 'Общие каналы напоминаний: telegram, max, email, webhook'
+        reminder_days:
+          type: integer
+          title: Reminder Days
+          description: За сколько дней до срока приходит напоминание
+        overdue_reminders:
+          type: boolean
+          title: Overdue Reminders
+          description: Приходит ли повторное напоминание на следующий день после срока
+        timezone:
+          type: string
+          title: Timezone
+          description: Часовой пояс, по которому считается «сегодня»
+      type: object
+      required:
+      - contacts
+      - bots
+      - channels
+      - reminder_days
+      - overdue_reminders
+      - timezone
+      title: HelpOut
+      description: Всё, что странице «Помощь» нужно знать о настройках сервера.
     LinkCodeOut:
       properties:
         messenger:
@@ -1981,5 +2076,7 @@ tags:
   description: 'Привязка Telegram и MAX к пользователю: личные напоминания'
 - name: audit
   description: Журнал авторизации и действий (только админ)
+- name: help
+  description: 'Сведения для страницы «Помощь»: контакты, боты, настройки сроков'
 - name: system
   description: Служебное
