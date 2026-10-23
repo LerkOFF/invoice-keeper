@@ -167,10 +167,27 @@ SQLite (volume /data), схема создаётся при старте чер�
 - Сообщение обновляется через `editMessageText` и теряет кнопку, отметивший виден по `@username` или имени. Схема БД не менялась.
 - Ограничение Telegram: `getChatMember` гарантированно работает для других пользователей, только если бот администратор чата.
 
+## Бот MAX
+
+- Канал `max` ([app/services/max_api.py](../app/services/max_api.py)): `POST /messages?chat_id=` в `platform-api2.max.ru`,
+  токен в заголовке `Authorization` (в query MAX его больше не принимает), в ошибках и логах его нет. Кнопка это вложение
+  `inline_keyboard` с кнопкой `callback`, `payload = paid:<id периода>`, тот же формат, что у Telegram.
+- TLS: API MAX подписан Russian Trusted Sub CA (Минцифры). Корневой и промежуточный сертификаты лежат в
+  [app/certs/russian_trusted_ca.pem](../app/certs/russian_trusted_ca.pem) и добавляются к certifi только в клиенте MAX.
+- Нажатия принимает [app/services/max_bot.py](../app/services/max_bot.py): тот же цикл `bot_loop`, что у Telegram,
+  опрашивает `GET /updates?types=message_callback`, `marker` продолжает расти между проходами.
+- **Авторизация** в том же порядке: `payload` строго `paid:<число>` -> сообщение из чата `MAX_CHAT_ID` (`message.recipient.chat_id`) ->
+  `MAX_ALLOWED_USER_IDS`, если задан -> нажавший участник чата (`GET /chats/{id}/members?user_ids=`, кэш на минуту).
+  В диалоге с ботом (`chat_type = dialog`) кроме бота один человек, проверка участия не нужна. Боты не нажимают.
+- **Действие** общее с Telegram (`mark_paid` в [telegram_bot.py](../app/services/telegram_bot.py)), в журнале `actor_type = max`, `source = max`.
+  Ответ `POST /answers` одним вызовом показывает уведомление и заменяет сообщение текстом без кнопки.
+- id чата API MAX не отдаёт списком, он приходит только в событиях: `python -m app.services.max_api` читает
+  `bot_added`, `bot_started`, `message_created` и печатает найденные `MAX_CHAT_ID`.
+
 ## Каналы напоминаний
 
 - Канал это класс с `name`, `configured` и `send(reminder)` ([app/services/notify.py](../app/services/notify.py)).
-  Каналов три: Telegram, email (SMTP, [app/services/mailer.py](../app/services/mailer.py)) и webhook. Ненастроенный канал пропускается.
+  Каналов четыре: Telegram, MAX, email (SMTP, [app/services/mailer.py](../app/services/mailer.py)) и webhook. Ненастроенный канал пропускается.
   Письмо: тема с названием, суммой и сроком, текст и HTML, ссылка на панель из `PUBLIC_URL`; переводы строк из названия в заголовок не попадают.
 - Каждая доставка пишется в `reminder_deliveries` (период + канал, уникально). Поэтому сбой одного канала не
   повторяет отправку в другие: упавший канал пропускается до конца прохода и повторяется в следующий раз.
@@ -242,7 +259,8 @@ app/
   api/          роутеры /api/v1
   core/         настройки, безопасность, сессии
   models/       SQLAlchemy-модели
-  services/     периоды, просрочка, напоминания, Telegram
+  services/     периоды, просрочка, напоминания, Telegram, MAX
+  certs/        сертификат Минцифры для API MAX
   scheduler.py  фоновая задача
   web/          статика панели
 tests/

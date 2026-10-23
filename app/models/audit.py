@@ -18,7 +18,7 @@ class AuditEntry(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow, index=True)
-    actor_type: Mapped[str] = mapped_column(String(16))  # admin, user, telegram, system, anonymous
+    actor_type: Mapped[str] = mapped_column(String(16))  # admin, user, telegram, max, system, anonymous
     actor: Mapped[str] = mapped_column(String(100))
     action: Mapped[str] = mapped_column(String(48), index=True)
     target_type: Mapped[str | None] = mapped_column(String(32))

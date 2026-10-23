@@ -42,7 +42,7 @@ class OccurrenceOut(BaseModel):
     paid_at: date | None = Field(description="Фактическая дата оплаты")
     is_overdue: bool = Field(description="Не оплачен после срока либо оплачен позже срока")
     overdue_days: int = Field(description="Дней просрочки, 0 если просрочки нет")
-    reminded_at: UtcDateTime | None = Field(description="Когда ушло напоминание в Telegram")
+    reminded_at: UtcDateTime | None = Field(description="Когда напоминание доставлено по всем настроенным каналам")
     payment_deleted: bool = Field(description="Регулярный платёж прекращён, период остался в истории")
     receipts_count: int = Field(default=0, description="Сколько чеков и ссылок прикреплено к этому периоду")
 

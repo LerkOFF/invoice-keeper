@@ -13,6 +13,7 @@ from app.core.clock import today as today_in_tz
 from app.core.config import Settings
 from app.models import OccurrenceStatus, PaymentOccurrence
 from app.services import audit
+from app.services.notify import NotifyError
 from app.services.occurrences import apply_update
 from app.services.telegram import PAY_CALLBACK_PREFIX, TelegramApi, TelegramError
 
@@ -113,10 +114,10 @@ class PayButtonBot:
         if result is PayResult.PAID_NOW:
             logger.info("Оплата периода %s отмечена из Telegram: %s", match.group(1), who)
             self._answer(query_id, "Оплата отмечена ✅")
-            self._finish_message(chat, message, f"{original}\n\n✅ Оплачено {_fmt(paid_at)}, отметил(а): {who}")
+            self._finish_message(chat, message, f"{original}\n\n✅ Оплачено {fmt_date(paid_at)}, отметил(а): {who}")
         elif result is PayResult.ALREADY_PAID:
             self._answer(query_id, "Уже отмечено как оплаченное")
-            self._finish_message(chat, message, f"{original}\n\n✅ Оплачено {_fmt(paid_at)}")
+            self._finish_message(chat, message, f"{original}\n\n✅ Оплачено {fmt_date(paid_at)}")
         else:
             self._answer(query_id, "Платёж не найден или прекращён", alert=True)
             self._finish_message(chat, message, f"{original}\n\n⚠️ Платёж прекращён")
@@ -163,19 +164,7 @@ class PayButtonBot:
     # ---------- действия ----------
 
     def _mark_paid(self, occurrence_id: int, actor: audit.Actor) -> tuple[PayResult, date | None]:
-        with self._session_factory() as db:
-            occurrence = db.get(PaymentOccurrence, occurrence_id)
-            if occurrence is None or occurrence.recurring_payment.deleted_at is not None:
-                return PayResult.GONE, None
-            if occurrence.status == OccurrenceStatus.PAID.value:
-                return PayResult.ALREADY_PAID, occurrence.paid_at
-
-            # те же правила, что и в API: дата по умолчанию сегодняшняя
-            before_status, before_paid_at = occurrence.status, occurrence.paid_at
-            apply_update(occurrence, self._today(), OccurrenceStatus.PAID, None, False)
-            audit.record_occurrence_change(db, occurrence, before_status, before_paid_at, actor, source="telegram")
-            db.commit()
-            return PayResult.PAID_NOW, occurrence.paid_at
+        return mark_paid(self._session_factory, occurrence_id, actor, self._today(), source="telegram")
 
     def _answer(self, query_id: str, text: str, alert: bool = False) -> None:
         try:
@@ -208,30 +197,52 @@ def _display_name(user: dict[str, Any]) -> str:
     return name or f"id {user.get('id')}"
 
 
-def _fmt(value: date | None) -> str:
+def fmt_date(value: date | None) -> str:
     return value.strftime("%d.%m.%Y") if value else "—"
+
+
+def mark_paid(
+    session_factory: Callable[[], Session], occurrence_id: int, actor: audit.Actor, today: date, source: str
+) -> tuple[PayResult, date | None]:
+    """Отметка оплаты кнопкой из мессенджера (Telegram, MAX): те же правила, что и в API, дата сегодняшняя."""
+    with session_factory() as db:
+        occurrence = db.get(PaymentOccurrence, occurrence_id)
+        if occurrence is None or occurrence.recurring_payment.deleted_at is not None:
+            return PayResult.GONE, None
+        if occurrence.status == OccurrenceStatus.PAID.value:
+            return PayResult.ALREADY_PAID, occurrence.paid_at
+
+        before_status, before_paid_at = occurrence.status, occurrence.paid_at
+        apply_update(occurrence, today, OccurrenceStatus.PAID, None, False)
+        audit.record_occurrence_change(db, occurrence, before_status, before_paid_at, actor, source=source)
+        db.commit()
+        return PayResult.PAID_NOW, occurrence.paid_at
 
 
 def build_bot(settings: Settings, session_factory: Callable[[], Session]) -> PayButtonBot:
     return PayButtonBot(TelegramApi(settings), settings, session_factory)
 
 
-async def bot_loop(bot: PayButtonBot) -> None:
-    """Опрашивает Telegram, пока приложение работает. Сбои связи не останавливают цикл."""
-    offset: int | None = None
+class PollingBot(Protocol):
+    def poll_once(self, offset: Any) -> Any: ...
+
+
+async def bot_loop(bot: PollingBot, channel: str = "Telegram") -> None:
+    """Опрашивает мессенджер, пока приложение работает. Сбои связи не останавливают цикл."""
+    offset: Any = None
     failures = 0
     while True:
         try:
             offset = await asyncio.to_thread(bot.poll_once, offset)
             failures = 0
-        except TelegramError as error:
+        except NotifyError as error:
             failures += 1
             hint = ""
             if "Conflict" in str(error):
                 hint = " (у бота включён webhook или его опрашивает другой процесс)"
-            logger.error("Опрос Telegram не удался: %s%s", error, hint)
+            logger.error("Опрос %s не удался: %s%s", channel, error, hint)
             await asyncio.sleep(min(5 * failures, 30))
         except Exception:  # noqa: BLE001
             failures += 1
-            logger.exception("Сбой цикла бота")
+            logger.exception("Сбой цикла бота %s", channel)
             await asyncio.sleep(min(5 * failures, 30))

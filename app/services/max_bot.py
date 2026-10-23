@@ -1,0 +1,172 @@
+import logging
+import re
+import time
+from collections.abc import Callable
+from datetime import date
+from typing import Any, Protocol
+
+from sqlalchemy.orm import Session
+
+from app.core.clock import today as today_in_tz
+from app.core.config import Settings
+from app.services import audit
+from app.services.max_api import MaxApi, MaxError
+from app.services.telegram import PAY_CALLBACK_PREFIX
+from app.services.telegram_bot import PayResult, fmt_date, mark_paid
+
+logger = logging.getLogger("invoice_keeper")
+
+_CALLBACK_RE = re.compile(rf"{re.escape(PAY_CALLBACK_PREFIX)}(\d+)")
+
+
+class MaxBotApi(Protocol):
+    chat_id: str
+
+    def chat_id_number(self) -> int: ...
+
+    def call(
+        self,
+        http_method: str,
+        path: str,
+        *,
+        query: dict[str, Any] | None = None,
+        body: dict[str, Any] | None = None,
+        timeout: float = 10.0,
+    ) -> Any: ...
+
+
+class MaxPayButtonBot:
+    """Принимает нажатия «Оплачено» из напоминаний в MAX, по тем же правилам, что и Telegram-бот.
+
+    Нажимать могут только участники чата MAX_CHAT_ID (проверка через GET /chats/{id}/members,
+    результат кэшируется на минуту). MAX_ALLOWED_USER_IDS сужает круг. Любая ошибка проверки
+    означает отказ. Кнопки из чужих чатов игнорируются.
+    """
+
+    def __init__(
+        self,
+        api: MaxBotApi,
+        settings: Settings,
+        session_factory: Callable[[], Session],
+        today: Callable[[], date] = today_in_tz,
+        cache_ttl: float = 60.0,
+    ) -> None:
+        self._api = api
+        self._settings = settings
+        self._session_factory = session_factory
+        self._today = today
+        self._cache_ttl = cache_ttl
+        self._member_cache: dict[int, tuple[float, bool]] = {}
+
+    # ---------- опрос ----------
+
+    def poll_once(self, marker: int | None) -> int | None:
+        """Один long-poll запрос GET /updates. Возвращает marker для следующего."""
+        timeout = self._settings.max_poll_timeout
+        query = {"timeout": timeout, "types": "message_callback", "marker": marker}
+        result = self._api.call("GET", "/updates", query=query, timeout=timeout + 10) or {}
+
+        for update in result.get("updates") or []:
+            try:
+                self.process_update(update)
+            except Exception:  # noqa: BLE001 одно битое обновление не должно останавливать остальные
+                logger.exception("Не удалось обработать обновление MAX %s", update.get("timestamp"))
+        next_marker = result.get("marker")
+        return marker if next_marker is None else next_marker
+
+    # ---------- обработка нажатия ----------
+
+    def process_update(self, update: dict[str, Any]) -> None:
+        if update.get("update_type") != "message_callback":
+            return
+
+        callback = update.get("callback") or {}
+        callback_id = callback["callback_id"]
+        match = _CALLBACK_RE.fullmatch(callback.get("payload") or "")
+        message = update.get("message") or {}
+        recipient = message.get("recipient") or {}
+        user = callback.get("user") or {}
+
+        if not match:
+            self._answer(callback_id, "Неизвестная кнопка")
+            return
+        if not self._is_our_chat(recipient):
+            self._answer(callback_id, "Эта кнопка из другого чата")
+            return
+
+        allowed = self._is_authorized(user, recipient)
+        if allowed is None:
+            self._answer(callback_id, "Не удалось проверить доступ, попробуйте позже")
+            return
+        if not allowed:
+            logger.warning("Отказ в кнопке «Оплачено» в MAX: пользователь %s не из списка чата", user.get("user_id"))
+            self._answer(callback_id, "Нет доступа: отмечать оплату могут только участники чата")
+            return
+
+        actor = audit.max_actor(user)
+        result, paid_at = mark_paid(self._session_factory, int(match.group(1)), actor, self._today(), source="max")
+        original = (message.get("body") or {}).get("text") or ""
+
+        # ответ на нажатие сразу заменяет текст и убирает кнопку, чтобы её нельзя было нажать повторно
+        if result is PayResult.PAID_NOW:
+            logger.info("Оплата периода %s отмечена из MAX: %s", match.group(1), actor.name)
+            done = f"{original}\n\n✅ Оплачено {fmt_date(paid_at)}, отметил(а): {actor.name}"
+            self._answer(callback_id, "Оплата отмечена ✅", done)
+        elif result is PayResult.ALREADY_PAID:
+            self._answer(callback_id, "Уже отмечено как оплаченное", f"{original}\n\n✅ Оплачено {fmt_date(paid_at)}")
+        else:
+            self._answer(callback_id, "Платёж не найден или прекращён", f"{original}\n\n⚠️ Платёж прекращён")
+
+    # ---------- авторизация ----------
+
+    def _is_our_chat(self, recipient: dict[str, Any]) -> bool:
+        try:
+            return recipient.get("chat_id") == self._api.chat_id_number()
+        except MaxError:
+            return False
+
+    def _is_authorized(self, user: dict[str, Any], recipient: dict[str, Any]) -> bool | None:
+        """True/False по списку чата, None если проверить не удалось (трактуется как отказ)."""
+        user_id = user.get("user_id")
+        if not isinstance(user_id, int) or user.get("is_bot"):
+            return False
+
+        allowed_ids = self._settings.allowed_max_ids
+        if allowed_ids and user_id not in allowed_ids:
+            return False
+
+        # Диалог с ботом: кроме бота в нём один человек, и это нажавший
+        if recipient.get("chat_type") == "dialog":
+            return True
+
+        cached = self._member_cache.get(user_id)
+        if cached and cached[0] > time.monotonic():
+            return cached[1]
+
+        try:
+            result = self._api.call(
+                "GET", f"/chats/{self._api.chat_id_number()}/members", query={"user_ids": str(user_id)}
+            )
+        except MaxError as error:
+            logger.error("Проверка участника чата MAX не удалась: %s", error)
+            return None
+
+        members = (result or {}).get("members") or []
+        is_member = any(member.get("user_id") == user_id for member in members)
+        self._member_cache[user_id] = (time.monotonic() + self._cache_ttl, is_member)
+        return is_member
+
+    # ---------- действия ----------
+
+    def _answer(self, callback_id: str, notification: str, new_text: str | None = None) -> None:
+        body: dict[str, Any] = {"notification": notification}
+        if new_text is not None:
+            body["message"] = {"text": new_text, "attachments": []}
+        try:
+            self._api.call("POST", "/answers", query={"callback_id": callback_id}, body=body)
+        except MaxError as error:
+            logger.warning("Ответ на нажатие в MAX не удался: %s", error)
+
+
+def build_max_bot(settings: Settings, session_factory: Callable[[], Session]) -> MaxPayButtonBot:
+    return MaxPayButtonBot(MaxApi(settings), settings, session_factory)

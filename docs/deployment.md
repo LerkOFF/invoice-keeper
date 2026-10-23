@@ -24,6 +24,9 @@ PUBLIC_URL=https://invoice-keeper.ru
 SMTP_HOST=mail-relay
 ```
 
+MAX (бот Invoice Keeper, свой, не Lodki): `MAX_BOT_TOKEN` и `MAX_CHAT_ID` в том же `.env`. id чата после добавления бота
+в группу администратором и сообщения в ней: `docker compose exec app python -m app.services.max_api`.
+
 ## Обновление
 
 ```bash

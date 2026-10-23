@@ -1259,7 +1259,7 @@ const AUDIT_LABELS = {
   "reminder.sent": "Напоминание отправлено",
 };
 
-const ACTOR_LABELS = { admin: "админ", user: "пользователь", telegram: "Telegram", system: "система", anonymous: "аноним" };
+const ACTOR_LABELS = { admin: "админ", user: "пользователь", telegram: "Telegram", max: "MAX", system: "система", anonymous: "аноним" };
 
 function auditSummary(e) {
   const d = e.details || {};
@@ -1374,7 +1374,7 @@ async function auditView(main) {
   );
 
   main.replaceChildren(
-    h("div", { class: "page-head" }, h("div", {}, h("h2", {}, "Журнал"), h("p", {}, "Кто и что делал: входы, оплаты (в том числе из Telegram), платежи, пользователи. Пароли сюда не попадают"))),
+    h("div", { class: "page-head" }, h("div", {}, h("h2", {}, "Журнал"), h("p", {}, "Кто и что делал: входы, оплаты (в том числе из Telegram и MAX), платежи, пользователи. Пароли сюда не попадают"))),
     toolbar,
     listBox,
     moreWrap,

@@ -17,6 +17,8 @@ from app.seed import seed_demo_data
 from app.services import webhook  # noqa: F401  регистрирует отправку событий журнала после коммита
 from app.services.telegram import TelegramApi, build_notifiers
 from app.services.telegram_bot import bot_loop, build_bot
+from app.services.max_api import MaxApi
+from app.services.max_bot import build_max_bot
 from app.services.periods import ensure_all_occurrences
 
 API_PREFIX = "/api/v1"
@@ -54,7 +56,7 @@ async def lifespan(_app: FastAPI):
     if active:
         logger.info("Каналы напоминаний: %s", ", ".join(active))
     else:
-        logger.warning("Ни один канал напоминаний не настроен (Telegram, email, webhook): напоминания не будут отправляться")
+        logger.warning("Ни один канал напоминаний не настроен (Telegram, MAX, email, webhook): напоминания не будут отправляться")
 
     task = None
     if settings.scheduler_enabled:
@@ -68,9 +70,13 @@ async def lifespan(_app: FastAPI):
     if settings.telegram_buttons_enabled and TelegramApi(settings).configured:
         bot_task = asyncio.create_task(bot_loop(build_bot(settings, SessionLocal)))
 
+    max_task = None
+    if settings.max_buttons_enabled and MaxApi(settings).configured:
+        max_task = asyncio.create_task(bot_loop(build_max_bot(settings, SessionLocal), "MAX"))
+
     yield
 
-    for background in (task, bot_task):
+    for background in (task, bot_task, max_task):
         if background is not None:
             background.cancel()
             with contextlib.suppress(asyncio.CancelledError):

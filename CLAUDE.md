@@ -9,7 +9,7 @@
 - Запуск для жюри: `README.md`.
 
 ## Стек
-Python, FastAPI, SQLAlchemy, SQLite в volume, фоновый планировщик в процессе, Telegram Bot API, Docker Compose.
+Python, FastAPI, SQLAlchemy, SQLite в volume, фоновый планировщик в процессе, Telegram Bot API, Bot API MAX, Docker Compose.
 
 ## Незыблемые правила предметной области
 - Просрочка вычисляется, не хранится: `unpaid` и сегодня позже срока, либо `paid` и `paid_at` позже срока. Оплата в день срока вовремя.
@@ -28,10 +28,11 @@ Python, FastAPI, SQLAlchemy, SQLite в volume, фоновый планировщ
 
 ## Состояние
 - Обязательная часть и критерии приёмки закрыты (см. статус в `docs/PLAN.md`).
-- Бонусы сделаны все, включая email через SMTP. Каналы (Telegram, email, webhook) по интерфейсу `Notifier` (`app/services/notify.py`), доставка учитывается в `reminder_deliveries`.
+- Бонусы сделаны все, включая email через SMTP. Каналы (Telegram, MAX, email, webhook) по интерфейсу `Notifier` (`app/services/notify.py`), доставка учитывается в `reminder_deliveries`.
 - Прод: zurih, выкладка только через git (`git pull` в каталоге на сервере), см. `docs/deployment.md`.
 - Схема создаётся `create_all`: новые таблицы появляются сами, а новые колонки в существующих таблицах нет. Нужна колонка: новая таблица или миграция.
 - В том же репозитории параллельно может работать другая сессия: перед коммитом смотреть `git status`, коммитить свои файлы явно.
 - Проверка перед сдачей: `.venv/bin/pytest`, `python3 scripts/export_openapi.py --check`, `python3 scripts/demo.py` на поднятом `docker compose up`.
 - Меняешь API: пересобери `openapi.yaml` (`scripts/export_openapi.py`), иначе упадёт `tests/test_openapi.py`.
+- MAX: API `platform-api2.max.ru` подписан сертификатом Минцифры, он в `app/certs/`. Бот MAX создаётся только с верифицированного профиля владельца, бота Lodki не использовать.
 - Приложение рассчитано на один процесс (замок напоминаний внутри процесса), не запускать несколько воркеров.

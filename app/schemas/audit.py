@@ -10,8 +10,8 @@ class AuditEntryOut(BaseModel):
 
     id: int
     at: UtcDateTime
-    actor_type: str = Field(description="admin, user, telegram, system или anonymous")
-    actor: str = Field(description="Логин, @username в Telegram или «планировщик»")
+    actor_type: str = Field(description="admin, user, telegram, max, system или anonymous")
+    actor: str = Field(description="Логин, @username в Telegram или MAX, либо «планировщик»")
     action: str = Field(examples=["occurrence.paid"])
     target_type: str | None = None
     target_id: int | None = None

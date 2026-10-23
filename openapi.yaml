@@ -871,11 +871,11 @@ components:
         actor_type:
           type: string
           title: Actor Type
-          description: admin, user, telegram, system или anonymous
+          description: admin, user, telegram, max, system или anonymous
         actor:
           type: string
           title: Actor
-          description: Логин, @username в Telegram или «планировщик»
+          description: Логин, @username в Telegram или MAX, либо «планировщик»
         action:
           type: string
           title: Action
@@ -1285,7 +1285,7 @@ components:
           - type: string
           - type: 'null'
           title: Reminded At
-          description: Когда ушло напоминание в Telegram
+          description: Когда напоминание доставлено по всем настроенным каналам
         payment_deleted:
           type: boolean
           title: Payment Deleted

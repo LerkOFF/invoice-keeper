@@ -134,7 +134,7 @@ def test_not_configured_raises():
 
 def test_email_is_one_of_the_channels():
     names = [n.name for n in build_notifiers(Settings(**CONFIG))]
-    assert names == ["telegram", "email", "webhook"]
+    assert names == ["telegram", "max", "email", "webhook"]
 
 
 def test_email_channel_takes_part_in_reminders(db):

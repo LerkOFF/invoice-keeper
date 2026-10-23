@@ -77,6 +77,7 @@ def build_notifier(settings: Settings) -> Notifier:
 def build_notifiers(settings: Settings) -> list[Notifier]:
     """Все каналы напоминаний. Ненастроенные остаются в списке и пропускаются при отправке."""
     from app.services.mailer import EmailNotifier
+    from app.services.max_api import MaxNotifier
     from app.services.webhook import WebhookNotifier
 
-    return [TelegramNotifier(settings), EmailNotifier(settings), WebhookNotifier(settings)]
+    return [TelegramNotifier(settings), MaxNotifier(settings), EmailNotifier(settings), WebhookNotifier(settings)]

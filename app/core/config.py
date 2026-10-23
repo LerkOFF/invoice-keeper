@@ -18,6 +18,14 @@ class Settings(BaseSettings):
     telegram_allowed_user_ids: str = ""
     telegram_poll_timeout: int = 8
 
+    # MAX: то же, что Telegram. Токен бота из «MAX для бизнеса», id группового чата (или диалога с ботом)
+    max_bot_token: str = ""
+    max_chat_id: str = ""
+    max_api_base: str = "https://platform-api2.max.ru"
+    max_buttons_enabled: bool = True
+    max_allowed_user_ids: str = ""
+    max_poll_timeout: int = 8
+
     # Email-оповещения через SMTP: включаются, когда заданы хост, отправитель и получатели
     smtp_host: str = ""
     smtp_port: int = 465
@@ -62,7 +70,15 @@ class Settings(BaseSettings):
 
     @property
     def allowed_telegram_ids(self) -> set[int]:
-        return {int(part) for part in self.telegram_allowed_user_ids.replace(";", ",").split(",") if part.strip()}
+        return _ids(self.telegram_allowed_user_ids)
+
+    @property
+    def allowed_max_ids(self) -> set[int]:
+        return _ids(self.max_allowed_user_ids)
+
+
+def _ids(raw: str) -> set[int]:
+    return {int(part) for part in raw.replace(";", ",").split(",") if part.strip()}
 
 
 @lru_cache

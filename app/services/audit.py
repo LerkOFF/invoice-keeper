@@ -11,7 +11,7 @@ from app.services.auth import Principal
 
 @dataclass(frozen=True)
 class Actor:
-    type: str  # admin, user, telegram, system, anonymous
+    type: str  # admin, user, telegram, max, system, anonymous
     name: str
 
 
@@ -45,6 +45,14 @@ def telegram_actor(user: dict[str, Any]) -> Actor:
     else:
         name = " ".join(p for p in (user.get("first_name"), user.get("last_name")) if p) or f"id {user.get('id')}"
     return Actor("telegram", name)
+
+
+def max_actor(user: dict[str, Any]) -> Actor:
+    if user.get("username"):
+        name = f"@{user['username']}"
+    else:
+        name = " ".join(p for p in (user.get("first_name"), user.get("last_name")) if p) or f"id {user.get('user_id')}"
+    return Actor("max", name)
 
 
 def record(

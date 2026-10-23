@@ -110,7 +110,7 @@ def test_configured_only_for_http_urls():
 
 def test_notifiers_list_contains_webhook_only_configured_when_url_set():
     by_name = {n.name: n for n in build_notifiers(Settings(webhook_url=URL))}
-    assert set(by_name) == {"telegram", "email", "webhook"} and by_name["webhook"].configured
+    assert set(by_name) == {"telegram", "max", "email", "webhook"} and by_name["webhook"].configured
     assert not {n.name: n for n in build_notifiers(Settings())}["webhook"].configured
 
 

@@ -27,7 +27,7 @@ class Reminder:
 
 
 class Notifier(Protocol):
-    """Канал напоминаний: Telegram, email, webhook. Новый канал это класс с этими тремя членами."""
+    """Канал напоминаний: Telegram, MAX, email, webhook. Новый канал это класс с этими тремя членами."""
 
     name: str
 
