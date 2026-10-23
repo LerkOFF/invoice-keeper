@@ -1,12 +1,13 @@
 from datetime import date
 from typing import Annotated
 
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 
 from app.api.deps import CurrentPrincipal, DbDep, TodayDep
 from app.services import audit
 from app.models import Currency, OccurrenceStatus, PaymentOccurrence
 from app.schemas.payments import OccurrenceOut, OccurrenceUpdate
+from app.services.export import occurrences_csv
 from app.services.occurrences import (
     OccurrenceFilter,
     OccurrenceRuleError,
@@ -45,11 +46,7 @@ def _get_or_404(db, occurrence_id: int) -> PaymentOccurrence:
     return occurrence
 
 
-@router.get("", response_model=list[OccurrenceOut], summary="Список платежей: оплаченные и просроченные")
-def list_payment_occurrences(
-    _principal: CurrentPrincipal,
-    db: DbDep,
-    today: TodayDep,
+def occurrence_filter(
     status_filter: Annotated[OccurrenceStatus | None, Query(alias="status")] = None,
     overdue: Annotated[bool | None, Query(description="Только просроченные или только без просрочки")] = None,
     currency: Currency | None = None,
@@ -57,10 +54,8 @@ def list_payment_occurrences(
     due_from: date | None = None,
     due_to: date | None = None,
     include_deleted: Annotated[bool, Query(description="Показать историю прекращённых платежей")] = False,
-    limit: Annotated[int, Query(ge=1, le=1000)] = 500,
-    offset: Annotated[int, Query(ge=0)] = 0,
-) -> list[OccurrenceOut]:
-    flt = OccurrenceFilter(
+) -> OccurrenceFilter:
+    return OccurrenceFilter(
         status=status_filter,
         overdue=overdue,
         currency=currency,
@@ -69,7 +64,40 @@ def list_payment_occurrences(
         due_to=due_to,
         include_deleted=include_deleted,
     )
+
+
+FilterDep = Annotated[OccurrenceFilter, Depends(occurrence_filter)]
+
+
+@router.get("", response_model=list[OccurrenceOut], summary="Список платежей: оплаченные и просроченные")
+def list_payment_occurrences(
+    _principal: CurrentPrincipal,
+    db: DbDep,
+    today: TodayDep,
+    flt: FilterDep,
+    limit: Annotated[int, Query(ge=1, le=1000)] = 500,
+    offset: Annotated[int, Query(ge=0)] = 0,
+) -> list[OccurrenceOut]:
     return [to_out(item, today) for item in list_occurrences(db, flt, today, limit, offset)]
+
+
+@router.get(
+    "/export",
+    response_class=Response,
+    summary="Выгрузка платежей в CSV",
+    description=(
+        "Те же фильтры, что у списка, без ограничения по числу строк. Файл под русский Excel: "
+        "разделитель `;`, запятая в суммах, даты ДД.ММ.ГГГГ, UTF-8 с BOM."
+    ),
+    responses={200: {"content": {"text/csv": {}}, "description": "CSV-файл"}},
+)
+def export_payment_occurrences(_principal: CurrentPrincipal, db: DbDep, today: TodayDep, flt: FilterDep) -> Response:
+    items = list_occurrences(db, flt, today, limit=1_000_000, offset=0)
+    return Response(
+        content=occurrences_csv(items, today),
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="invoice-keeper-{today.isoformat()}.csv"'},
+    )
 
 
 @router.get("/{id}", response_model=OccurrenceOut, summary="Конкретный платёж")

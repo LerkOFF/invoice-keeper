@@ -127,6 +127,7 @@ input:focus, select:focus {
 }
 input:disabled, select:disabled { opacity: .6; cursor: not-allowed; }
 
+a.btn { text-decoration: none; }
 .btn {
   display: inline-flex; align-items: center; justify-content: center; gap: 8px;
   min-height: 40px; padding: 8px 16px;

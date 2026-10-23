@@ -489,21 +489,23 @@ async function paymentsView(main) {
   const summaryBox = h("section", { class: "summary", "aria-label": "Итоги по валютам" });
   const listBox = h("div", { class: "card table-card" });
   const counter = h("span", { class: "muted grow" });
+  const csvLink = h("a", { class: "btn btn-sm", download: "", title: "Выгрузка с текущими фильтрами, открывается в Excel" }, "Скачать CSV");
 
   async function reload() {
     const f = state.filters;
     const range = f.scope === "month" ? monthRange(state.asOf) : {};
+    const filters = {
+      status: f.status === "paid" || f.status === "unpaid" ? f.status : undefined,
+      overdue: f.status === "overdue" ? "true" : undefined,
+      currency: f.currency,
+      include_deleted: f.deleted ? "true" : undefined,
+      ...range,
+    };
+    const csvUrl = new URL(`${API}/payment-occurrences/export`, location.origin);
+    for (const [key, value] of Object.entries(filters)) if (value) csvUrl.searchParams.set(key, value);
+    csvLink.href = csvUrl.pathname + csvUrl.search;
     const [items, summary] = await Promise.all([
-      api("/payment-occurrences", {
-        params: {
-          status: f.status === "paid" || f.status === "unpaid" ? f.status : undefined,
-          overdue: f.status === "overdue" ? "true" : undefined,
-          currency: f.currency,
-          include_deleted: f.deleted ? "true" : undefined,
-          limit: 1000,
-          ...range,
-        },
-      }),
+      api("/payment-occurrences", { params: { ...filters, limit: 1000 } }),
       api("/payments/summary", {
         params: { include_deleted: f.deleted ? "true" : undefined, on: f.on || undefined, ...(f.on ? {} : range) },
       }),
@@ -557,6 +559,7 @@ async function paymentsView(main) {
       state.filters.on ? h("button", { type: "button", class: "btn btn-sm btn-ghost", onclick: () => { state.filters.on = ""; loadTab(document.getElementById("view")); } }, "Сбросить") : null,
     ),
     counter,
+    csvLink,
   );
 
   main.replaceChildren(

@@ -210,6 +210,23 @@ paths:
       security:
       - HTTPBearer: []
       parameters:
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 1000
+          minimum: 1
+          default: 500
+          title: Limit
+      - name: offset
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 0
+          default: 0
+          title: Offset
       - name: status
         in: query
         required: false
@@ -271,23 +288,6 @@ paths:
           default: false
           title: Include Deleted
         description: Показать историю прекращённых платежей
-      - name: limit
-        in: query
-        required: false
-        schema:
-          type: integer
-          maximum: 1000
-          minimum: 1
-          default: 500
-          title: Limit
-      - name: offset
-        in: query
-        required: false
-        schema:
-          type: integer
-          minimum: 0
-          default: 0
-          title: Offset
       responses:
         '200':
           description: Successful Response
@@ -298,6 +298,89 @@ paths:
                 items:
                   $ref: '#/components/schemas/OccurrenceOut'
                 title: Response List Payment Occurrences
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/payment-occurrences/export:
+    get:
+      tags:
+      - payment-occurrences
+      summary: Выгрузка платежей в CSV
+      description: 'Те же фильтры, что у списка, без ограничения по числу строк. Файл под русский Excel:
+        разделитель `;`, запятая в суммах, даты ДД.ММ.ГГГГ, UTF-8 с BOM.'
+      operationId: export_payment_occurrences
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: status
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - $ref: '#/components/schemas/OccurrenceStatus'
+          - type: 'null'
+          title: Status
+      - name: overdue
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: boolean
+          - type: 'null'
+          description: Только просроченные или только без просрочки
+          title: Overdue
+        description: Только просроченные или только без просрочки
+      - name: currency
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - $ref: '#/components/schemas/Currency'
+          - type: 'null'
+          title: Currency
+      - name: recurring_id
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Recurring Id
+      - name: due_from
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            format: date
+          - type: 'null'
+          title: Due From
+      - name: due_to
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            format: date
+          - type: 'null'
+          title: Due To
+      - name: include_deleted
+        in: query
+        required: false
+        schema:
+          type: boolean
+          description: Показать историю прекращённых платежей
+          default: false
+          title: Include Deleted
+        description: Показать историю прекращённых платежей
+      responses:
+        '200':
+          description: CSV-файл
+          content:
+            text/csv: {}
         '422':
           description: Validation Error
           content:
