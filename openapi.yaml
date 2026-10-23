@@ -1486,6 +1486,8 @@ components:
       type: string
       enum:
       - monthly
+      - quarterly
+      - yearly
       title: Period
     ReceiptLinkCreate:
       properties:
@@ -1605,6 +1607,8 @@ components:
           description: Дата ближайшей оплаты, от неё считаются все периоды
         period:
           $ref: '#/components/schemas/Period'
+          description: monthly (каждый месяц), quarterly (раз в квартал), yearly (раз в год). Сроки считаются
+            от первой даты
           default: monthly
       type: object
       required:

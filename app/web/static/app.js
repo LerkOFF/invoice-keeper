@@ -3,6 +3,11 @@
 
 const API = "/api/v1";
 const CURRENCIES = ["RUB", "USD", "EUR"];
+const PERIODS = [
+  { value: "monthly", label: "Ежемесячно" },
+  { value: "quarterly", label: "Раз в квартал" },
+  { value: "yearly", label: "Раз в год" },
+];
 const CURRENCY_NAMES = { RUB: "Российский рубль", USD: "Доллар США", EUR: "Евро" };
 const SOON_DAYS = 3;
 
@@ -805,6 +810,22 @@ function receiptsDialog(o, reload) {
 
 // ---------- раздел «Регулярные платежи» (админ) ----------
 
+function periodLabel(period) {
+  return (PERIODS.find((p) => p.value === period) || PERIODS[0]).label;
+}
+
+// Когда платёж повторяется: сроки считаются от первой даты, в коротких месяцах это последний день
+function periodHint(p) {
+  const [, m, d] = p.first_due_date.split("-").map(Number);
+  if (p.period === "yearly") {
+    const fmt = new Intl.DateTimeFormat("ru-RU", { day: "numeric", month: "long", timeZone: "UTC" });
+    const day = fmt.format(new Date(Date.UTC(2028, m - 1, d)));
+    return m === 2 && d === 29 ? `каждый год ${day}, в невисокосный год 28 февраля` : `каждый год ${day}`;
+  }
+  const every = p.period === "quarterly" ? "раз в 3 месяца, " : "";
+  return `${every}${d}-го числа${d > 28 ? ", в коротких месяцах в последний день" : ""}`;
+}
+
 async function recurringView(main) {
   const listBox = h("div", { class: "card table-card" });
 
@@ -826,14 +847,13 @@ async function recurringView(main) {
               "tbody",
               {},
               payments.map((p) => {
-                const day = Number(p.first_due_date.split("-")[2]);
                 const next = nextDue.get(p.id);
                 return h(
                   "tr",
                   {},
                   h("td", { class: "title-cell" }, h("div", { class: "cell-title" }, p.name), h("div", { class: "cell-sub" }, `первый срок ${fmtDate(p.first_due_date)}`)),
                   h("td", { class: "right", "data-label": "Сумма" }, h("span", { class: "amount num" }, money(p.amount, p.currency))),
-                  h("td", { "data-label": "Периодичность" }, h("div", {}, "Ежемесячно"), h("div", { class: "cell-sub" }, day > 28 ? `${day}-го числа, в коротких месяцах в последний день` : `${day}-го числа`)),
+                  h("td", { "data-label": "Периодичность" }, h("div", {}, periodLabel(p.period)), h("div", { class: "cell-sub" }, periodHint(p))),
                   h("td", { "data-label": "Ближайший срок", class: "num" }, next ? fmtDate(next) : "—"),
                   h("td", { class: "actions" }, h("button", { class: "btn btn-sm btn-danger", onclick: () => deletePaymentDialog(p, reload) }, "Прекратить")),
                 );
@@ -847,7 +867,7 @@ async function recurringView(main) {
   const form = h(
     "form",
     { class: "card inline-form", novalidate: true },
-    h("h3", {}, "Новый регулярный платёж", h("span", { class: "muted" }, " · повторяется ежемесячно")),
+    h("h3", {}, "Новый регулярный платёж"),
     h(
       "div",
       { class: "form-grid" },
@@ -858,6 +878,12 @@ async function recurringView(main) {
         { class: "field" },
         h("span", {}, "Валюта"),
         h("select", { name: "currency" }, CURRENCIES.map((c) => h("option", { value: c }, c))),
+      ),
+      h(
+        "label",
+        { class: "field" },
+        h("span", {}, "Периодичность"),
+        h("select", { name: "period" }, PERIODS.map((p) => h("option", { value: p.value }, p.label))),
       ),
       field({ label: "Дата ближайшей оплаты", name: "first_due_date", type: "date", value: state.asOf }),
       h("button", { type: "submit", class: "btn btn-primary" }, "Добавить"),
@@ -878,7 +904,7 @@ async function recurringView(main) {
       const firstDue = String(data.get("first_due_date"));
       if (!firstDue) throw new Error("Дата ближайшей оплаты: укажите дату");
       submit.disabled = true;
-      await api("/recurring-payments", { method: "POST", body: { name, amount, currency: data.get("currency"), first_due_date: firstDue } });
+      await api("/recurring-payments", { method: "POST", body: { name, amount, currency: data.get("currency"), period: data.get("period"), first_due_date: firstDue } });
       toast(`Платёж «${name}» добавлен`);
       form.querySelector("[name=name]").value = "";
       form.querySelector("[name=amount]").value = "";
@@ -891,7 +917,7 @@ async function recurringView(main) {
   });
 
   main.replaceChildren(
-    h("div", { class: "page-head" }, h("div", {}, h("h2", {}, "Регулярные платежи"), h("p", {}, "Добавленный платёж повторяется каждый месяц, напоминание приходит в Telegram за 3 дня до срока"))),
+    h("div", { class: "page-head" }, h("div", {}, h("h2", {}, "Регулярные платежи"), h("p", {}, "Платёж повторяется каждый месяц, раз в квартал или раз в год, напоминание приходит за 3 дня до срока"))),
     form,
     listBox,
   );
@@ -1320,7 +1346,7 @@ function auditSummary(e) {
     case "occurrence.paid_at_changed":
       return `${d.name}, ${due}: дата оплаты ${fmtDate(d.paid_at_before)} → ${fmtDate(d.paid_at)}`;
     case "payment.create":
-      return `${d.name}, ${money(d.amount, d.currency)}, первый срок ${fmtDate(d.first_due_date)}`;
+      return `${d.name}, ${money(d.amount, d.currency)}, ${d.period ? periodLabel(d.period).toLowerCase() + ", " : ""}первый срок ${fmtDate(d.first_due_date)}`;
     case "payment.delete":
       return d.name;
     case "user.create":

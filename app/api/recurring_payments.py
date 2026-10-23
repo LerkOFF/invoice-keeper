@@ -67,6 +67,7 @@ def create_recurring_payment(
             "amount": str(payment.amount),
             "currency": payment.currency,
             "first_due_date": payment.first_due_date.isoformat(),
+            "period": payment.period,
         },
     )
     db.commit()

@@ -4,7 +4,7 @@ from datetime import date
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.models import PaymentOccurrence, RecurringPayment
+from app.models import PaymentOccurrence, Period, RecurringPayment
 
 
 def due_date_for(anchor: date, months_after: int) -> date:
@@ -19,9 +19,16 @@ def due_date_for(anchor: date, months_after: int) -> date:
     return date(year, month, day)
 
 
+def period_due_date(anchor: date, period: Period | str, index: int) -> date:
+    """Срок периода номер `index` (с нуля): ежемесячно шаг 1 месяц, раз в квартал 3, раз в год 12."""
+    return due_date_for(anchor, index * Period(period).months)
+
+
 def ensure_occurrences(db: Session, payment: RecurringPayment, today: date) -> list[PaymentOccurrence]:
     """Догенерирует периоды платежа до горизонта «сегодня плюс месяц».
 
+    Ближайший предстоящий период создаётся всегда, даже если он дальше горизонта
+    (годовой платёж через полгода): так всегда видно, что и когда платить.
     Прошлые периоды не трогаются, просрочка не останавливает следующие.
     Возвращает только созданные периоды. Коммит остаётся за вызывающим.
     """
@@ -36,13 +43,18 @@ def ensure_occurrences(db: Session, payment: RecurringPayment, today: date) -> l
     )
 
     created: list[PaymentOccurrence] = []
-    months = 0
-    while (due := due_date_for(payment.first_due_date, months)) <= horizon:
+    index = 0
+    upcoming_seen = False
+    while True:
+        due = period_due_date(payment.first_due_date, payment.period, index)
+        if due > horizon and upcoming_seen:
+            break
         if due not in existing:
             occurrence = PaymentOccurrence(recurring_payment=payment, due_date=due)
             db.add(occurrence)
             created.append(occurrence)
-        months += 1
+        upcoming_seen = upcoming_seen or due >= today
+        index += 1
     return created
 
 

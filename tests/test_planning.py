@@ -211,3 +211,13 @@ def test_calendar_deleted_payments(admin):
 @pytest.mark.parametrize("params", [{"month": 13}, {"year": 1999}])
 def test_calendar_validation(admin, params):
     assert admin.get(f"{B}/payments/calendar", params=params).status_code == 422
+
+
+def test_projected_quarterly_and_yearly():
+    assert list(projected_due_dates(date(2026, 1, 31), date(2026, 1, 1), date(2026, 12, 31), "quarterly")) == [
+        date(2026, 1, 31), date(2026, 4, 30), date(2026, 7, 31), date(2026, 10, 31)
+    ]
+    assert list(projected_due_dates(date(2026, 3, 1), date(2027, 1, 1), date(2028, 12, 31), "yearly")) == [
+        date(2027, 3, 1), date(2028, 3, 1)
+    ]
+    assert list(projected_due_dates(date(2026, 3, 1), date(2027, 4, 1), date(2027, 12, 31), "yearly")) == []

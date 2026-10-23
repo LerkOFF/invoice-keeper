@@ -74,3 +74,31 @@ def test_deleted_payment_gets_no_new_periods(db):
     payment = make_payment(db, date(2026, 10, 25))
     payment.deleted_at = datetime.now(timezone.utc)
     assert ensure_occurrences(db, payment, today=date(2026, 10, 23)) == []
+
+
+def test_quarterly_and_yearly_steps_keep_anchor_day():
+    from app.services.periods import period_due_date
+
+    anchor = date(2026, 1, 31)
+    assert [period_due_date(anchor, "quarterly", i) for i in range(4)] == [
+        date(2026, 1, 31), date(2026, 4, 30), date(2026, 7, 31), date(2026, 10, 31)
+    ]
+    assert period_due_date(date(2028, 2, 29), "yearly", 1) == date(2029, 2, 28)
+    assert period_due_date(date(2028, 2, 29), "yearly", 4) == date(2032, 2, 29)
+
+
+def test_yearly_payment_always_has_nearest_upcoming_period(db):
+    payment = make_payment(db, date(2026, 3, 1))
+    payment.period = "yearly"
+    created = ensure_occurrences(db, payment, today=date(2026, 10, 23))
+
+    # прошлый срок в истории и следующий через полгода, хотя он дальше горизонта в месяц
+    assert [o.due_date for o in created] == [date(2026, 3, 1), date(2027, 3, 1)]
+    db.flush()
+    assert ensure_occurrences(db, payment, today=date(2026, 12, 1)) == []
+
+
+def test_far_first_due_date_is_created_at_once(db):
+    payment = make_payment(db, date(2027, 1, 15))
+    created = ensure_occurrences(db, payment, today=date(2026, 10, 23))
+    assert [o.due_date for o in created] == [date(2027, 1, 15)]

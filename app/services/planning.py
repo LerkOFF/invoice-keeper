@@ -7,8 +7,8 @@ from decimal import Decimal
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.models import Currency, OccurrenceStatus, PaymentOccurrence, RecurringPayment
-from app.services.periods import due_date_for
+from app.models import Currency, OccurrenceStatus, PaymentOccurrence, Period, RecurringPayment
+from app.services.periods import period_due_date
 
 
 @dataclass(frozen=True)
@@ -24,12 +24,15 @@ class PlannedPeriod:
         return self.occurrence is not None and self.occurrence.status == OccurrenceStatus.PAID.value
 
 
-def projected_due_dates(first_due: date, start: date, end: date) -> Iterator[date]:
-    """Сроки ежемесячного платежа в отрезке [start, end], считая от якоря (как и сами периоды)."""
+def projected_due_dates(
+    first_due: date, start: date, end: date, period: Period | str = Period.MONTHLY
+) -> Iterator[date]:
+    """Сроки платежа в отрезке [start, end], считая от якоря (как и сами периоды)."""
     if end < first_due or end < start:
         return
-    k = max(0, (start.year - first_due.year) * 12 + start.month - first_due.month - 1)
-    while (due := due_date_for(first_due, k)) <= end:
+    months_to_start = (start.year - first_due.year) * 12 + start.month - first_due.month
+    k = max(0, months_to_start // Period(period).months - 1)
+    while (due := period_due_date(first_due, period, k)) <= end:
         if due >= start:
             yield due
         k += 1
@@ -46,7 +49,7 @@ def load_periods(db: Session, start: date, end: date, include_deleted: bool = Fa
     result: list[PlannedPeriod] = []
     for payment in db.scalars(select(RecurringPayment).order_by(RecurringPayment.id)):
         if payment.deleted_at is None:
-            for due in projected_due_dates(payment.first_due_date, start, end):
+            for due in projected_due_dates(payment.first_due_date, start, end, payment.period):
                 result.append(PlannedPeriod(payment, due, existing.get((payment.id, due))))
         elif include_deleted:
             # у прекращённого платежа будущее не планируем, остаётся только его история

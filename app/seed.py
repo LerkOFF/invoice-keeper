@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from app.core.clock import today as today_in_tz
 from app.core.config import Settings
 from app.core.security import hash_password
-from app.models import Currency, OccurrenceStatus, RecurringPayment, User
+from app.models import Currency, OccurrenceStatus, Period, RecurringPayment, User
 from app.services.periods import ensure_occurrences
 
 
@@ -49,10 +49,19 @@ def seed_demo_data(db: Session, settings: Settings) -> bool:
     )
     subscription.amount = Decimal("9.99")
 
-    db.add_all([rent, server, subscription])
+    # Домен раз в год: ближайший срок далеко, но он уже виден в списке, календаре и бюджете
+    domain = RecurringPayment(
+        name="Продление домена",
+        currency=Currency.RUB.value,
+        first_due_date=today + timedelta(days=45),
+        period=Period.YEARLY.value,
+    )
+    domain.amount = Decimal("1290.00")
+
+    db.add_all([rent, server, subscription, domain])
     db.flush()
 
-    for payment in (rent, server, subscription):
+    for payment in (rent, server, subscription, domain):
         ensure_occurrences(db, payment, today)
     db.flush()
 

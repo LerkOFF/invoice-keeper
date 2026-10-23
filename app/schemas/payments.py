@@ -15,7 +15,10 @@ class RecurringPaymentCreate(BaseModel):
     amount: Money
     currency: Currency
     first_due_date: date = Field(description="Дата ближайшей оплаты, от неё считаются все периоды")
-    period: Period = Period.MONTHLY
+    period: Period = Field(
+        default=Period.MONTHLY,
+        description="monthly (каждый месяц), quarterly (раз в квартал), yearly (раз в год). Сроки считаются от первой даты",
+    )
 
 
 class RecurringPaymentOut(BaseModel):

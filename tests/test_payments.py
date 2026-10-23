@@ -67,6 +67,18 @@ def test_create_in_the_past_generates_all_periods_up_to_horizon(admin):
     ]
 
 
+def test_create_yearly_payment_via_api(admin):
+    body = {"name": "Домен", "amount": "1290", "currency": "RUB", "first_due_date": "2026-03-01", "period": "yearly"}
+    response = admin.post(f"{B}/recurring-payments", json=body)
+    assert response.status_code == 201, response.text
+    assert response.json()["period"] == "yearly"
+    # прошлый годовой срок просрочен, следующий через год уже виден
+    assert [(i["due_date"], i["is_overdue"]) for i in occurrences(admin)] == [
+        ("2026-03-01", True),
+        ("2027-03-01", False),
+    ]
+
+
 def test_list_payments_available_to_user(admin, user):
     create_payment(admin, name="Сервер", currency="USD")
     names = [p["name"] for p in user.get(f"{B}/recurring-payments").json()]
