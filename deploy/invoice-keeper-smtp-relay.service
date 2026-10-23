@@ -1,0 +1,14 @@
+[Unit]
+Description=Invoice Keeper: SMTP relay tunnel to smtp.yandex.ru:465
+Wants=network-online.target
+After=network-online.target docker.service
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/bash /opt/invoice-keeper/deploy/smtp-relay-tunnel.sh
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
