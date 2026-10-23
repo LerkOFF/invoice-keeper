@@ -3,9 +3,9 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="color-scheme" content="light dark">
+  <meta name="color-scheme" content="dark">
   <title>Invoice Keeper</title>
-  <meta name="theme-color" content="#05070a">
+  <meta name="theme-color" content="#000000">
   <meta name="description" content="Напоминания о регулярных платежах: срок, оплата, просрочка">
   <meta property="og:title" content="Invoice Keeper">
   <meta property="og:description" content="Напоминания о регулярных платежах: срок, оплата, просрочка">
@@ -13,12 +13,14 @@
   <link rel="icon" type="image/svg+xml" href="/static/brand/favicon.svg">
   <link rel="icon" type="image/png" sizes="32x32" href="/static/brand/favicon-32.png">
   <link rel="apple-touch-icon" href="/static/brand/apple-touch-icon.png">
+  <link rel="preload" href="/static/fonts/inter-cyrillic.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="/static/fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="/static/app.css">
 </head>
 <body>
   <div id="app"></div>
   <div id="toasts" role="status" aria-live="polite"></div>
-  <noscript><p class="noscript">Для работы панели нужен включённый JavaScript.</p></noscript>
+  <noscript><p class="noscript">Для работы панели нужен включённый JavaScript. JavaScript is required to use the panel.</p></noscript>
   <script type="module" src="/static/app.js"></script>
 </body>
 </html>

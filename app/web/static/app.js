@@ -1,14 +1,9 @@
-// Invoice Keeper: панель без сборки и внешних зависимостей.
+// Invoice Keeper: панель без сборки и внешних зависимостей, оформление в стиле кабинета my.aeza.ru.
 // Все данные в DOM попадают через textContent, поэтому названия платежей не могут внедрить разметку.
 
 const API = "/api/v1";
 const CURRENCIES = ["RUB", "USD", "EUR"];
-const PERIODS = [
-  { value: "monthly", label: "Ежемесячно" },
-  { value: "quarterly", label: "Раз в квартал" },
-  { value: "yearly", label: "Раз в год" },
-];
-const CURRENCY_NAMES = { RUB: "Российский рубль", USD: "Доллар США", EUR: "Евро" };
+const PERIODS = ["monthly", "quarterly", "yearly"];
 const SOON_DAYS = 3;
 
 const state = {
@@ -20,6 +15,772 @@ const state = {
   cal: null, // { year, month, selected }
   budgetYear: null,
 };
+
+// ---------- язык интерфейса: русский и английский, как переключатель в кабинете aeza ----------
+
+const LANGS = [
+  { id: "ru", label: "Русский", locale: "ru-RU" },
+  { id: "en", label: "English", locale: "en-GB" },
+];
+const LANG_KEY = "ik-lang";
+
+const I18N = {
+  ru: {
+    "app.description": "Напоминания о регулярных платежах: срок, оплата, просрочка",
+
+    "common.cancel": "Отмена",
+    "common.save": "Сохранить",
+    "common.close": "Закрыть",
+    "common.delete": "Удалить",
+    "common.edit": "Изменить",
+    "common.loading": "Загрузка…",
+    "common.reset": "Сбросить",
+    "common.today": "Сегодня",
+    "common.showMore": "Показать ещё",
+    "common.nothingToChange": "Нечего менять",
+
+    "error.network": "Нет связи с сервером",
+    "error.server": "Ошибка сервера ({status})",
+    "error.load": "Не удалось загрузить данные",
+
+    "field.login": "Логин",
+    "field.password": "Пароль",
+    "field.name": "Название",
+    "field.amount": "Сумма",
+    "field.currency": "Валюта",
+    "field.period": "Периодичность",
+    "field.first_due_date": "Дата ближайшей оплаты",
+    "field.status": "Статус",
+    "field.paid_at": "Дата оплаты",
+    "field.url": "Ссылка",
+    "field.file": "Файл",
+    "field.title": "Название",
+    "field.q": "Поиск",
+
+    "valid.string_too_short": "слишком короткое значение",
+    "valid.string_too_long": "слишком длинное значение",
+    "valid.string_pattern_mismatch": "недопустимые символы",
+    "valid.greater_than": "должно быть больше нуля",
+    "valid.decimal_max_places": "не больше двух знаков после запятой",
+    "valid.decimal_parsing": "неверное число",
+    "valid.decimal_type": "неверное число",
+    "valid.decimal_max_digits": "слишком большое число",
+    "valid.extra_forbidden": "поле не поддерживается",
+    "valid.missing": "обязательное поле",
+    "valid.date_parsing": "неверная дата",
+    "valid.date_from_datetime_parsing": "неверная дата",
+    "valid.enum": "недопустимое значение",
+
+    "check.amount": "Сумма: положительное число, не больше двух знаков после запятой",
+    "check.login": "Логин: 3–64 символа, латиница, цифры и . _ @ -",
+    "check.password": "Пароль: от 8 до 128 символов",
+    "check.name": "Название: укажите название платежа",
+    "check.firstDue": "Дата ближайшей оплаты: укажите дату",
+    "check.paidAt": "Укажите дату оплаты",
+    "check.newSchedule": "Новый график: укажите дату ближайшей оплаты",
+    "check.url": "Ссылка: нужен адрес, начинающийся с http:// или https://",
+    "check.file": "Файл: выберите файл",
+    "check.credentials": "Введите логин и пароль",
+
+    "pw.show": "Показать пароль",
+    "pw.hide": "Скрыть пароль",
+
+    "auth.title": "Вход в панель",
+    "auth.lead": "Платежи, сроки и напоминания в одном месте.",
+    "auth.submit": "Войти",
+    "auth.invalid": "Неверный логин или пароль",
+    "auth.expired": "Сессия закончилась, войдите снова",
+    "auth.promoTitle": "платежи под контролем",
+    "auth.point1": "Напоминание за 3 дня до срока в Telegram, MAX и на почту",
+    "auth.point2": "Просрочка считается сама, история оплат не теряется",
+    "auth.point3": "RUB, USD и EUR, итоги по каждой валюте отдельно",
+
+    "shell.logout": "Выйти",
+    "shell.today": "сегодня",
+    "shell.addPayment": "Добавить платёж",
+    "shell.api": "API и Swagger",
+    "shell.menu": "Меню",
+    "shell.language": "Язык",
+    "role.admin": "админ",
+    "role.user": "пользователь",
+
+    "tab.payments": "Платежи",
+    "tab.calendar": "Календарь",
+    "tab.budget": "Бюджет",
+    "tab.recurring": "Регулярные платежи",
+    "tab.users": "Пользователи",
+    "tab.audit": "Журнал",
+    "tab.messengers": "Мессенджеры",
+
+    "currency.RUB": "Российский рубль",
+    "currency.USD": "Доллар США",
+    "currency.EUR": "Евро",
+
+    "status.paid": "Оплачено",
+    "status.late": "Оплачено позже срока",
+    "status.lateDays": "Оплачено позже срока ({n} дн.)",
+    "status.overdue": "Просрочено {n} дн.",
+    "status.soon": "Скоро срок",
+    "status.unpaid": "Не оплачено",
+    "status.planned": "Запланирован",
+
+    "due.overdueBy": "просрочено на {days}",
+    "due.today": "сегодня",
+    "due.tomorrow": "завтра",
+    "due.in": "через {days}",
+
+    "payments.lead": "Что и когда оплатить, что уже оплачено и что просрочено",
+    "payments.summary": "Итоги по валютам",
+    "payments.list": "периоды оплаты",
+    "payments.all": "Все",
+    "payments.unpaid": "Не оплачено",
+    "payments.overdue": "Просрочено",
+    "payments.paid": "Оплачено",
+    "payments.allPeriods": "Все периоды",
+    "payments.thisMonth": "Текущий месяц",
+    "payments.allCurrencies": "Все валюты",
+    "payments.withDeleted": "С прекращёнными",
+    "payments.onDate": "Итоги на дату",
+    "payments.shown": "Показано: {n}",
+    "payments.search": "Поиск по названию",
+    "payments.csv": "Скачать CSV",
+    "payments.csvHint": "Выгрузка с текущими фильтрами, открывается в Excel",
+    "payments.empty": "Платежей по этим условиям нет",
+    "payments.emptyAdmin": "Добавьте первый платёж в разделе «Регулярные платежи».",
+    "payments.emptyUser": "Администратор ещё не добавил платежи.",
+    "payments.stopped": "Платёж прекращён",
+    "col.payment": "Платёж",
+    "col.amount": "Сумма",
+    "col.due": "Срок",
+    "col.status": "Статус",
+    "col.paidAt": "Оплачено",
+    "act.markPaid": "Отметить оплату",
+    "act.changeDate": "Изменить дату",
+    "act.undo": "Отменить",
+
+    "sum.onDate": "на {date}",
+    "sum.toPay": "к оплате · {payments}",
+    "sum.allClosed": "к оплате · всё закрыто",
+    "sum.overdue": "Просрочено",
+    "sum.paid": "Оплачено",
+    "sum.left": "Осталось",
+    "sum.sticker": "просрочка!",
+
+    "pay.title": "Отметить оплату",
+    "pay.titleEdit": "Изменить дату оплаты",
+    "pay.desc": "{name}, срок {date}, {amount}",
+    "pay.confirm": "Оплачено",
+    "pay.field": "Фактическая дата оплаты",
+    "pay.hint": "Если оплатили не сегодня, укажите реальную дату: от неё считается просрочка",
+    "pay.done": "Оплата отмечена",
+    "pay.doneEdit": "Дата оплаты обновлена",
+    "unpay.title": "Отменить оплату?",
+    "unpay.desc": "Период «{name}» за {date} снова станет неоплаченным, дата оплаты очистится.",
+    "unpay.confirm": "Отменить оплату",
+    "unpay.done": "Оплата отменена",
+
+    "rc.button": "Чеки",
+    "rc.buttonCount": "Чеки ({n})",
+    "rc.title": "Чеки и ссылки",
+    "rc.desc": "{name}, срок {date}",
+    "rc.kind.file": "файл",
+    "rc.kind.link": "ссылка",
+    "rc.deleted": "Вложение удалено",
+    "rc.empty": "Пока ничего не прикреплено",
+    "rc.linkTitle": "Прикрепить ссылку",
+    "rc.url": "Адрес",
+    "rc.titleOptional": "Название (необязательно)",
+    "rc.linkPlaceholder": "Чек из банка",
+    "rc.addLink": "Добавить ссылку",
+    "rc.linkAdded": "Ссылка прикреплена",
+    "rc.fileTitle": "Загрузить чек",
+    "rc.fileHint": "PDF, PNG, JPEG или WebP, до 5 МБ",
+    "rc.upload": "Загрузить чек",
+    "rc.uploaded": "Чек загружен",
+    "rc.stopped": "Платёж прекращён: вложения можно смотреть, добавлять нельзя",
+    "size.mb": "{n} МБ",
+    "size.kb": "{n} КБ",
+
+    "period.monthly": "Ежемесячно",
+    "period.quarterly": "Раз в квартал",
+    "period.yearly": "Раз в год",
+    "hint.yearly": "каждый год {day}",
+    "hint.yearlyLeap": "каждый год {day}, в невисокосный год 28 февраля",
+    "hint.quarterly": "раз в 3 месяца, ",
+    "hint.day": "{d}-го числа",
+    "hint.short": ", в коротких месяцах в последний день",
+
+    "rec.lead": "Платёж повторяется каждый месяц, раз в квартал или раз в год, напоминание приходит за 3 дня до срока",
+    "rec.list": "все платежи",
+    "rec.colPeriod": "Периодичность",
+    "rec.colNext": "Ближайший неоплаченный срок",
+    "rec.colNextShort": "Ближайший срок",
+    "rec.firstDue": "первый срок {date}",
+    "rec.stop": "Прекратить",
+    "rec.empty": "Регулярных платежей пока нет",
+    "rec.emptyText": "Добавьте аренду, подписку или оплату сервера формой выше.",
+    "rec.new": "Новый регулярный платёж",
+    "rec.namePlaceholder": "Аренда офиса",
+    "rec.add": "Добавить",
+    "rec.added": "Платёж «{name}» добавлен",
+    "rec.editTitle": "Изменить платёж",
+    "rec.editDesc": "Новая сумма действует для неоплаченных периодов с сегодняшнего дня, оплаченные и прошлые сохраняют свою. Валюта ({currency}) не меняется.",
+    "rec.amountIn": "Сумма, {currency}",
+    "rec.newFirstDue": "Дата ближайшей оплаты по новому графику",
+    "rec.newFirstDueHint": "только если меняется график: неоплаченные будущие сроки старого графика уберутся, история останется",
+    "rec.updated": "Платёж «{name}» обновлён",
+    "rec.stopTitle": "Прекратить платёж?",
+    "rec.stopDesc": "«{name}» больше не будет создавать периоды и напоминания. История оплат сохранится.",
+    "rec.stopped": "Платёж «{name}» прекращён",
+
+    "users.lead": "Обычные учётные записи. Администратор задаётся в .env и здесь не показывается",
+    "users.list": "учётные записи",
+    "users.colCreated": "Создан",
+    "users.colMessengers": "Мессенджеры",
+    "users.empty": "Обычных пользователей пока нет",
+    "users.emptyText": "Создайте учётную запись формой выше, и команда сможет отмечать оплаты.",
+    "users.new": "Новый пользователь",
+    "users.passwordPlaceholder": "не короче 8 символов",
+    "users.create": "Создать",
+    "users.created": "Пользователь «{login}» создан",
+    "users.editTitle": "Изменить пользователя",
+    "users.newPassword": "Новый пароль",
+    "users.newPasswordHint": "оставьте пустым, чтобы не менять; смена пароля завершит сессии пользователя",
+    "users.updated": "Пользователь обновлён",
+    "users.deleteTitle": "Удалить пользователя?",
+    "users.deleteDesc": "«{login}» потеряет доступ сразу, его сессии завершатся.",
+    "users.deleted": "Пользователь «{login}» удалён",
+
+    "cal.title": "Календарь оплат",
+    "cal.lead": "Сроки на месяц вперёд и дальше: будущие периоды вычисляются по правилу повторения",
+    "cal.prev": "Предыдущий месяц",
+    "cal.next": "Следующий месяц",
+    "cal.none": "В этом месяце платежей нет",
+    "cal.noneDay": "В этот день платежей нет",
+    "cal.dayLabel": "{date}, платежей: {n}",
+    "cal.paidShare": "Доля оплаченного",
+    "cal.paidLeft": "оплачено {paid} · осталось {left}",
+    "cal.paidOn": "оплачено {date}",
+    "cal.stopped": "платёж прекращён",
+
+    "budget.lead": "Плановые расходы по каждой валюте отдельно, без конвертации. Нажмите на месяц, чтобы открыть его в календаре",
+    "budget.year": "{year} год",
+    "budget.prev": "Предыдущий год",
+    "budget.next": "Следующий год",
+    "budget.plan": "план на год",
+    "budget.none": "платежей нет",
+    "budget.month": "Месяц",
+    "budget.byMonth": "по месяцам",
+    "budget.paidAll": "оплачено",
+    "budget.paidPart": "оплачено {amount}",
+    "budget.empty": "В этом году платежей нет",
+    "budget.emptyText": "Бюджет появится, как только администратор добавит регулярные платежи.",
+
+    "audit.lead": "Кто и что делал: входы, оплаты (в том числе из Telegram и MAX), платежи, пользователи. Пароли сюда не попадают",
+    "audit.colTime": "Время",
+    "audit.colWho": "Кто",
+    "audit.colAction": "Действие",
+    "audit.colDetails": "Подробности",
+    "audit.colIp": "Адрес",
+    "audit.empty": "Записей нет",
+    "audit.emptyText": "Здесь появятся входы, оплаты, изменения платежей и пользователей.",
+    "audit.due": "срок {date}",
+    "audit.paidOn": "оплата {date}",
+    "audit.paidChanged": "{name}, {due}: дата оплаты {before} → {after}",
+    "audit.created": "{name}, {amount}, {period}первый срок {date}",
+    "audit.amountChanged": "сумма {before} → {after}",
+    "audit.scheduleChanged": "график: {period}, ближайший срок {date}",
+    "audit.passwordChanged": "пароль изменён",
+    "audit.channel": "{name}, {due}, канал: {channel}",
+    "audit.failed": "попытка входа с этим логином",
+    "audit.locked": "вход закрыт на {minutes} мин.",
+    "audit.f.all": "Всё",
+    "audit.f.auth": "Вход",
+    "audit.f.occurrence": "Оплаты",
+    "audit.f.payment": "Платежи",
+    "audit.f.user": "Пользователи",
+    "audit.f.reminder": "Напоминания",
+    "audit.f.messenger": "Мессенджеры",
+    "audit.p.all": "Всё время",
+    "audit.p.1": "Сегодня",
+    "audit.p.7": "7 дней",
+    "audit.p.30": "30 дней",
+    "action.auth.login": "Вход",
+    "action.auth.login_failed": "Неудачный вход",
+    "action.auth.login_locked": "Вход заблокирован",
+    "action.auth.logout": "Выход",
+    "action.payment.create": "Платёж добавлен",
+    "action.payment.update": "Платёж изменён",
+    "action.payment.delete": "Платёж прекращён",
+    "action.occurrence.paid": "Оплата отмечена",
+    "action.occurrence.unpaid": "Оплата отменена",
+    "action.occurrence.paid_at_changed": "Дата оплаты исправлена",
+    "action.user.create": "Пользователь создан",
+    "action.user.update": "Пользователь изменён",
+    "action.user.delete": "Пользователь удалён",
+    "action.receipt.add": "Чек или ссылка добавлены",
+    "action.receipt.delete": "Чек или ссылка удалены",
+    "action.reminder.sent": "Напоминание отправлено",
+    "action.reminder.overdue_sent": "Напоминание о просрочке отправлено",
+    "action.messenger.link": "Мессенджер привязан",
+    "action.messenger.unlink": "Мессенджер отвязан",
+    "actor.admin": "админ",
+    "actor.user": "пользователь",
+    "actor.telegram": "Telegram",
+    "actor.max": "MAX",
+    "actor.system": "система",
+    "actor.anonymous": "аноним",
+
+    "msg.lead": "Привяжите Telegram или MAX, и напоминания об оплате будут приходить вам лично, с кнопкой «Оплачено». Отметка из мессенджера записывается от вашего имени",
+    "msg.notConfigured": "Бот этого мессенджера не настроен на сервере",
+    "msg.linkedTo": "Привязан: ",
+    "msg.since": " · с {date}",
+    "msg.notLinkedText": "Не привязан: напоминания приходят только в общий чат",
+    "msg.linked": "привязан",
+    "msg.notLinked": "не привязан",
+    "msg.link": "Привязать",
+    "msg.linkOther": "Привязать другой аккаунт",
+    "msg.unlink": "Отвязать",
+    "msg.unlinkTitle": "Отвязать {title}?",
+    "msg.unlinkDesc": "Личные напоминания в {title} перестанут приходить. Общий чат продолжит работать.",
+    "msg.unlinked": "{title} отвязан",
+    "msg.linkTitle": "Привязать {title}",
+    "msg.linkByUrl": "Откройте бота по ссылке и нажмите «Старт». Ссылка одноразовая и действует до {until}.",
+    "msg.linkByCommand": "Найдите бота {title} и отправьте ему в личку команду ниже. Она одноразовая и действует до {until}.",
+    "msg.open": "Открыть {title}",
+    "msg.alt": "Если ссылка не открывается, отправьте боту в личку эту команду:",
+    "msg.copy": "Скопировать",
+    "msg.copied": "Команда скопирована",
+    "msg.copyFailed": "Не удалось скопировать, выделите команду вручную",
+    "msg.wait": "Жду подтверждения от бота…",
+    "msg.expired": "Ссылка устарела. Закройте окно и получите новую.",
+    "msg.done": "{title} привязан: {account}",
+  },
+
+  en: {
+    "app.description": "Reminders for recurring payments: due dates, payments, overdue",
+
+    "common.cancel": "Cancel",
+    "common.save": "Save",
+    "common.close": "Close",
+    "common.delete": "Delete",
+    "common.edit": "Edit",
+    "common.loading": "Loading…",
+    "common.reset": "Reset",
+    "common.today": "Today",
+    "common.showMore": "Show more",
+    "common.nothingToChange": "Nothing to change",
+
+    "error.network": "No connection to the server",
+    "error.server": "Server error ({status})",
+    "error.load": "Could not load the data",
+
+    "field.login": "Login",
+    "field.password": "Password",
+    "field.name": "Name",
+    "field.amount": "Amount",
+    "field.currency": "Currency",
+    "field.period": "Frequency",
+    "field.first_due_date": "Next due date",
+    "field.status": "Status",
+    "field.paid_at": "Payment date",
+    "field.url": "Link",
+    "field.file": "File",
+    "field.title": "Title",
+    "field.q": "Search",
+
+    "valid.string_too_short": "too short",
+    "valid.string_too_long": "too long",
+    "valid.string_pattern_mismatch": "invalid characters",
+    "valid.greater_than": "must be greater than zero",
+    "valid.decimal_max_places": "at most two decimal places",
+    "valid.decimal_parsing": "not a valid number",
+    "valid.decimal_type": "not a valid number",
+    "valid.decimal_max_digits": "the number is too large",
+    "valid.extra_forbidden": "field is not supported",
+    "valid.missing": "required field",
+    "valid.date_parsing": "not a valid date",
+    "valid.date_from_datetime_parsing": "not a valid date",
+    "valid.enum": "value is not allowed",
+
+    "check.amount": "Amount: a positive number with at most two decimal places",
+    "check.login": "Login: 3–64 characters, Latin letters, digits and . _ @ -",
+    "check.password": "Password: 8 to 128 characters",
+    "check.name": "Name: enter the payment name",
+    "check.firstDue": "Next due date: pick a date",
+    "check.paidAt": "Pick the payment date",
+    "check.newSchedule": "New schedule: pick the next due date",
+    "check.url": "Link: the address must start with http:// or https://",
+    "check.file": "File: choose a file",
+    "check.credentials": "Enter your login and password",
+
+    "pw.show": "Show password",
+    "pw.hide": "Hide password",
+
+    "auth.title": "Sign in",
+    "auth.lead": "Payments, due dates and reminders in one place.",
+    "auth.submit": "Sign in",
+    "auth.invalid": "Wrong login or password",
+    "auth.expired": "Your session has ended, please sign in again",
+    "auth.promoTitle": "payments under control",
+    "auth.point1": "A reminder 3 days before the due date in Telegram, MAX and by email",
+    "auth.point2": "Overdue is calculated automatically, payment history is never lost",
+    "auth.point3": "RUB, USD and EUR with separate totals for each currency",
+
+    "shell.logout": "Sign out",
+    "shell.today": "today",
+    "shell.addPayment": "Add payment",
+    "shell.api": "API & Swagger",
+    "shell.menu": "Menu",
+    "shell.language": "Language",
+    "role.admin": "admin",
+    "role.user": "user",
+
+    "tab.payments": "Payments",
+    "tab.calendar": "Calendar",
+    "tab.budget": "Budget",
+    "tab.recurring": "Recurring payments",
+    "tab.users": "Users",
+    "tab.audit": "Activity log",
+    "tab.messengers": "Messengers",
+
+    "currency.RUB": "Russian ruble",
+    "currency.USD": "US dollar",
+    "currency.EUR": "Euro",
+
+    "status.paid": "Paid",
+    "status.late": "Paid late",
+    "status.lateDays": "Paid late ({days})",
+    "status.overdue": "Overdue {days}",
+    "status.soon": "Due soon",
+    "status.unpaid": "Unpaid",
+    "status.planned": "Planned",
+
+    "due.overdueBy": "overdue by {days}",
+    "due.today": "today",
+    "due.tomorrow": "tomorrow",
+    "due.in": "in {days}",
+
+    "payments.lead": "What to pay and when, what is already paid and what is overdue",
+    "payments.summary": "Totals by currency",
+    "payments.list": "payment periods",
+    "payments.all": "All",
+    "payments.unpaid": "Unpaid",
+    "payments.overdue": "Overdue",
+    "payments.paid": "Paid",
+    "payments.allPeriods": "All periods",
+    "payments.thisMonth": "This month",
+    "payments.allCurrencies": "All currencies",
+    "payments.withDeleted": "Include stopped",
+    "payments.onDate": "Totals as of",
+    "payments.shown": "Shown: {n}",
+    "payments.search": "Search by name",
+    "payments.csv": "Download CSV",
+    "payments.csvHint": "Export with the current filters, opens in Excel",
+    "payments.empty": "No payments match these filters",
+    "payments.emptyAdmin": "Add your first payment in “Recurring payments”.",
+    "payments.emptyUser": "The administrator has not added any payments yet.",
+    "payments.stopped": "Payment stopped",
+    "col.payment": "Payment",
+    "col.amount": "Amount",
+    "col.due": "Due",
+    "col.status": "Status",
+    "col.paidAt": "Paid on",
+    "act.markPaid": "Mark as paid",
+    "act.changeDate": "Change date",
+    "act.undo": "Undo",
+
+    "sum.onDate": "as of {date}",
+    "sum.toPay": "to pay · {payments}",
+    "sum.allClosed": "to pay · all settled",
+    "sum.overdue": "Overdue",
+    "sum.paid": "Paid",
+    "sum.left": "Left",
+    "sum.sticker": "overdue!",
+
+    "pay.title": "Mark as paid",
+    "pay.titleEdit": "Change payment date",
+    "pay.desc": "{name}, due {date}, {amount}",
+    "pay.confirm": "Paid",
+    "pay.field": "Actual payment date",
+    "pay.hint": "If you paid on another day, enter the real date: overdue is counted from it",
+    "pay.done": "Payment marked",
+    "pay.doneEdit": "Payment date updated",
+    "unpay.title": "Undo the payment?",
+    "unpay.desc": "The “{name}” period due {date} becomes unpaid again and its payment date is cleared.",
+    "unpay.confirm": "Undo payment",
+    "unpay.done": "Payment undone",
+
+    "rc.button": "Receipts",
+    "rc.buttonCount": "Receipts ({n})",
+    "rc.title": "Receipts and links",
+    "rc.desc": "{name}, due {date}",
+    "rc.kind.file": "file",
+    "rc.kind.link": "link",
+    "rc.deleted": "Attachment deleted",
+    "rc.empty": "Nothing attached yet",
+    "rc.linkTitle": "Attach a link",
+    "rc.url": "URL",
+    "rc.titleOptional": "Title (optional)",
+    "rc.linkPlaceholder": "Bank receipt",
+    "rc.addLink": "Add link",
+    "rc.linkAdded": "Link attached",
+    "rc.fileTitle": "Upload a receipt",
+    "rc.fileHint": "PDF, PNG, JPEG or WebP, up to 5 MB",
+    "rc.upload": "Upload receipt",
+    "rc.uploaded": "Receipt uploaded",
+    "rc.stopped": "The payment is stopped: attachments can be viewed but not added",
+    "size.mb": "{n} MB",
+    "size.kb": "{n} KB",
+
+    "period.monthly": "Monthly",
+    "period.quarterly": "Quarterly",
+    "period.yearly": "Yearly",
+    "hint.yearly": "every year on {day}",
+    "hint.yearlyLeap": "every year on {day}, on 28 February in non-leap years",
+    "hint.quarterly": "every 3 months, ",
+    "hint.day": "on day {d}",
+    "hint.short": ", on the last day in shorter months",
+
+    "rec.lead": "A payment repeats monthly, quarterly or yearly; a reminder arrives 3 days before the due date",
+    "rec.list": "all payments",
+    "rec.colPeriod": "Frequency",
+    "rec.colNext": "Next unpaid due date",
+    "rec.colNextShort": "Next due",
+    "rec.firstDue": "first due {date}",
+    "rec.stop": "Stop",
+    "rec.empty": "No recurring payments yet",
+    "rec.emptyText": "Add rent, a subscription or a server bill with the form above.",
+    "rec.new": "New recurring payment",
+    "rec.namePlaceholder": "Office rent",
+    "rec.add": "Add",
+    "rec.added": "Payment “{name}” added",
+    "rec.editTitle": "Edit payment",
+    "rec.editDesc": "The new amount applies to unpaid periods from today; paid and past periods keep theirs. The currency ({currency}) does not change.",
+    "rec.amountIn": "Amount, {currency}",
+    "rec.newFirstDue": "Next due date on the new schedule",
+    "rec.newFirstDueHint": "only if the schedule changes: unpaid future dates of the old schedule are removed, the history stays",
+    "rec.updated": "Payment “{name}” updated",
+    "rec.stopTitle": "Stop the payment?",
+    "rec.stopDesc": "“{name}” will no longer create periods or reminders. The payment history is kept.",
+    "rec.stopped": "Payment “{name}” stopped",
+
+    "users.lead": "Regular accounts. The administrator is set in .env and is not listed here",
+    "users.list": "accounts",
+    "users.colCreated": "Created",
+    "users.colMessengers": "Messengers",
+    "users.empty": "No regular users yet",
+    "users.emptyText": "Create an account with the form above so your team can mark payments.",
+    "users.new": "New user",
+    "users.passwordPlaceholder": "at least 8 characters",
+    "users.create": "Create",
+    "users.created": "User “{login}” created",
+    "users.editTitle": "Edit user",
+    "users.newPassword": "New password",
+    "users.newPasswordHint": "leave empty to keep it; changing the password ends the user's sessions",
+    "users.updated": "User updated",
+    "users.deleteTitle": "Delete the user?",
+    "users.deleteDesc": "“{login}” loses access immediately and their sessions end.",
+    "users.deleted": "User “{login}” deleted",
+
+    "cal.title": "Payment calendar",
+    "cal.lead": "Due dates for this month and beyond: future periods are calculated from the repeat rule",
+    "cal.prev": "Previous month",
+    "cal.next": "Next month",
+    "cal.none": "No payments this month",
+    "cal.noneDay": "No payments on this day",
+    "cal.dayLabel": "{date}, payments: {n}",
+    "cal.paidShare": "Share paid",
+    "cal.paidLeft": "paid {paid} · left {left}",
+    "cal.paidOn": "paid {date}",
+    "cal.stopped": "payment stopped",
+
+    "budget.lead": "Planned spending for each currency separately, without conversion. Click a month to open it in the calendar",
+    "budget.year": "{year}",
+    "budget.prev": "Previous year",
+    "budget.next": "Next year",
+    "budget.plan": "plan for the year",
+    "budget.none": "no payments",
+    "budget.month": "Month",
+    "budget.byMonth": "by month",
+    "budget.paidAll": "paid",
+    "budget.paidPart": "paid {amount}",
+    "budget.empty": "No payments this year",
+    "budget.emptyText": "The budget appears once the administrator adds recurring payments.",
+
+    "audit.lead": "Who did what: sign-ins, payments (including from Telegram and MAX), recurring payments, users. Passwords never get here",
+    "audit.colTime": "Time",
+    "audit.colWho": "Who",
+    "audit.colAction": "Action",
+    "audit.colDetails": "Details",
+    "audit.colIp": "IP address",
+    "audit.empty": "No entries",
+    "audit.emptyText": "Sign-ins, payments and changes to payments and users will appear here.",
+    "audit.due": "due {date}",
+    "audit.paidOn": "paid {date}",
+    "audit.paidChanged": "{name}, {due}: payment date {before} → {after}",
+    "audit.created": "{name}, {amount}, {period}first due {date}",
+    "audit.amountChanged": "amount {before} → {after}",
+    "audit.scheduleChanged": "schedule: {period}, next due {date}",
+    "audit.passwordChanged": "password changed",
+    "audit.channel": "{name}, {due}, channel: {channel}",
+    "audit.failed": "sign-in attempt with this login",
+    "audit.locked": "sign-in locked for {minutes} min",
+    "audit.f.all": "All",
+    "audit.f.auth": "Sign-ins",
+    "audit.f.occurrence": "Payments made",
+    "audit.f.payment": "Recurring",
+    "audit.f.user": "Users",
+    "audit.f.reminder": "Reminders",
+    "audit.f.messenger": "Messengers",
+    "audit.p.all": "All time",
+    "audit.p.1": "Today",
+    "audit.p.7": "7 days",
+    "audit.p.30": "30 days",
+    "action.auth.login": "Signed in",
+    "action.auth.login_failed": "Failed sign-in",
+    "action.auth.login_locked": "Sign-in locked",
+    "action.auth.logout": "Signed out",
+    "action.payment.create": "Payment added",
+    "action.payment.update": "Payment edited",
+    "action.payment.delete": "Payment stopped",
+    "action.occurrence.paid": "Payment marked",
+    "action.occurrence.unpaid": "Payment undone",
+    "action.occurrence.paid_at_changed": "Payment date corrected",
+    "action.user.create": "User created",
+    "action.user.update": "User edited",
+    "action.user.delete": "User deleted",
+    "action.receipt.add": "Receipt or link added",
+    "action.receipt.delete": "Receipt or link deleted",
+    "action.reminder.sent": "Reminder sent",
+    "action.reminder.overdue_sent": "Overdue reminder sent",
+    "action.messenger.link": "Messenger linked",
+    "action.messenger.unlink": "Messenger unlinked",
+    "actor.admin": "admin",
+    "actor.user": "user",
+    "actor.telegram": "Telegram",
+    "actor.max": "MAX",
+    "actor.system": "system",
+    "actor.anonymous": "anonymous",
+
+    "msg.lead": "Link Telegram or MAX to get payment reminders personally, with a “Paid” button. A payment marked in the messenger is recorded under your name",
+    "msg.notConfigured": "This messenger's bot is not configured on the server",
+    "msg.linkedTo": "Linked: ",
+    "msg.since": " · since {date}",
+    "msg.notLinkedText": "Not linked: reminders go to the shared chat only",
+    "msg.linked": "linked",
+    "msg.notLinked": "not linked",
+    "msg.link": "Link",
+    "msg.linkOther": "Link another account",
+    "msg.unlink": "Unlink",
+    "msg.unlinkTitle": "Unlink {title}?",
+    "msg.unlinkDesc": "Personal reminders in {title} will stop. The shared chat keeps working.",
+    "msg.unlinked": "{title} unlinked",
+    "msg.linkTitle": "Link {title}",
+    "msg.linkByUrl": "Open the bot via the link and press “Start”. The link is single-use and valid until {until}.",
+    "msg.linkByCommand": "Find the {title} bot and send it the command below in a private chat. It is single-use and valid until {until}.",
+    "msg.open": "Open {title}",
+    "msg.alt": "If the link does not open, send this command to the bot in a private chat:",
+    "msg.copy": "Copy",
+    "msg.copied": "Command copied",
+    "msg.copyFailed": "Could not copy, select the command manually",
+    "msg.wait": "Waiting for the bot to confirm…",
+    "msg.expired": "The link has expired. Close this window and get a new one.",
+    "msg.done": "{title} linked: {account}",
+  },
+};
+
+// Склонения: формы подбираются по Intl.PluralRules выбранного языка
+const PLURALS = {
+  ru: {
+    day: { one: "день", few: "дня", many: "дней", other: "дня" },
+    payment: { one: "платёж", few: "платежа", many: "платежей", other: "платежа" },
+  },
+  en: {
+    day: { one: "day", other: "days" },
+    payment: { one: "payment", other: "payments" },
+  },
+};
+
+// Сервер отвечает по-русски; в английском интерфейсе переводим известные ответы, остальное показываем как есть
+const SERVER_EN = {
+  "Аккаунт не привязан": "The account is not linked",
+  "Бот этого мессенджера не настроен на сервере": "This messenger's bot is not configured on the server",
+  "Не найдено": "Not found",
+  "Неверный логин или пароль": "Wrong login or password",
+  "Нужно передать login или password": "Pass login or password",
+  "Нужно передать хотя бы одно поле": "Pass at least one field",
+  "Платёж не найден": "Payment not found",
+  "Пользователь не найден": "User not found",
+  "Регулярный платёж не найден": "Recurring payment not found",
+  "Регулярный платёж прекращён, период изменить нельзя": "The recurring payment is stopped, the period cannot be changed",
+  "Только для администратора": "Administrators only",
+  "Требуется авторизация": "Sign-in required",
+  "Удалить может администратор или автор вложения": "Only an administrator or the author of the attachment can delete it",
+  "Ссылка: нужен адрес, начинающийся с http:// или https://": "Link: the address must start with http:// or https://",
+  "Ссылка слишком длинная (до 2000 символов)": "The link is too long (up to 2000 characters)",
+  "Файл пустой": "The file is empty",
+  "Допустимы только PDF, PNG, JPEG и WebP": "Only PDF, PNG, JPEG and WebP are allowed",
+  "Новый график: укажите дату ближайшей оплаты": "New schedule: pick the next due date",
+  "Дата ближайшей оплаты по новому графику не может быть в прошлом": "The next due date on the new schedule cannot be in the past",
+  "Этот логин зарезервирован": "This login is reserved",
+  "Пользователь с таким логином уже есть": "A user with this login already exists",
+  "Учётная запись администратора не управляется через панель": "The administrator account is not managed in the panel",
+  "Нужно передать status или paid_at": "Pass status or paid_at",
+  "Фактическая дата оплаты не может быть в будущем": "The actual payment date cannot be in the future",
+  "Период не оплачен: сначала отметьте оплату (status=paid)": "The period is unpaid: mark it as paid first (status=paid)",
+  "Для неоплаченного периода дата оплаты не указывается": "An unpaid period has no payment date",
+  "Нельзя очистить дату оплаты у оплаченного периода: отмените оплату": "The payment date of a paid period cannot be cleared: undo the payment",
+};
+
+const SERVER_EN_PATTERNS = [
+  [/^Слишком много неудачных попыток входа\. Попробуйте через (\d+) мин\.$/, "Too many failed sign-in attempts. Try again in $1 min."],
+  [/^Файл больше (\d+) МБ$/, "The file is larger than $1 MB"],
+  [/^К одному периоду можно прикрепить не больше (\d+) чеков и ссылок$/, "A period can have at most $1 receipts and links"],
+];
+
+function savedLang() {
+  try {
+    return localStorage.getItem(LANG_KEY);
+  } catch {
+    return null;
+  }
+}
+
+function initialLang() {
+  const saved = savedLang();
+  if (saved && I18N[saved]) return saved;
+  return String(navigator.language || "").toLowerCase().startsWith("en") ? "en" : "ru";
+}
+
+let lang = initialLang();
+
+const locale = () => (LANGS.find((l) => l.id === lang) || LANGS[0]).locale;
+
+function t(key, vars = {}) {
+  const text = I18N[lang][key] ?? I18N.ru[key];
+  if (text === undefined) return key;
+  return text.replace(/\{(\w+)\}/g, (match, name) => (name in vars ? String(vars[name]) : match));
+}
+
+function has(key) {
+  return key in I18N[lang] || key in I18N.ru;
+}
+
+function plural(n, key) {
+  const forms = PLURALS[lang][key];
+  return `${n} ${forms[new Intl.PluralRules(locale()).select(n)] || forms.other}`;
+}
+
+function serverText(text) {
+  if (lang === "ru" || typeof text !== "string") return text;
+  if (SERVER_EN[text]) return SERVER_EN[text];
+  for (const [pattern, out] of SERVER_EN_PATTERNS) {
+    const match = text.match(pattern);
+    if (match) return out.replace(/\$(\d)/g, (_, i) => match[Number(i)]);
+  }
+  return text;
+}
 
 // ---------- DOM ----------
 
@@ -41,38 +802,132 @@ function h(tag, attrs = {}, ...children) {
 
 const app = () => document.getElementById("app");
 
+const SVG_NS = "http://www.w3.org/2000/svg";
+
+function svg(tag, attrs = {}, ...children) {
+  const el = document.createElementNS(SVG_NS, tag);
+  for (const [key, value] of Object.entries(attrs)) el.setAttribute(key, value);
+  el.append(...children);
+  return el;
+}
+
+// Линейные иконки 24×24 в духе иконок кабинета; строка — path, объект — circle или rect
+const ICONS = {
+  payments: ["M5 3h14v18l-3-2-2 2-2-2-2 2-2-2-3 2Z", "M9 8h6", "M9 12h6", "M9 16h3"],
+  calendar: [{ rect: [3, 4, 18, 18, 2] }, "M16 2v4", "M8 2v4", "M3 10h18"],
+  budget: ["M21.2 15.9A10 10 0 1 1 8 2.8", "M22 12A10 10 0 0 0 12 2v10Z"],
+  recurring: ["m17 2 4 4-4 4", "M3 11v-1a4 4 0 0 1 4-4h14", "m7 22-4-4 4-4", "M21 13v1a4 4 0 0 1-4 4H3"],
+  users: ["M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2", { circle: [9, 7, 4] }, "M22 21v-2a4 4 0 0 0-3-3.87", "M16 3.13a4 4 0 0 1 0 7.75"],
+  audit: ["M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z", "M14 2v5h5", "M16 13H8", "M16 17H8", "M10 9H8"],
+  messengers: ["M7.9 20A9 9 0 1 0 4 16.1L2 22Z"],
+  logout: ["M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4", "m16 17 5-5-5-5", "M21 12H9"],
+  plus: ["M5 12h14", "M12 5v14"],
+  chevronRight: ["m9 18 6-6-6-6"],
+  chevronLeft: ["m15 18-6-6 6-6"],
+  menu: ["M4 6h16", "M4 12h16", "M4 18h16"],
+  globe: [{ circle: [12, 12, 10] }, "M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20", "M2 12h20"],
+  book: ["m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2Z"],
+  check: ["M20 6 9 17l-5-5"],
+  download: ["M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4", "m7 10 5 5 5-5", "M12 15V3"],
+};
+
+function icon(name) {
+  const parts = (ICONS[name] || []).map((part) => {
+    if (typeof part === "string") return svg("path", { d: part });
+    if (part.circle) {
+      const [cx, cy, r] = part.circle;
+      return svg("circle", { cx, cy, r });
+    }
+    const [x, y, width, height, rx] = part.rect;
+    return svg("rect", { x, y, width, height, rx });
+  });
+  return svg("svg", { class: "ic", viewBox: "0 0 24 24", "aria-hidden": "true", focusable: "false" }, ...parts);
+}
+
+// Флаги в кружке, как у выбора языка в кабинете: свои SVG, эмодзи-флаги Windows не рисует
+function flag(id) {
+  if (id === "ru") {
+    return svg(
+      "svg",
+      { class: "flag", viewBox: "0 0 9 6", preserveAspectRatio: "xMidYMid slice", "aria-hidden": "true" },
+      svg("rect", { width: 9, height: 2, fill: "#ffffff" }),
+      svg("rect", { y: 2, width: 9, height: 2, fill: "#0039a6" }),
+      svg("rect", { y: 4, width: 9, height: 2, fill: "#d52b1e" }),
+    );
+  }
+  return svg(
+    "svg",
+    { class: "flag", viewBox: "0 0 60 30", preserveAspectRatio: "xMidYMid slice", "aria-hidden": "true" },
+    svg("rect", { width: 60, height: 30, fill: "#012169" }),
+    svg("path", { d: "M0 0 60 30M60 0 0 30", stroke: "#ffffff", "stroke-width": 6 }),
+    svg("path", { d: "M0 0 60 30M60 0 0 30", stroke: "#c8102e", "stroke-width": 2 }),
+    svg("path", { d: "M30 0v30M0 15h60", stroke: "#ffffff", "stroke-width": 10 }),
+    svg("path", { d: "M30 0v30M0 15h60", stroke: "#c8102e", "stroke-width": 6 }),
+  );
+}
+
 function toast(message, kind = "ok") {
-  const el = h("div", { class: `toast ${kind === "error" ? "error" : ""}` }, message);
+  const isError = kind === "error";
+  const el = h("div", { class: "toast" }, h("span", { class: `toast-icon ${isError ? "error" : "ok"}`, "aria-hidden": "true" }), h("span", {}, message));
   document.getElementById("toasts").append(el);
-  setTimeout(() => el.remove(), kind === "error" ? 6500 : 3500);
+  setTimeout(() => {
+    el.classList.add("leaving");
+    el.addEventListener("animationend", () => el.remove(), { once: true });
+    setTimeout(() => el.remove(), 600); // без анимаций (prefers-reduced-motion) событие не придёт
+  }, isError ? 6500 : 3500);
+}
+
+function setBusy(button, busy) {
+  button.disabled = busy;
+  button.classList.toggle("is-busy", busy);
 }
 
 // ---------- форматирование ----------
 
 function money(value, currency) {
-  return new Intl.NumberFormat("ru-RU", { style: "currency", currency }).format(Number(value));
+  return new Intl.NumberFormat(locale(), { style: "currency", currency, currencyDisplay: "narrowSymbol" }).format(Number(value));
+}
+
+function utcDate(iso) {
+  const [y, m, d] = iso.split("-").map(Number);
+  return new Date(Date.UTC(y, m - 1, d));
 }
 
 function fmtDate(iso) {
   if (!iso) return "—";
-  const [y, m, d] = iso.split("-");
-  return `${d}.${m}.${y}`;
+  if (lang === "ru") {
+    const [y, m, d] = iso.split("-");
+    return `${d}.${m}.${y}`;
+  }
+  return new Intl.DateTimeFormat(locale(), { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" }).format(utcDate(iso));
+}
+
+function fmtShort(iso) {
+  return new Intl.DateTimeFormat(locale(), { day: "numeric", month: "short", timeZone: "UTC" }).format(utcDate(iso));
+}
+
+function fmtDayMonth(iso) {
+  return new Intl.DateTimeFormat(locale(), { day: "numeric", month: "long", timeZone: "UTC" }).format(utcDate(iso));
 }
 
 function fmtDateTime(iso) {
-  return new Date(iso).toLocaleString("ru-RU", { dateStyle: "short", timeStyle: "short" });
+  return new Date(iso).toLocaleString(locale(), { dateStyle: "short", timeStyle: "short" });
+}
+
+function monthName(month) {
+  const name = new Intl.DateTimeFormat(locale(), { month: "long", timeZone: "UTC" }).format(new Date(Date.UTC(2026, month - 1, 1)));
+  return name.charAt(0).toUpperCase() + name.slice(1);
+}
+
+function weekdays() {
+  // 5 января 2026 года — понедельник
+  return Array.from({ length: 7 }, (_, i) =>
+    new Intl.DateTimeFormat(locale(), { weekday: "short", timeZone: "UTC" }).format(new Date(Date.UTC(2026, 0, 5 + i))),
+  );
 }
 
 function diffDays(fromIso, toIso) {
-  const parse = (s) => Date.UTC(...s.split("-").map((n, i) => (i === 1 ? Number(n) - 1 : Number(n))));
-  return Math.round((parse(toIso) - parse(fromIso)) / 86400000);
-}
-
-function plural(n, forms) {
-  const mod10 = n % 10;
-  const mod100 = n % 100;
-  const form = mod10 === 1 && mod100 !== 11 ? 0 : mod10 >= 2 && mod10 <= 4 && (mod100 < 10 || mod100 >= 20) ? 1 : 2;
-  return `${n} ${forms[form]}`;
+  return Math.round((utcDate(toIso) - utcDate(fromIso)) / 86400000);
 }
 
 function monthRange(iso) {
@@ -91,48 +946,20 @@ class ApiError extends Error {
   }
 }
 
-const FIELD_NAMES = {
-  login: "Логин",
-  password: "Пароль",
-  name: "Название",
-  amount: "Сумма",
-  currency: "Валюта",
-  first_due_date: "Дата ближайшей оплаты",
-  status: "Статус",
-  paid_at: "Дата оплаты",
-  url: "Ссылка",
-  file: "Файл",
-  title: "Название",
-};
-
-const VALIDATION_TEXT = {
-  string_too_short: "слишком короткое значение",
-  string_too_long: "слишком длинное значение",
-  string_pattern_mismatch: "недопустимые символы",
-  greater_than: "должно быть больше нуля",
-  decimal_max_places: "не больше двух знаков после запятой",
-  decimal_parsing: "неверное число",
-  decimal_type: "неверное число",
-  decimal_max_digits: "слишком большое число",
-  extra_forbidden: "поле не поддерживается",
-  missing: "обязательное поле",
-  date_parsing: "неверная дата",
-  date_from_datetime_parsing: "неверная дата",
-  enum: "недопустимое значение",
-};
-
 function explain(data, status) {
   const detail = data && data.detail;
-  if (typeof detail === "string") return detail;
+  if (typeof detail === "string") return serverText(detail);
   if (Array.isArray(detail)) {
     return detail
       .map((e) => {
         const field = e.loc && e.loc[e.loc.length - 1];
-        return `${FIELD_NAMES[field] || field}: ${VALIDATION_TEXT[e.type] || e.msg}`;
+        const name = has(`field.${field}`) ? t(`field.${field}`) : field;
+        const reason = has(`valid.${e.type}`) ? t(`valid.${e.type}`) : e.msg;
+        return `${name}: ${reason}`;
       })
       .join("; ");
   }
-  return `Ошибка сервера (${status})`;
+  return t("error.server", { status });
 }
 
 async function api(path, { method = "GET", body, params, silent = false } = {}) {
@@ -151,7 +978,7 @@ async function api(path, { method = "GET", body, params, silent = false } = {}) 
       credentials: "same-origin",
     });
   } catch {
-    throw new ApiError(0, "Нет связи с сервером");
+    throw new ApiError(0, t("error.network"));
   }
 
   if (response.status === 204) return null;
@@ -172,21 +999,9 @@ async function api(path, { method = "GET", body, params, silent = false } = {}) 
 // ---------- модальные окна ----------
 
 function eyeIcon(open) {
-  const ns = "http://www.w3.org/2000/svg";
-  const svg = document.createElementNS(ns, "svg");
-  svg.setAttribute("viewBox", "0 0 24 24");
-  svg.setAttribute("aria-hidden", "true");
-  const shapes = [
-    ["path", { d: "M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z" }],
-    ["circle", { cx: "12", cy: "12", r: "3" }],
-  ];
-  if (!open) shapes.push(["path", { d: "M3 3l18 18" }]);
-  for (const [tag, attrs] of shapes) {
-    const el = document.createElementNS(ns, tag);
-    for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, v);
-    svg.append(el);
-  }
-  return svg;
+  const shapes = [svg("path", { d: "M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z" }), svg("circle", { cx: "12", cy: "12", r: "3" })];
+  if (!open) shapes.push(svg("path", { d: "M3 3l18 18" }));
+  return svg("svg", { viewBox: "0 0 24 24", "aria-hidden": "true" }, ...shapes);
 }
 
 // Поле пароля с кнопкой «глаз»: показывает и снова скрывает введённое
@@ -195,15 +1010,15 @@ function passwordInput(attrs) {
   const toggle = h("button", {
     type: "button",
     class: "pw-toggle",
-    "aria-label": "Показать пароль",
+    "aria-label": t("pw.show"),
     "aria-pressed": "false",
-    title: "Показать пароль",
+    title: t("pw.show"),
   });
   toggle.append(eyeIcon(true));
   toggle.addEventListener("click", () => {
     const show = input.type === "password";
     input.type = show ? "text" : "password";
-    const label = show ? "Скрыть пароль" : "Показать пароль";
+    const label = show ? t("pw.hide") : t("pw.show");
     toggle.setAttribute("aria-label", label);
     toggle.setAttribute("title", label);
     toggle.setAttribute("aria-pressed", String(show));
@@ -219,10 +1034,27 @@ function field({ label, name, type = "text", value = "", hint, required = true, 
   return h("label", { class: "field" }, h("span", {}, label), control, hint ? h("span", { class: "hint" }, hint) : null);
 }
 
-function openDialog({ title, description, fields = [], confirmLabel = "Сохранить", danger = false, onSubmit }) {
+function selectField(label, name, options) {
+  return h("label", { class: "field" }, h("span", {}, label), h("select", { name }, options));
+}
+
+// Окно появляется масштабом 0.9 → 1 (CSS), закрывается так же: удаляем из DOM после анимации
+function presentDialog(dialog, onClose) {
+  let pressedOutside = false;
+  dialog.addEventListener("mousedown", (event) => { pressedOutside = event.target === dialog; });
+  dialog.addEventListener("click", (event) => { if (pressedOutside && event.target === dialog) dialog.close(); });
+  dialog.addEventListener("close", () => {
+    if (onClose) onClose();
+    setTimeout(() => dialog.remove(), 320);
+  });
+  document.body.append(dialog);
+  dialog.showModal();
+}
+
+function openDialog({ title, description, fields = [], confirmLabel = t("common.save"), danger = false, onSubmit }) {
   const error = h("p", { class: "form-error", role: "alert" });
   const submit = h("button", { type: "submit", class: `btn btn-primary ${danger ? "btn-danger" : ""}` }, confirmLabel);
-  const cancel = h("button", { type: "button", class: "btn", onclick: () => dialog.close() }, "Отмена");
+  const cancel = h("button", { type: "button", class: "btn", onclick: () => dialog.close() }, t("common.cancel"));
   const form = h(
     "form",
     { method: "dialog", novalidate: true },
@@ -237,18 +1069,16 @@ function openDialog({ title, description, fields = [], confirmLabel = "Сохр�
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
     error.textContent = "";
-    submit.disabled = true;
+    setBusy(submit, true);
     try {
       await onSubmit(new FormData(form));
       dialog.close();
     } catch (err) {
       error.textContent = err.message;
-      submit.disabled = false;
+      setBusy(submit, false);
     }
   });
-  dialog.addEventListener("close", () => dialog.remove());
-  document.body.append(dialog);
-  dialog.showModal();
+  presentDialog(dialog);
   const first = form.querySelector("input");
   if (first) first.focus();
 }
@@ -257,20 +1087,91 @@ function openDialog({ title, description, fields = [], confirmLabel = "Сохр�
 
 function parseAmount(raw) {
   const text = String(raw).trim().replace(",", ".");
-  if (!/^\d{1,10}(\.\d{1,2})?$/.test(text) || Number(text) <= 0) {
-    throw new Error("Сумма: положительное число, не больше двух знаков после запятой");
-  }
+  if (!/^\d{1,10}(\.\d{1,2})?$/.test(text) || Number(text) <= 0) throw new Error(t("check.amount"));
   return text;
 }
 
 function checkLogin(login) {
-  if (!/^[A-Za-z0-9._@-]{3,64}$/.test(login)) {
-    throw new Error("Логин: 3–64 символа, латиница, цифры и . _ @ -");
-  }
+  if (!/^[A-Za-z0-9._@-]{3,64}$/.test(login)) throw new Error(t("check.login"));
 }
 
 function checkPassword(password) {
-  if (password.length < 8 || password.length > 128) throw new Error("Пароль: от 8 до 128 символов");
+  if (password.length < 8 || password.length > 128) throw new Error(t("check.password"));
+}
+
+// ---------- язык ----------
+
+function setTitle() {
+  document.documentElement.lang = lang;
+  document.title = state.me ? `${t(`tab.${state.tab}`)} · Invoice Keeper` : "Invoice Keeper";
+  const meta = document.querySelector('meta[name="description"]');
+  if (meta) meta.setAttribute("content", t("app.description"));
+}
+
+function setLang(id) {
+  if (!I18N[id] || id === lang) return;
+  lang = id;
+  try {
+    localStorage.setItem(LANG_KEY, id);
+  } catch {
+    /* приватный режим: язык просто не запомнится */
+  }
+  if (state.me) showApp().catch(report);
+  else showLogin();
+}
+
+function closeLangMenus(except = null) {
+  for (const el of document.querySelectorAll(".lang.open")) {
+    if (el === except) continue;
+    el.classList.remove("open");
+    el.querySelector(".lang-toggle").setAttribute("aria-expanded", "false");
+  }
+}
+
+// Выбор языка: пункт меню с флагом, список всплывает с масштабом 0.95 → 1 за 0.2 с
+function langSelect(direction = "up") {
+  const current = LANGS.find((l) => l.id === lang);
+  const wrap = h("div", { class: `lang ${direction === "down" ? "down" : ""}` });
+  const toggle = h(
+    "button",
+    {
+      type: "button",
+      class: "nav-item lang-toggle",
+      "aria-haspopup": "menu",
+      "aria-expanded": "false",
+      title: t("shell.language"),
+    },
+    h("span", { class: "lang-current" }, flag(current.id), current.label),
+    icon("globe"),
+  );
+  const menu = h(
+    "div",
+    { class: "lang-menu", role: "menu", "aria-label": t("shell.language") },
+    LANGS.map((l) =>
+      h(
+        "button",
+        {
+          type: "button",
+          class: "lang-option",
+          role: "menuitemradio",
+          lang: l.id,
+          "aria-checked": String(l.id === lang),
+          onclick: () => { closeLangMenus(); setLang(l.id); },
+        },
+        flag(l.id),
+        l.label,
+        l.id === lang ? icon("check") : null,
+      ),
+    ),
+  );
+  toggle.addEventListener("click", () => {
+    const open = !wrap.classList.contains("open");
+    closeLangMenus(wrap);
+    wrap.classList.toggle("open", open);
+    toggle.setAttribute("aria-expanded", String(open));
+  });
+  wrap.append(toggle, menu);
+  return wrap;
 }
 
 // ---------- вход и выход ----------
@@ -278,17 +1179,27 @@ function checkPassword(password) {
 function sessionExpired() {
   if (!state.me) return;
   state.me = null;
-  showLogin("Сессия закончилась, войдите снова");
+  showLogin(t("auth.expired"));
+}
+
+function authShape() {
+  return svg(
+    "svg",
+    { class: "auth-shape", viewBox: "0 0 274 301", "aria-hidden": "true" },
+    svg("path", { d: "M264 134c13 7 13 26 0 33L28 298c-13 7-28-2-28-17V19C0 5 16-5 28 3Z" }),
+  );
 }
 
 function showLogin(notice = "") {
+  ui = null;
+  setTitle();
   const error = h("p", { class: "form-error", role: "alert" }, notice);
-  const submit = h("button", { type: "submit", class: "btn btn-primary btn-block" }, "Войти");
+  const submit = h("button", { type: "submit", class: "btn btn-block" }, t("auth.submit"));
   const form = h(
     "form",
     { novalidate: true },
-    field({ label: "Логин", name: "login", autocomplete: "username", autocapitalize: "none", spellcheck: "false" }),
-    field({ label: "Пароль", name: "password", type: "password", autocomplete: "current-password" }),
+    field({ label: t("field.login"), name: "login", autocomplete: "username", autocapitalize: "none", spellcheck: "false" }),
+    field({ label: t("field.password"), name: "password", type: "password", autocomplete: "current-password" }),
     error,
     submit,
   );
@@ -299,33 +1210,45 @@ function showLogin(notice = "") {
     const login = String(data.get("login")).trim();
     const password = String(data.get("password"));
     if (!login || !password) {
-      error.textContent = "Введите логин и пароль";
+      error.textContent = t("check.credentials");
       return;
     }
     error.textContent = "";
-    submit.disabled = true;
+    setBusy(submit, true);
     try {
       const result = await api("/auth/login", { method: "POST", body: { login, password }, silent: true });
       state.me = result.user;
       state.tab = "payments";
       await showApp();
     } catch (err) {
-      error.textContent = err.status === 401 ? "Неверный логин или пароль" : err.message;
-      submit.disabled = false;
+      error.textContent = err.status === 401 ? t("auth.invalid") : err.message;
+      setBusy(submit, false);
     }
   });
+
+  const points = ["auth.point1", "auth.point2", "auth.point3"].map((key) => h("li", {}, icon("check"), h("span", {}, t(key))));
 
   app().replaceChildren(
     h(
       "div",
-      { class: "login-wrap" },
+      { class: "auth" },
+      h("div", { class: "auth-lang" }, langSelect("down")),
       h(
         "div",
-        { class: "login-card" },
-        brand(),
-        h("h1", {}, "Вход в панель"),
-        h("p", { class: "lead" }, "Платежи, сроки и напоминания в одном месте."),
-        form,
+        { class: "auth-card" },
+        h(
+          "section",
+          { class: "auth-panel auth-promo", "aria-hidden": "true" },
+          authShape(),
+          brand(),
+          h("div", { class: "auth-promo-text" }, h("h2", {}, t("auth.promoTitle")), h("ul", { class: "auth-points" }, points)),
+        ),
+        h(
+          "section",
+          { class: "auth-panel auth-form" },
+          h("div", {}, h("h1", {}, t("auth.title")), h("p", { class: "lead" }, t("auth.lead"))),
+          form,
+        ),
       ),
     ),
   );
@@ -336,7 +1259,7 @@ function brand() {
   return h(
     "div",
     { class: "brand" },
-    h("img", { class: "brand-mark", src: "/static/brand/logo-mark.svg", alt: "", width: 38, height: 38 }),
+    h("img", { class: "brand-mark", src: "/static/brand/logo-mark.svg", alt: "", width: 32, height: 32 }),
     h("span", { class: "brand-name" }, "Invoice Keeper"),
   );
 }
@@ -351,72 +1274,160 @@ async function logout() {
   showLogin();
 }
 
-// ---------- каркас ----------
+// ---------- каркас: сайдбар как в кабинете aeza ----------
+
+let ui = null; // { shell, page, navItems, menuButton }
 
 function tabsFor(me) {
   const tabs = [
-    { id: "payments", label: "Платежи" },
-    { id: "calendar", label: "Календарь" },
-    { id: "budget", label: "Бюджет" },
+    { id: "payments", icon: "payments" },
+    { id: "calendar", icon: "calendar" },
+    { id: "budget", icon: "budget" },
   ];
   if (me.role === "admin") {
-    tabs.push({ id: "recurring", label: "Регулярные платежи" }, { id: "users", label: "Пользователи" }, { id: "audit", label: "Журнал" });
+    tabs.push({ id: "recurring", icon: "recurring" }, { id: "users", icon: "users" }, { id: "audit", icon: "audit" });
   }
-  tabs.push({ id: "messengers", label: "Мессенджеры" });
+  tabs.push({ id: "messengers", icon: "messengers" });
   return tabs;
+}
+
+function setNavOpen(open) {
+  if (!ui) return;
+  ui.shell.classList.toggle("nav-open", open);
+  ui.menuButton.setAttribute("aria-expanded", String(open));
+}
+
+function navigate(tab) {
+  state.tab = tab;
+  if (!ui) return Promise.resolve();
+  for (const item of ui.navItems) {
+    if (item.dataset.tab === tab) item.setAttribute("aria-current", "page");
+    else item.removeAttribute("aria-current");
+  }
+  setNavOpen(false);
+  setTitle();
+  window.scrollTo({ top: 0 });
+  return loadTab(ui.page);
+}
+
+async function addPayment() {
+  await navigate("recurring");
+  const input = document.querySelector(".inline-form [name=name]");
+  if (input) input.focus();
+}
+
+function userPanel() {
+  return h(
+    "div",
+    { class: "user-panel" },
+    h(
+      "div",
+      { class: "user-row" },
+      h("span", { class: "user-login", title: state.me.login }, `@${state.me.login}`),
+      h("button", { type: "button", class: "icon-btn", "aria-label": t("shell.logout"), title: t("shell.logout"), onclick: logout }, icon("logout")),
+    ),
+    h(
+      "div",
+      { class: "user-row" },
+      h("div", { class: "user-today" }, h("small", {}, t("shell.today")), h("b", { class: "num" }, fmtShort(state.asOf))),
+      h("span", { class: "skew-badge" }, t(state.me.role === "admin" ? "role.admin" : "role.user")),
+    ),
+  );
 }
 
 async function showApp() {
   const summary = await api("/payments/summary");
   state.asOf = summary.as_of;
+  setTitle();
 
-  const main = h("main", { id: "view" });
-  const tabButtons = tabsFor(state.me).map((tab) =>
+  const page = h("main", { id: "view", class: "page" });
+  const navItems = tabsFor(state.me).map((tab) =>
     h(
       "button",
       {
-        class: "tab",
-        role: "tab",
+        type: "button",
+        class: "nav-item",
         "data-tab": tab.id,
-        "aria-selected": String(tab.id === state.tab),
-        onclick: () => {
-          state.tab = tab.id;
-          for (const btn of tabButtons) btn.setAttribute("aria-selected", String(btn.dataset.tab === tab.id));
-          loadTab(main);
-        },
+        "aria-current": tab.id === state.tab ? "page" : null,
+        onclick: () => navigate(tab.id),
       },
-      tab.label,
+      h("span", {}, t(`tab.${tab.id}`)),
+      icon(tab.icon),
     ),
   );
 
-  const header = h(
-    "header",
-    { class: "topbar" },
+  const sidebar = h(
+    "aside",
+    { class: "sidebar", id: "sidebar" },
+    userPanel(),
+    h("nav", { class: "nav", "aria-label": t("shell.menu") }, navItems),
     h(
       "div",
-      { class: "topbar-inner" },
-      brand(),
+      { class: "side-bottom" },
+      state.me.role === "admin"
+        ? h("div", { class: "add-block" }, h("button", { type: "button", onclick: () => addPayment().catch(report) }, h("span", {}, t("shell.addPayment")), icon("plus")))
+        : null,
       h(
         "div",
-        { class: "user-box" },
-        h(
-          "div",
-          { class: "who" },
-          h("span", {}, state.me.login, " ", h("span", { class: "role-badge" }, state.me.role === "admin" ? "админ" : "пользователь")),
-          h("small", {}, `Сегодня ${fmtDate(state.asOf)}`),
-        ),
-        h("button", { class: "btn btn-sm", onclick: logout }, "Выйти"),
+        { class: "side-links" },
+        h("a", { class: "nav-item", href: `${API}/docs`, target: "_blank", rel: "noopener" }, h("span", {}, t("shell.api")), icon("book")),
+        langSelect("up"),
       ),
+      h("div", { class: "side-logo" }, h("img", { src: "/static/brand/logo-mark.svg", alt: "", width: 32, height: 32 }), "Invoice Keeper"),
     ),
-    h("nav", { class: "tabs", role: "tablist" }, tabButtons),
   );
 
-  app().replaceChildren(header, main);
-  await loadTab(main);
+  const menuButton = h(
+    "button",
+    { type: "button", class: "icon-btn", "aria-label": t("shell.menu"), "aria-controls": "sidebar", "aria-expanded": "false", onclick: () => setNavOpen(!ui.shell.classList.contains("nav-open")) },
+    icon("menu"),
+  );
+  const shell = h(
+    "div",
+    { class: "shell" },
+    sidebar,
+    h("div", { class: "scrim", "aria-hidden": "true", onclick: () => setNavOpen(false) }),
+    h("div", { class: "main" }, h("div", { class: "mobile-bar" }, menuButton, brand()), page),
+  );
+
+  ui = { shell, page, navItems, menuButton };
+  app().replaceChildren(shell);
+  await loadTab(page);
+}
+
+function pageHead(title, lead) {
+  return h("header", { class: "page-head" }, h("h1", { class: "page-title" }, title), lead ? h("p", { class: "page-lead" }, lead) : null);
+}
+
+function section(title, ...children) {
+  return h("section", { class: "section" }, title ? h("h2", { class: "section-title" }, title) : null, ...children);
+}
+
+// Скелетон, пока грузятся данные: те же серые плашки с бегущим бликом, что в кабинете
+function skeletonPage() {
+  return h(
+    "div",
+    { class: "sk-page", "aria-busy": "true", "aria-label": t("common.loading") },
+    h("span", { class: "skeleton sk-title" }),
+    skeletonTiles(),
+    skeletonRows(4),
+  );
+}
+
+function skeletonTileList(count = 3) {
+  return Array.from({ length: count }, () => h("span", { class: "skeleton sk-tile", "aria-hidden": "true" }));
+}
+
+function skeletonTiles(count = 3) {
+  return h("div", { class: "sk-tiles", "aria-hidden": "true" }, skeletonTileList(count));
+}
+
+function skeletonRows(count = 5) {
+  return h("div", { class: "sk-page", "aria-hidden": "true" }, Array.from({ length: count }, () => h("span", { class: "skeleton sk-line" })));
 }
 
 async function loadTab(main) {
-  main.replaceChildren(h("p", { class: "loading" }, "Загрузка…"));
+  main.replaceChildren(skeletonPage());
   try {
     if (state.tab === "calendar") await calendarView(main);
     else if (state.tab === "budget") await budgetView(main);
@@ -426,28 +1437,34 @@ async function loadTab(main) {
     else if (state.tab === "messengers") await messengersView(main);
     else await paymentsView(main);
   } catch (err) {
-    if (err.status !== 401) main.replaceChildren(h("div", { class: "empty" }, h("strong", {}, "Не удалось загрузить данные"), err.message));
+    if (err.status !== 401) {
+      main.replaceChildren(pageHead(t(`tab.${state.tab}`)), h("div", { class: "empty" }, h("strong", {}, t("error.load")), err.message));
+    }
   }
+}
+
+function report(err) {
+  if (err.status !== 401) toast(err.message, "error");
 }
 
 // ---------- раздел «Платежи» ----------
 
 function statusOf(o) {
   if (o.status === "paid") {
-    return o.is_overdue ? { cls: "late", text: "Оплачено позже срока" } : { cls: "paid", text: "Оплачено" };
+    return o.is_overdue ? { cls: "late", text: t("status.late") } : { cls: "paid", text: t("status.paid") };
   }
-  if (o.is_overdue) return { cls: "overdue", text: `Просрочено ${o.overdue_days} дн.` };
-  if (diffDays(state.asOf, o.due_date) <= SOON_DAYS) return { cls: "soon", text: "Скоро срок" };
-  return { cls: "", text: "Не оплачено" };
+  if (o.is_overdue) return { cls: "overdue", text: t("status.overdue", { n: o.overdue_days, days: plural(o.overdue_days, "day") }) };
+  if (diffDays(state.asOf, o.due_date) <= SOON_DAYS) return { cls: "soon", text: t("status.soon") };
+  return { cls: "", text: t("status.unpaid") };
 }
 
 function dueNote(o) {
   if (o.status === "paid") return null;
   const left = diffDays(state.asOf, o.due_date);
-  if (left < 0) return { text: `просрочено на ${plural(-left, ["день", "дня", "дней"])}`, bad: true };
-  if (left === 0) return { text: "сегодня" };
-  if (left === 1) return { text: "завтра" };
-  return { text: `через ${plural(left, ["день", "дня", "дней"])}` };
+  if (left < 0) return { text: t("due.overdueBy", { days: plural(-left, "day") }), bad: true };
+  if (left === 0) return { text: t("due.today") };
+  if (left === 1) return { text: t("due.tomorrow") };
+  return { text: t("due.in", { days: plural(left, "day") }) };
 }
 
 function segmented(options, value, onChange) {
@@ -469,28 +1486,43 @@ function segmented(options, value, onChange) {
   return h("div", { class: "seg", role: "group" }, buttons);
 }
 
+function tileArt() {
+  return h("div", { class: "tile-art", "aria-hidden": "true" }, h("i"), h("i"), h("i"));
+}
+
 function summaryCard(c, onDate = null) {
-  const row = (label, value, cls = "") => h("div", { class: "sum-row" }, h("span", {}, label), h("span", { class: `num ${cls}` }, value));
+  const row = (label, value, cls = "") => h("div", { class: "tile-row" }, h("span", {}, label), h("span", { class: `num ${cls}` }, value));
   return h(
     "article",
-    { class: `card sum-card ${c.count_overdue > 0 ? "has-overdue" : ""}` },
-    h("div", { class: "sum-head" }, h("span", {}, c.currency), h("span", {}, onDate ? `на ${fmtDate(onDate)}` : CURRENCY_NAMES[c.currency])),
-    h("div", { class: "sum-main num" }, money(c.unpaid, c.currency)),
-    h("div", { class: "sum-sub" }, c.count_unpaid ? `к оплате · ${plural(c.count_unpaid, ["платёж", "платежа", "платежей"])}` : "к оплате · всё закрыто"),
+    { class: `tile ${c.count_overdue > 0 ? "has-overdue" : ""}` },
+    c.count_overdue > 0 ? h("span", { class: "sticker" }, t("sum.sticker")) : null,
     h(
       "div",
-      { class: "sum-rows" },
-      row("Просрочено", money(c.overdue, c.currency), c.count_overdue > 0 ? "bad" : ""),
-      row("Оплачено", money(c.paid, c.currency), c.count_paid > 0 ? "ok" : ""),
+      { class: "tile-head" },
+      h("span", {}, `${c.currency} · `, h("span", { class: "muted" }, onDate ? t("sum.onDate", { date: fmtDate(onDate) }) : t(`currency.${c.currency}`))),
+      h("span", { class: "tile-arrow", "aria-hidden": "true" }, icon("chevronRight")),
     ),
+    h(
+      "div",
+      {},
+      h("div", { class: "tile-amount num" }, money(c.unpaid, c.currency)),
+      h("div", { class: "tile-sub" }, c.count_unpaid ? t("sum.toPay", { payments: plural(c.count_unpaid, "payment") }) : t("sum.allClosed")),
+    ),
+    h(
+      "div",
+      { class: "tile-rows" },
+      row(t("sum.overdue"), money(c.overdue, c.currency), c.count_overdue > 0 ? "bad" : ""),
+      row(t("sum.paid"), money(c.paid, c.currency), c.count_paid > 0 ? "ok" : ""),
+    ),
+    tileArt(),
   );
 }
 
 async function paymentsView(main) {
-  const summaryBox = h("section", { class: "summary", "aria-label": "Итоги по валютам" });
-  const listBox = h("div", { class: "card table-card" });
+  const summaryBox = h("section", { class: "summary", "aria-label": t("payments.summary") }, skeletonTileList());
+  const listBox = h("div", { class: "table-card" }, skeletonRows());
   const counter = h("span", { class: "muted grow" });
-  const csvLink = h("a", { class: "btn btn-sm", download: "", title: "Выгрузка с текущими фильтрами, открывается в Excel" }, "Скачать CSV");
+  const csvLink = h("a", { class: "btn btn-sm", download: "", title: t("payments.csvHint") }, icon("download"), t("payments.csv"));
 
   async function reload() {
     const f = state.filters;
@@ -514,7 +1546,7 @@ async function paymentsView(main) {
     ]);
     if (!f.on) state.asOf = summary.as_of;
     summaryBox.replaceChildren(...summary.currencies.map((c) => summaryCard(c, f.on ? summary.as_of : null)));
-    counter.textContent = items.length ? `Показано: ${items.length}` : "";
+    counter.textContent = items.length ? t("payments.shown", { n: items.length }) : "";
     lastItems = items;
     renderList();
   }
@@ -526,8 +1558,8 @@ async function paymentsView(main) {
   const search = h("input", {
     type: "search",
     class: "search",
-    placeholder: "Поиск по названию",
-    "aria-label": "Поиск по названию",
+    placeholder: t("payments.search"),
+    "aria-label": t("payments.search"),
     value: state.filters.q,
     oninput: (e) => {
       clearTimeout(searchTimer);
@@ -537,8 +1569,8 @@ async function paymentsView(main) {
 
   const currencySelect = h(
     "select",
-    { "aria-label": "Валюта", onchange: (e) => { state.filters.currency = e.target.value; reload().catch(report); } },
-    h("option", { value: "" }, "Все валюты"),
+    { "aria-label": t("field.currency"), onchange: (e) => { state.filters.currency = e.target.value; reload().catch(report); } },
+    h("option", { value: "" }, t("payments.allCurrencies")),
     CURRENCIES.map((c) => h("option", { value: c, selected: state.filters.currency === c }, c)),
   );
 
@@ -548,18 +1580,18 @@ async function paymentsView(main) {
     search,
     segmented(
       [
-        { value: "all", label: "Все" },
-        { value: "unpaid", label: "Не оплачено" },
-        { value: "overdue", label: "Просрочено" },
-        { value: "paid", label: "Оплачено" },
+        { value: "all", label: t("payments.all") },
+        { value: "unpaid", label: t("payments.unpaid") },
+        { value: "overdue", label: t("payments.overdue") },
+        { value: "paid", label: t("payments.paid") },
       ],
       state.filters.status,
       (v) => { state.filters.status = v; reload().catch(report); },
     ),
     segmented(
       [
-        { value: "all", label: "Все периоды" },
-        { value: "month", label: "Текущий месяц" },
+        { value: "all", label: t("payments.allPeriods") },
+        { value: "month", label: t("payments.thisMonth") },
       ],
       state.filters.scope,
       (v) => { state.filters.scope = v; reload().catch(report); },
@@ -569,40 +1601,31 @@ async function paymentsView(main) {
       "label",
       { class: "check" },
       h("input", { type: "checkbox", checked: state.filters.deleted, onchange: (e) => { state.filters.deleted = e.target.checked; reload().catch(report); } }),
-      "С прекращёнными",
+      t("payments.withDeleted"),
     ),
     h(
       "label",
       { class: "check on-date" },
-      "Итоги на дату",
-      h("input", { type: "date", value: state.filters.on, "aria-label": "Итоги на дату", onchange: (e) => { state.filters.on = e.target.value; reload().catch(report); } }),
-      state.filters.on ? h("button", { type: "button", class: "btn btn-sm btn-ghost", onclick: () => { state.filters.on = ""; loadTab(document.getElementById("view")); } }, "Сбросить") : null,
+      t("payments.onDate"),
+      h("input", { type: "date", value: state.filters.on, "aria-label": t("payments.onDate"), onchange: (e) => { state.filters.on = e.target.value; reload().catch(report); } }),
+      state.filters.on ? h("button", { type: "button", class: "btn btn-sm btn-ghost", onclick: () => { state.filters.on = ""; loadTab(document.getElementById("view")); } }, t("common.reset")) : null,
     ),
     counter,
     csvLink,
   );
 
-  main.replaceChildren(
-    h("div", { class: "page-head" }, h("div", {}, h("h2", {}, "Платежи"), h("p", {}, "Что и когда оплатить, что уже оплачено и что просрочено"))),
-    summaryBox,
-    toolbar,
-    listBox,
-  );
+  main.replaceChildren(pageHead(t("tab.payments"), t("payments.lead")), summaryBox, section(t("payments.list"), toolbar, listBox));
   await reload();
 }
 
-function report(err) {
-  if (err.status !== 401) toast(err.message, "error");
-}
-
 function emptyPayments() {
-  const none = state.me.role === "admin" ? "Добавьте первый платёж в разделе «Регулярные платежи»." : "Администратор ещё не добавил платежи.";
-  return h("div", { class: "empty" }, h("strong", {}, "Платежей по этим условиям нет"), none);
+  const none = state.me.role === "admin" ? t("payments.emptyAdmin") : t("payments.emptyUser");
+  return h("div", { class: "empty" }, h("strong", {}, t("payments.empty")), none);
 }
 
 // Сортировка таблицы на клиенте: ключ столбца и направление, при равенстве по сроку
 const SORT_KEYS = {
-  name: (o) => o.name.toLocaleLowerCase("ru"),
+  name: (o) => o.name.toLocaleLowerCase(locale()),
   amount: (o) => Number(o.amount),
   due: (o) => o.due_date,
   status: (o) => ({ overdue: 0, soon: 1, "": 2, late: 3, paid: 4 })[statusOf(o).cls] ?? 2,
@@ -625,7 +1648,12 @@ function sortHeader(label, key, rerender, cls = "") {
   return h(
     "th",
     { class: cls, "aria-sort": active ? (state.sort.dir > 0 ? "ascending" : "descending") : "none" },
-    h("button", { type: "button", class: `th-sort ${active ? "active" : ""}`, onclick: toggle }, label, active ? (state.sort.dir > 0 ? " ↑" : " ↓") : ""),
+    h(
+      "button",
+      { type: "button", class: `th-sort ${active ? "active" : ""}`, onclick: toggle },
+      label,
+      active ? h("span", { class: "arrow", "aria-hidden": "true" }, state.sort.dir > 0 ? "↑" : "↓") : null,
+    ),
   );
 }
 
@@ -639,11 +1667,11 @@ function occurrencesTable(items, reload, rerender) {
       h(
         "tr",
         {},
-        sortHeader("Платёж", "name", rerender),
-        sortHeader("Сумма", "amount", rerender, "right"),
-        sortHeader("Срок", "due", rerender),
-        sortHeader("Статус", "status", rerender),
-        sortHeader("Оплачено", "paid", rerender),
+        sortHeader(t("col.payment"), "name", rerender),
+        sortHeader(t("col.amount"), "amount", rerender, "right"),
+        sortHeader(t("col.due"), "due", rerender),
+        sortHeader(t("col.status"), "status", rerender),
+        sortHeader(t("col.paidAt"), "paid", rerender),
         h("th", {}, ""),
       ),
     ),
@@ -651,62 +1679,63 @@ function occurrencesTable(items, reload, rerender) {
   );
 }
 
+function occurrenceActions(o, reload) {
+  const actions = [receiptsButton(o, reload)];
+  if (o.payment_deleted) return actions;
+  if (o.status === "unpaid") {
+    actions.push(h("button", { class: "btn btn-sm btn-accent", onclick: () => payDialog(o, reload, false) }, t("act.markPaid")));
+  } else {
+    actions.push(
+      h("button", { class: "btn btn-sm", onclick: () => payDialog(o, reload, true) }, t("act.changeDate")),
+      h("button", { class: "btn btn-sm btn-danger", onclick: () => cancelDialog(o, reload) }, t("act.undo")),
+    );
+  }
+  return actions;
+}
+
 function occurrenceRow(o, reload) {
   const status = statusOf(o);
   const note = dueNote(o);
   const rowClass = [
     o.status === "unpaid" && o.is_overdue ? "row-overdue" : "",
-    status.cls === "paid" ? "row-paid" : "",
     status.cls === "soon" ? "row-soon" : "",
     status.cls === "late" ? "row-late" : "",
     o.payment_deleted ? "row-deleted" : "",
   ].join(" ");
 
-  let actions = [receiptsButton(o, reload)];
-  if (!o.payment_deleted) {
-    actions.push(
-      ...(o.status === "unpaid"
-        ? [h("button", { class: "btn btn-sm btn-primary", onclick: () => payDialog(o, reload, false) }, "Отметить оплату")]
-        : [
-            h("button", { class: "btn btn-sm", onclick: () => payDialog(o, reload, true) }, "Изменить дату"),
-            h("button", { class: "btn btn-sm btn-danger", onclick: () => cancelDialog(o, reload) }, "Отменить"),
-          ]),
-    );
-  }
-
   return h(
     "tr",
     { class: rowClass },
-    h("td", { class: "title-cell" }, h("div", { class: "cell-title" }, o.name), o.payment_deleted ? h("div", { class: "cell-sub" }, "Платёж прекращён") : null),
-    h("td", { class: "right", "data-label": "Сумма" }, h("span", { class: "amount num" }, money(o.amount, o.currency))),
-    h("td", { "data-label": "Срок" }, h("div", {}, h("div", { class: "num" }, fmtDate(o.due_date)), note ? h("div", { class: `cell-sub ${note.bad ? "bad" : ""}` }, note.text) : null)),
-    h("td", { "data-label": "Статус" }, h("span", { class: `badge ${status.cls}` }, status.text)),
-    h("td", { "data-label": "Оплачено", class: "num" }, fmtDate(o.paid_at)),
-    h("td", { class: "actions" }, actions),
+    h("td", { class: "title-cell" }, h("div", { class: "cell-title" }, o.name), o.payment_deleted ? h("div", { class: "cell-sub" }, t("payments.stopped")) : null),
+    h("td", { class: "right", "data-label": t("col.amount") }, h("span", { class: "amount num" }, money(o.amount, o.currency))),
+    h("td", { "data-label": t("col.due") }, h("div", {}, h("div", { class: "num" }, fmtDate(o.due_date)), note ? h("div", { class: `cell-sub ${note.bad ? "bad" : ""}` }, note.text) : null)),
+    h("td", { "data-label": t("col.status") }, h("span", { class: `badge ${status.cls}` }, status.text)),
+    h("td", { "data-label": t("col.paidAt"), class: "num" }, fmtDate(o.paid_at)),
+    h("td", { class: "actions" }, occurrenceActions(o, reload)),
   );
 }
 
 function payDialog(o, reload, editing) {
   openDialog({
-    title: editing ? "Изменить дату оплаты" : "Отметить оплату",
-    description: `${o.name}, срок ${fmtDate(o.due_date)}, ${money(o.amount, o.currency)}`,
-    confirmLabel: editing ? "Сохранить" : "Оплачено",
+    title: editing ? t("pay.titleEdit") : t("pay.title"),
+    description: t("pay.desc", { name: o.name, date: fmtDate(o.due_date), amount: money(o.amount, o.currency) }),
+    confirmLabel: editing ? t("common.save") : t("pay.confirm"),
     fields: [
       field({
-        label: "Фактическая дата оплаты",
+        label: t("pay.field"),
         name: "paid_at",
         type: "date",
         value: editing ? o.paid_at : state.asOf,
         max: state.asOf,
-        hint: "Если оплатили не сегодня, укажите реальную дату: от неё считается просрочка",
+        hint: t("pay.hint"),
       }),
     ],
     onSubmit: async (data) => {
       const paidAt = String(data.get("paid_at"));
-      if (!paidAt) throw new Error("Укажите дату оплаты");
+      if (!paidAt) throw new Error(t("check.paidAt"));
       const body = editing ? { paid_at: paidAt } : { status: "paid", paid_at: paidAt };
       await api(`/payment-occurrences/${o.id}`, { method: "PATCH", body });
-      toast(editing ? "Дата оплаты обновлена" : "Оплата отмечена");
+      toast(editing ? t("pay.doneEdit") : t("pay.done"));
       await reload();
     },
   });
@@ -714,13 +1743,13 @@ function payDialog(o, reload, editing) {
 
 function cancelDialog(o, reload) {
   openDialog({
-    title: "Отменить оплату?",
-    description: `Период «${o.name}» за ${fmtDate(o.due_date)} снова станет неоплаченным, дата оплаты очистится.`,
-    confirmLabel: "Отменить оплату",
+    title: t("unpay.title"),
+    description: t("unpay.desc", { name: o.name, date: fmtDate(o.due_date) }),
+    confirmLabel: t("unpay.confirm"),
     danger: true,
     onSubmit: async () => {
       await api(`/payment-occurrences/${o.id}`, { method: "PATCH", body: { status: "unpaid" } });
-      toast("Оплата отменена");
+      toast(t("unpay.done"));
       await reload();
     },
   });
@@ -730,12 +1759,13 @@ function cancelDialog(o, reload) {
 
 function receiptsButton(o, reload) {
   const count = o.receipts_count || 0;
-  return h("button", { class: "btn btn-sm", type: "button", onclick: () => receiptsDialog(o, reload) }, count ? `Чеки (${count})` : "Чеки");
+  return h("button", { class: "btn btn-sm", type: "button", onclick: () => receiptsDialog(o, reload) }, count ? t("rc.buttonCount", { n: count }) : t("rc.button"));
 }
 
 function fmtSize(bytes) {
-  if (bytes >= 1048576) return `${(bytes / 1048576).toFixed(1).replace(".", ",")} МБ`;
-  return `${Math.max(1, Math.round(bytes / 1024))} КБ`;
+  const number = (n, digits) => new Intl.NumberFormat(locale(), { maximumFractionDigits: digits, minimumFractionDigits: digits }).format(n);
+  if (bytes >= 1048576) return t("size.mb", { n: number(bytes / 1048576, 1) });
+  return t("size.kb", { n: Math.max(1, Math.round(bytes / 1024)) });
 }
 
 function safeHref(url) {
@@ -759,7 +1789,7 @@ function receiptsDialog(o, reload) {
             return h(
               "div",
               { class: "rc-item" },
-              h("span", { class: `rc-kind ${r.kind}` }, r.kind === "file" ? "файл" : "ссылка"),
+              h("span", { class: `rc-kind ${r.kind}` }, t(r.kind === "file" ? "rc.kind.file" : "rc.kind.link")),
               h(
                 "div",
                 { class: "rc-main" },
@@ -775,7 +1805,7 @@ function receiptsDialog(o, reload) {
                       onclick: async () => {
                         try {
                           await api(`/receipts/${r.id}`, { method: "DELETE" });
-                          toast("Вложение удалено");
+                          toast(t("rc.deleted"));
                           await refresh();
                           await reload();
                         } catch (err) {
@@ -783,18 +1813,18 @@ function receiptsDialog(o, reload) {
                         }
                       },
                     },
-                    "Удалить",
+                    t("common.delete"),
                   )
                 : null,
             );
           })
-        : [h("p", { class: "muted" }, "Пока ничего не прикреплено")]),
+        : [h("p", { class: "muted" }, t("rc.empty"))]),
     );
   }
 
   async function submit(button, task, okMessage) {
     error.textContent = "";
-    button.disabled = true;
+    setBusy(button, true);
     try {
       await task();
       toast(okMessage);
@@ -803,16 +1833,16 @@ function receiptsDialog(o, reload) {
     } catch (err) {
       error.textContent = err.message;
     } finally {
-      button.disabled = false;
+      setBusy(button, false);
     }
   }
 
   const linkForm = h("form", { class: "rc-form", novalidate: true });
-  const linkBtn = h("button", { type: "submit", class: "btn btn-primary btn-sm" }, "Добавить ссылку");
+  const linkBtn = h("button", { type: "submit", class: "btn btn-primary btn-sm" }, t("rc.addLink"));
   linkForm.append(
-    h("h3", {}, "Прикрепить ссылку"),
-    field({ label: "Адрес", name: "url", type: "url", placeholder: "https://…", autocomplete: "off" }),
-    field({ label: "Название (необязательно)", name: "title", required: false, maxlength: "200", placeholder: "Чек из банка" }),
+    h("h3", {}, t("rc.linkTitle")),
+    field({ label: t("rc.url"), name: "url", type: "url", placeholder: "https://…", autocomplete: "off" }),
+    field({ label: t("rc.titleOptional"), name: "title", required: false, maxlength: "200", placeholder: t("rc.linkPlaceholder") }),
     linkBtn,
   );
   linkForm.addEventListener("submit", (event) => {
@@ -820,28 +1850,28 @@ function receiptsDialog(o, reload) {
     const data = new FormData(linkForm);
     const url = String(data.get("url")).trim();
     if (!/^https?:\/\/\S+$/i.test(url)) {
-      error.textContent = "Ссылка: нужен адрес, начинающийся с http:// или https://";
+      error.textContent = t("check.url");
       return;
     }
     submit(linkBtn, async () => {
       await api(`/payment-occurrences/${o.id}/receipts/link`, { method: "POST", body: { url, title: String(data.get("title")).trim() || null } });
       linkForm.reset();
-    }, "Ссылка прикреплена");
+    }, t("rc.linkAdded"));
   });
 
   const fileForm = h("form", { class: "rc-form", novalidate: true });
-  const fileBtn = h("button", { type: "submit", class: "btn btn-primary btn-sm" }, "Загрузить чек");
+  const fileBtn = h("button", { type: "submit", class: "btn btn-primary btn-sm" }, t("rc.upload"));
   fileForm.append(
-    h("h3", {}, "Загрузить чек"),
-    field({ label: "Файл", name: "file", type: "file", accept: ".pdf,.png,.jpg,.jpeg,.webp,application/pdf,image/png,image/jpeg,image/webp", hint: "PDF, PNG, JPEG или WebP, до 5 МБ" }),
-    field({ label: "Название (необязательно)", name: "title", required: false, maxlength: "200" }),
+    h("h3", {}, t("rc.fileTitle")),
+    field({ label: t("field.file"), name: "file", type: "file", accept: ".pdf,.png,.jpg,.jpeg,.webp,application/pdf,image/png,image/jpeg,image/webp", hint: t("rc.fileHint") }),
+    field({ label: t("rc.titleOptional"), name: "title", required: false, maxlength: "200" }),
     fileBtn,
   );
   fileForm.addEventListener("submit", (event) => {
     event.preventDefault();
     const input = fileForm.querySelector("input[type=file]");
     if (!input.files.length) {
-      error.textContent = "Файл: выберите файл";
+      error.textContent = t("check.file");
       return;
     }
     const body = new FormData();
@@ -851,48 +1881,49 @@ function receiptsDialog(o, reload) {
     submit(fileBtn, async () => {
       await api(`/payment-occurrences/${o.id}/receipts/file`, { method: "POST", body });
       fileForm.reset();
-    }, "Чек загружен");
+    }, t("rc.uploaded"));
   });
 
-  const close = h("button", { type: "button", class: "btn", onclick: () => dialog.close() }, "Закрыть");
+  const close = h("button", { type: "button", class: "btn", onclick: () => dialog.close() }, t("common.close"));
   dialog.append(
     h(
       "div",
       { class: "rc-dialog" },
-      h("h2", {}, "Чеки и ссылки"),
-      h("p", { class: "desc" }, `${o.name}, срок ${fmtDate(o.due_date)}`),
+      h("h2", {}, t("rc.title")),
+      h("p", { class: "desc" }, t("rc.desc", { name: o.name, date: fmtDate(o.due_date) })),
       listBox,
-      o.payment_deleted ? h("p", { class: "muted" }, "Платёж прекращён: вложения можно смотреть, добавлять нельзя") : h("div", { class: "rc-forms" }, linkForm, fileForm),
+      o.payment_deleted ? h("p", { class: "muted" }, t("rc.stopped")) : h("div", { class: "rc-forms" }, linkForm, fileForm),
       error,
       h("div", { class: "dialog-actions" }, close),
     ),
   );
-  dialog.addEventListener("close", () => dialog.remove());
-  document.body.append(dialog);
-  dialog.showModal();
+  presentDialog(dialog);
   refresh().catch((err) => { error.textContent = err.message; });
 }
 
 // ---------- раздел «Регулярные платежи» (админ) ----------
 
 function periodLabel(period) {
-  return (PERIODS.find((p) => p.value === period) || PERIODS[0]).label;
+  return t(`period.${PERIODS.includes(period) ? period : "monthly"}`);
+}
+
+function periodOptions(selected) {
+  return PERIODS.map((p) => h("option", { value: p, selected: p === selected }, periodLabel(p)));
 }
 
 // Когда платёж повторяется: сроки считаются от первой даты, в коротких месяцах это последний день
 function periodHint(p) {
   const [, m, d] = p.first_due_date.split("-").map(Number);
   if (p.period === "yearly") {
-    const fmt = new Intl.DateTimeFormat("ru-RU", { day: "numeric", month: "long", timeZone: "UTC" });
-    const day = fmt.format(new Date(Date.UTC(2028, m - 1, d)));
-    return m === 2 && d === 29 ? `каждый год ${day}, в невисокосный год 28 февраля` : `каждый год ${day}`;
+    const day = fmtDayMonth(`2028-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`);
+    return t(m === 2 && d === 29 ? "hint.yearlyLeap" : "hint.yearly", { day });
   }
-  const every = p.period === "quarterly" ? "раз в 3 месяца, " : "";
-  return `${every}${d}-го числа${d > 28 ? ", в коротких месяцах в последний день" : ""}`;
+  const every = p.period === "quarterly" ? t("hint.quarterly") : "";
+  return `${every}${t("hint.day", { d })}${d > 28 ? t("hint.short") : ""}`;
 }
 
 async function recurringView(main) {
-  const listBox = h("div", { class: "card table-card" });
+  const listBox = h("div", { class: "table-card" }, skeletonRows(3));
 
   async function reload() {
     const [payments, unpaid] = await Promise.all([
@@ -907,7 +1938,7 @@ async function recurringView(main) {
         ? h(
             "table",
             {},
-            h("thead", {}, h("tr", {}, h("th", {}, "Платёж"), h("th", { class: "right" }, "Сумма"), h("th", {}, "Периодичность"), h("th", {}, "Ближайший неоплаченный срок"), h("th", {}, ""))),
+            h("thead", {}, h("tr", {}, h("th", {}, t("col.payment")), h("th", { class: "right" }, t("col.amount")), h("th", {}, t("rec.colPeriod")), h("th", {}, t("rec.colNext")), h("th", {}, ""))),
             h(
               "tbody",
               {},
@@ -916,47 +1947,37 @@ async function recurringView(main) {
                 return h(
                   "tr",
                   {},
-                  h("td", { class: "title-cell" }, h("div", { class: "cell-title" }, p.name), h("div", { class: "cell-sub" }, `первый срок ${fmtDate(p.first_due_date)}`)),
-                  h("td", { class: "right", "data-label": "Сумма" }, h("span", { class: "amount num" }, money(p.amount, p.currency))),
-                  h("td", { "data-label": "Периодичность" }, h("div", {}, periodLabel(p.period)), h("div", { class: "cell-sub" }, periodHint(p))),
-                  h("td", { "data-label": "Ближайший срок", class: "num" }, next ? fmtDate(next) : "—"),
+                  h("td", { class: "title-cell" }, h("div", { class: "cell-title" }, p.name), h("div", { class: "cell-sub" }, t("rec.firstDue", { date: fmtDate(p.first_due_date) }))),
+                  h("td", { class: "right", "data-label": t("col.amount") }, h("span", { class: "amount num" }, money(p.amount, p.currency))),
+                  h("td", { "data-label": t("rec.colPeriod") }, h("div", {}, periodLabel(p.period)), h("div", { class: "cell-sub" }, periodHint(p))),
+                  h("td", { "data-label": t("rec.colNextShort"), class: "num" }, next ? fmtDate(next) : "—"),
                   h(
                     "td",
                     { class: "actions" },
-                    h("button", { class: "btn btn-sm", onclick: () => editPaymentDialog(p, reload) }, "Изменить"),
-                    h("button", { class: "btn btn-sm btn-danger", onclick: () => deletePaymentDialog(p, reload) }, "Прекратить"),
+                    h("button", { class: "btn btn-sm", onclick: () => editPaymentDialog(p, reload) }, t("common.edit")),
+                    h("button", { class: "btn btn-sm btn-danger", onclick: () => deletePaymentDialog(p, reload) }, t("rec.stop")),
                   ),
                 );
               }),
             ),
           )
-        : h("div", { class: "empty" }, h("strong", {}, "Регулярных платежей пока нет"), "Добавьте аренду, подписку или оплату сервера формой выше."),
+        : h("div", { class: "empty" }, h("strong", {}, t("rec.empty")), t("rec.emptyText")),
     );
   }
 
   const form = h(
     "form",
-    { class: "card inline-form", novalidate: true },
-    h("h3", {}, "Новый регулярный платёж"),
+    { class: "inline-form", novalidate: true },
+    h("h3", {}, t("rec.new")),
     h(
       "div",
       { class: "form-grid" },
-      field({ label: "Название", name: "name", placeholder: "Аренда офиса", maxlength: "200" }),
-      field({ label: "Сумма", name: "amount", inputmode: "decimal", placeholder: "45000.00" }),
-      h(
-        "label",
-        { class: "field" },
-        h("span", {}, "Валюта"),
-        h("select", { name: "currency" }, CURRENCIES.map((c) => h("option", { value: c }, c))),
-      ),
-      h(
-        "label",
-        { class: "field" },
-        h("span", {}, "Периодичность"),
-        h("select", { name: "period" }, PERIODS.map((p) => h("option", { value: p.value }, p.label))),
-      ),
-      field({ label: "Дата ближайшей оплаты", name: "first_due_date", type: "date", value: state.asOf }),
-      h("button", { type: "submit", class: "btn btn-primary" }, "Добавить"),
+      field({ label: t("field.name"), name: "name", placeholder: t("rec.namePlaceholder"), maxlength: "200" }),
+      field({ label: t("field.amount"), name: "amount", inputmode: "decimal", placeholder: "45000.00" }),
+      selectField(t("field.currency"), "currency", CURRENCIES.map((c) => h("option", { value: c }, c))),
+      selectField(t("field.period"), "period", periodOptions("monthly")),
+      field({ label: t("field.first_due_date"), name: "first_due_date", type: "date", value: state.asOf }),
+      h("button", { type: "submit", class: "btn btn-primary" }, t("rec.add")),
     ),
     h("p", { class: "form-error", role: "alert" }),
   );
@@ -969,57 +1990,48 @@ async function recurringView(main) {
     error.textContent = "";
     try {
       const name = String(data.get("name")).trim();
-      if (!name) throw new Error("Название: укажите название платежа");
+      if (!name) throw new Error(t("check.name"));
       const amount = parseAmount(data.get("amount"));
       const firstDue = String(data.get("first_due_date"));
-      if (!firstDue) throw new Error("Дата ближайшей оплаты: укажите дату");
-      submit.disabled = true;
+      if (!firstDue) throw new Error(t("check.firstDue"));
+      setBusy(submit, true);
       await api("/recurring-payments", { method: "POST", body: { name, amount, currency: data.get("currency"), period: data.get("period"), first_due_date: firstDue } });
-      toast(`Платёж «${name}» добавлен`);
+      toast(t("rec.added", { name }));
       form.querySelector("[name=name]").value = "";
       form.querySelector("[name=amount]").value = "";
       await reload();
     } catch (err) {
       error.textContent = err.message;
     } finally {
-      submit.disabled = false;
+      setBusy(submit, false);
     }
   });
 
-  main.replaceChildren(
-    h("div", { class: "page-head" }, h("div", {}, h("h2", {}, "Регулярные платежи"), h("p", {}, "Платёж повторяется каждый месяц, раз в квартал или раз в год, напоминание приходит за 3 дня до срока"))),
-    form,
-    listBox,
-  );
+  main.replaceChildren(pageHead(t("tab.recurring"), t("rec.lead")), form, section(t("rec.list"), listBox));
   await reload();
 }
 
 function editPaymentDialog(p, reload) {
   openDialog({
-    title: "Изменить платёж",
-    description: `Новая сумма действует для неоплаченных периодов с сегодняшнего дня, оплаченные и прошлые сохраняют свою. Валюта (${p.currency}) не меняется.`,
+    title: t("rec.editTitle"),
+    description: t("rec.editDesc", { currency: p.currency }),
     fields: [
-      field({ label: "Название", name: "name", value: p.name, maxlength: "200" }),
-      field({ label: `Сумма, ${p.currency}`, name: "amount", value: p.amount, inputmode: "decimal" }),
-      h(
-        "label",
-        { class: "field" },
-        h("span", {}, "Периодичность"),
-        h("select", { name: "period" }, PERIODS.map((o) => h("option", { value: o.value, selected: o.value === p.period }, o.label))),
-      ),
+      field({ label: t("field.name"), name: "name", value: p.name, maxlength: "200" }),
+      field({ label: t("rec.amountIn", { currency: p.currency }), name: "amount", value: p.amount, inputmode: "decimal" }),
+      selectField(t("field.period"), "period", periodOptions(p.period)),
       field({
-        label: "Дата ближайшей оплаты по новому графику",
+        label: t("rec.newFirstDue"),
         name: "first_due_date",
         type: "date",
         required: false,
         min: state.asOf,
-        hint: "только если меняется график: неоплаченные будущие сроки старого графика уберутся, история останется",
+        hint: t("rec.newFirstDueHint"),
       }),
     ],
     onSubmit: async (data) => {
       const body = {};
       const name = String(data.get("name")).trim();
-      if (!name) throw new Error("Название: укажите название платежа");
+      if (!name) throw new Error(t("check.name"));
       if (name !== p.name) body.name = name;
       const amount = parseAmount(data.get("amount"));
       if (Number(amount) !== Number(p.amount)) body.amount = amount;
@@ -1027,10 +2039,10 @@ function editPaymentDialog(p, reload) {
       const firstDue = String(data.get("first_due_date") || "");
       if (period !== p.period) body.period = period;
       if (firstDue) body.first_due_date = firstDue;
-      if (body.period && !firstDue) throw new Error("Новый график: укажите дату ближайшей оплаты");
-      if (!Object.keys(body).length) throw new Error("Нечего менять");
+      if (body.period && !firstDue) throw new Error(t("check.newSchedule"));
+      if (!Object.keys(body).length) throw new Error(t("common.nothingToChange"));
       await api(`/recurring-payments/${p.id}`, { method: "PATCH", body });
-      toast(`Платёж «${name}» обновлён`);
+      toast(t("rec.updated", { name }));
       await reload();
     },
   });
@@ -1038,13 +2050,13 @@ function editPaymentDialog(p, reload) {
 
 function deletePaymentDialog(p, reload) {
   openDialog({
-    title: "Прекратить платёж?",
-    description: `«${p.name}» больше не будет создавать периоды и напоминания. История оплат сохранится.`,
-    confirmLabel: "Прекратить",
+    title: t("rec.stopTitle"),
+    description: t("rec.stopDesc", { name: p.name }),
+    confirmLabel: t("rec.stop"),
     danger: true,
     onSubmit: async () => {
       await api(`/recurring-payments/${p.id}`, { method: "DELETE" });
-      toast(`Платёж «${p.name}» прекращён`);
+      toast(t("rec.stopped", { name: p.name }));
       await reload();
     },
   });
@@ -1053,7 +2065,7 @@ function deletePaymentDialog(p, reload) {
 // ---------- раздел «Пользователи» (админ) ----------
 
 async function usersView(main) {
-  const listBox = h("div", { class: "card table-card" });
+  const listBox = h("div", { class: "table-card" }, skeletonRows(3));
 
   async function reload() {
     const users = await api("/users");
@@ -1062,7 +2074,7 @@ async function usersView(main) {
         ? h(
             "table",
             {},
-            h("thead", {}, h("tr", {}, h("th", {}, "Логин"), h("th", {}, "Создан"), h("th", {}, "Мессенджеры"), h("th", {}, ""))),
+            h("thead", {}, h("tr", {}, h("th", {}, t("field.login")), h("th", {}, t("users.colCreated")), h("th", {}, t("users.colMessengers")), h("th", {}, ""))),
             h(
               "tbody",
               {},
@@ -1071,10 +2083,10 @@ async function usersView(main) {
                   "tr",
                   {},
                   h("td", { class: "title-cell" }, h("div", { class: "cell-title" }, u.login)),
-                  h("td", { "data-label": "Создан", class: "num" }, fmtDateTime(u.created_at)),
+                  h("td", { "data-label": t("users.colCreated"), class: "num" }, fmtDateTime(u.created_at)),
                   h(
                     "td",
-                    { "data-label": "Мессенджеры" },
+                    { "data-label": t("users.colMessengers") },
                     (u.messengers || []).length
                       ? u.messengers.map((m) => h("span", { class: "badge paid msg-badge" }, MESSENGER_TITLES[m] || m))
                       : h("span", { class: "muted" }, "—"),
@@ -1082,27 +2094,27 @@ async function usersView(main) {
                   h(
                     "td",
                     { class: "actions" },
-                    h("button", { class: "btn btn-sm", onclick: () => editUserDialog(u, reload) }, "Изменить"),
-                    h("button", { class: "btn btn-sm btn-danger", onclick: () => deleteUserDialog(u, reload) }, "Удалить"),
+                    h("button", { class: "btn btn-sm", onclick: () => editUserDialog(u, reload) }, t("common.edit")),
+                    h("button", { class: "btn btn-sm btn-danger", onclick: () => deleteUserDialog(u, reload) }, t("common.delete")),
                   ),
                 ),
               ),
             ),
           )
-        : h("div", { class: "empty" }, h("strong", {}, "Обычных пользователей пока нет"), "Создайте учётную запись формой выше, и команда сможет отмечать оплаты."),
+        : h("div", { class: "empty" }, h("strong", {}, t("users.empty")), t("users.emptyText")),
     );
   }
 
   const form = h(
     "form",
-    { class: "card inline-form", novalidate: true },
-    h("h3", {}, "Новый пользователь"),
+    { class: "inline-form", novalidate: true },
+    h("h3", {}, t("users.new")),
     h(
       "div",
       { class: "form-grid" },
-      field({ label: "Логин", name: "login", autocomplete: "off", autocapitalize: "none", spellcheck: "false", placeholder: "ivan" }),
-      field({ label: "Пароль", name: "password", type: "password", autocomplete: "new-password", placeholder: "не короче 8 символов" }),
-      h("button", { type: "submit", class: "btn btn-primary" }, "Создать"),
+      field({ label: t("field.login"), name: "login", autocomplete: "off", autocapitalize: "none", spellcheck: "false", placeholder: "ivan" }),
+      field({ label: t("field.password"), name: "password", type: "password", autocomplete: "new-password", placeholder: t("users.passwordPlaceholder") }),
+      h("button", { type: "submit", class: "btn btn-primary" }, t("users.create")),
     ),
     h("p", { class: "form-error", role: "alert" }),
   );
@@ -1118,32 +2130,28 @@ async function usersView(main) {
       const password = String(data.get("password"));
       checkLogin(login);
       checkPassword(password);
-      submit.disabled = true;
+      setBusy(submit, true);
       await api("/users", { method: "POST", body: { login, password } });
-      toast(`Пользователь «${login}» создан`);
+      toast(t("users.created", { login }));
       form.reset();
       await reload();
     } catch (err) {
       error.textContent = err.message;
     } finally {
-      submit.disabled = false;
+      setBusy(submit, false);
     }
   });
 
-  main.replaceChildren(
-    h("div", { class: "page-head" }, h("div", {}, h("h2", {}, "Пользователи"), h("p", {}, "Обычные учётные записи. Администратор задаётся в .env и здесь не показывается"))),
-    form,
-    listBox,
-  );
+  main.replaceChildren(pageHead(t("tab.users"), t("users.lead")), form, section(t("users.list"), listBox));
   await reload();
 }
 
 function editUserDialog(u, reload) {
   openDialog({
-    title: "Изменить пользователя",
+    title: t("users.editTitle"),
     fields: [
-      field({ label: "Логин", name: "login", value: u.login, autocapitalize: "none", spellcheck: "false" }),
-      field({ label: "Новый пароль", name: "password", type: "password", required: false, autocomplete: "new-password", hint: "оставьте пустым, чтобы не менять; смена пароля завершит сессии пользователя" }),
+      field({ label: t("field.login"), name: "login", value: u.login, autocapitalize: "none", spellcheck: "false" }),
+      field({ label: t("users.newPassword"), name: "password", type: "password", required: false, autocomplete: "new-password", hint: t("users.newPasswordHint") }),
     ],
     onSubmit: async (data) => {
       const login = String(data.get("login")).trim();
@@ -1157,9 +2165,9 @@ function editUserDialog(u, reload) {
         checkPassword(password);
         body.password = password;
       }
-      if (!Object.keys(body).length) throw new Error("Нечего менять");
+      if (!Object.keys(body).length) throw new Error(t("common.nothingToChange"));
       await api(`/users/${u.id}`, { method: "PATCH", body });
-      toast("Пользователь обновлён");
+      toast(t("users.updated"));
       await reload();
     },
   });
@@ -1167,13 +2175,13 @@ function editUserDialog(u, reload) {
 
 function deleteUserDialog(u, reload) {
   openDialog({
-    title: "Удалить пользователя?",
-    description: `«${u.login}» потеряет доступ сразу, его сессии завершатся.`,
-    confirmLabel: "Удалить",
+    title: t("users.deleteTitle"),
+    description: t("users.deleteDesc", { login: u.login }),
+    confirmLabel: t("common.delete"),
     danger: true,
     onSubmit: async () => {
       await api(`/users/${u.id}`, { method: "DELETE" });
-      toast(`Пользователь «${u.login}» удалён`);
+      toast(t("users.deleted", { login: u.login }));
       await reload();
     },
   });
@@ -1181,30 +2189,24 @@ function deleteUserDialog(u, reload) {
 
 // ---------- разделы «Календарь» и «Бюджет» ----------
 
-const MONTHS = Array.from({ length: 12 }, (_, i) => {
-  const name = new Intl.DateTimeFormat("ru-RU", { month: "long" }).format(new Date(Date.UTC(2026, i, 1)));
-  return name.charAt(0).toUpperCase() + name.slice(1);
-});
-const WEEKDAYS = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"];
-
 function isoDate(y, m, d) {
   return `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
 }
 
 function totalsRow(totals) {
-  const shown = totals.filter((t) => t.count_planned > 0);
-  if (!shown.length) return h("p", { class: "muted" }, "В этом месяце платежей нет");
+  const shown = totals.filter((x) => x.count_planned > 0);
+  if (!shown.length) return h("p", { class: "muted" }, t("cal.none"));
   return h(
     "div",
     { class: "month-totals" },
-    shown.map((t) =>
+    shown.map((x) =>
       h(
         "div",
-        { class: "card mini-card" },
-        h("div", { class: "sum-head" }, h("span", {}, t.currency), h("span", {}, plural(t.count_planned, ["платёж", "платежа", "платежей"]))),
-        h("div", { class: "sum-main num" }, money(t.planned, t.currency)),
-        h("div", { class: "sum-sub" }, `оплачено ${money(t.paid, t.currency)} · осталось ${money(t.remaining, t.currency)}`),
-        h("progress", { max: Math.max(Number(t.planned), 1), value: Number(t.paid), "aria-label": "Доля оплаченного" }),
+        { class: "tile mini-card" },
+        h("div", { class: "tile-head" }, h("span", {}, x.currency), h("span", { class: "muted" }, plural(x.count_planned, "payment"))),
+        h("div", { class: "tile-amount num" }, money(x.planned, x.currency)),
+        h("div", { class: "tile-sub" }, t("cal.paidLeft", { paid: money(x.paid, x.currency), left: money(x.remaining, x.currency) })),
+        h("progress", { max: Math.max(Number(x.planned), 1), value: Number(x.paid), "aria-label": t("cal.paidShare") }),
       ),
     ),
   );
@@ -1217,9 +2219,11 @@ function chipClass(item) {
 }
 
 function chipStatus(item) {
-  if (item.status === "planned") return "Запланирован";
-  if (item.status === "paid") return item.is_overdue ? `Оплачено позже срока (${item.overdue_days} дн.)` : "Оплачено";
-  return item.is_overdue ? `Просрочено ${item.overdue_days} дн.` : "Не оплачено";
+  if (item.status === "planned") return t("status.planned");
+  if (item.status === "paid") {
+    return item.is_overdue ? t("status.lateDays", { n: item.overdue_days, days: plural(item.overdue_days, "day") }) : t("status.paid");
+  }
+  return item.is_overdue ? t("status.overdue", { n: item.overdue_days, days: plural(item.overdue_days, "day") }) : t("status.unpaid");
 }
 
 async function calendarView(main) {
@@ -1229,14 +2233,14 @@ async function calendarView(main) {
   }
   const grid = h("div", { class: "cal-grid", role: "grid" });
   const totalsBox = h("div", {});
-  const dayBox = h("div", { class: "card day-box" });
+  const dayBox = h("div", { class: "day-box" });
   const title = h("h3", { class: "cal-title" });
 
   async function reload() {
     const { year, month } = state.cal;
     const data = await api("/payments/calendar", { params: { year, month } });
     state.asOf = data.today;
-    title.textContent = `${MONTHS[month - 1]} ${year}`;
+    title.textContent = `${monthName(month)} ${year}`;
     totalsBox.replaceChildren(totalsRow(data.totals));
 
     const byDay = new Map(data.days.map((d) => [d.day, d.items]));
@@ -1247,8 +2251,8 @@ async function calendarView(main) {
 
     const first = (new Date(Date.UTC(year, month - 1, 1)).getUTCDay() + 6) % 7;
     const count = new Date(Date.UTC(year, month, 0)).getUTCDate();
-    const cells = WEEKDAYS.map((d) => h("div", { class: "cal-wd", role: "columnheader" }, d));
-    for (let i = 0; i < first; i++) cells.push(h("div", { class: "cal-cell empty", "aria-hidden": "true" }));
+    const cells = weekdays().map((d) => h("div", { class: "cal-wd", role: "columnheader" }, d));
+    for (let i = 0; i < first; i++) cells.push(h("div", { class: "cal-cell blank", "aria-hidden": "true" }));
     for (let d = 1; d <= count; d++) {
       const iso = isoDate(year, month, d);
       const items = byDay.get(iso) || [];
@@ -1260,7 +2264,7 @@ async function calendarView(main) {
             type: "button",
             class: classes.join(" "),
             role: "gridcell",
-            "aria-label": `${d} ${MONTHS[month - 1]}, платежей: ${items.length}`,
+            "aria-label": t("cal.dayLabel", { date: fmtDayMonth(iso), n: items.length }),
             "aria-pressed": String(iso === state.cal.selected),
             onclick: () => { state.cal.selected = iso; reload().catch(report); },
           },
@@ -1279,10 +2283,8 @@ async function calendarView(main) {
 
     const items = byDay.get(state.cal.selected) || [];
     dayBox.replaceChildren(
-      h("h3", {}, `${fmtDate(state.cal.selected)}`),
-      items.length
-        ? h("div", { class: "day-list" }, items.map((it) => dayItem(it, reload)))
-        : h("p", { class: "muted" }, "В этот день платежей нет"),
+      h("h3", {}, fmtDate(state.cal.selected)),
+      items.length ? h("div", { class: "day-list" }, items.map((it) => dayItem(it, reload))) : h("p", { class: "muted" }, t("cal.noneDay")),
     );
   }
 
@@ -1296,17 +2298,17 @@ async function calendarView(main) {
   };
 
   main.replaceChildren(
-    h("div", { class: "page-head" }, h("div", {}, h("h2", {}, "Календарь оплат"), h("p", {}, "Сроки на месяц вперёд и дальше: будущие периоды вычисляются по правилу повторения"))),
+    pageHead(t("cal.title"), t("cal.lead")),
     h(
       "div",
       { class: "cal-nav" },
-      h("button", { class: "btn btn-sm", type: "button", "aria-label": "Предыдущий месяц", onclick: () => shift(-1) }, "←"),
+      h("button", { class: "btn btn-sm", type: "button", "aria-label": t("cal.prev"), title: t("cal.prev"), onclick: () => shift(-1) }, icon("chevronLeft")),
       title,
-      h("button", { class: "btn btn-sm", type: "button", "aria-label": "Следующий месяц", onclick: () => shift(1) }, "→"),
-      h("button", { class: "btn btn-sm", type: "button", onclick: () => { state.cal = null; calendarView(main).catch(report); } }, "Сегодня"),
+      h("button", { class: "btn btn-sm", type: "button", "aria-label": t("cal.next"), title: t("cal.next"), onclick: () => shift(1) }, icon("chevronRight")),
+      h("button", { class: "btn btn-sm", type: "button", onclick: () => { state.cal = null; calendarView(main).catch(report); } }, t("common.today")),
     ),
     totalsBox,
-    h("div", { class: "card cal-card" }, grid),
+    h("div", { class: "cal-card" }, grid),
     dayBox,
   );
   await reload();
@@ -1319,28 +2321,17 @@ function dayItem(it, reload) {
     due_date: it.due_date,
     amount: it.amount,
     currency: it.currency,
+    status: it.status,
     paid_at: it.paid_at,
     payment_deleted: it.payment_deleted,
     receipts_count: it.receipts_count,
   };
-  let actions = null;
-  if (it.occurrence_id) {
-    actions = [receiptsButton(occurrence, reload)];
-    if (!it.payment_deleted) {
-      actions.push(
-        ...(it.status === "unpaid"
-          ? [h("button", { class: "btn btn-sm btn-primary", onclick: () => payDialog(occurrence, reload, false) }, "Отметить оплату")]
-          : [
-              h("button", { class: "btn btn-sm", onclick: () => payDialog(occurrence, reload, true) }, "Изменить дату"),
-              h("button", { class: "btn btn-sm btn-danger", onclick: () => cancelDialog(occurrence, reload) }, "Отменить"),
-            ]),
-      );
-    }
-  }
+  const actions = it.occurrence_id ? occurrenceActions(occurrence, reload) : null;
+  const sub = it.paid_at ? t("cal.paidOn", { date: fmtDate(it.paid_at) }) : it.payment_deleted ? t("cal.stopped") : "";
   return h(
     "div",
     { class: `day-item ${chipClass(it)}` },
-    h("div", {}, h("div", { class: "cell-title" }, it.name), h("div", { class: "cell-sub" }, it.paid_at ? `оплачено ${fmtDate(it.paid_at)}` : it.payment_deleted ? "платёж прекращён" : "")),
+    h("div", {}, h("div", { class: "cell-title" }, it.name), h("div", { class: "cell-sub" }, sub)),
     h("div", { class: "amount num" }, money(it.amount, it.currency)),
     h("span", { class: `badge ${chipClass(it) === "unpaid" ? "" : chipClass(it)}` }, chipStatus(it)),
     h("div", { class: "day-actions" }, actions),
@@ -1349,24 +2340,39 @@ function dayItem(it, reload) {
 
 async function budgetView(main) {
   if (!state.budgetYear) state.budgetYear = Number(state.asOf.slice(0, 4));
-  const cards = h("section", { class: "summary", "aria-label": "Бюджет за год" });
-  const tableBox = h("div", { class: "card table-card" });
+  const cards = h("section", { class: "summary", "aria-label": t("tab.budget") }, skeletonTileList());
+  const tableBox = h("div", { class: "table-card" }, skeletonRows());
   const title = h("h3", { class: "cal-title" });
 
   async function reload() {
     const year = state.budgetYear;
     const data = await api("/payments/budget", { params: { year } });
-    title.textContent = `${year} год`;
+    title.textContent = t("budget.year", { year });
     cards.replaceChildren(
       ...data.currencies.map((c) =>
         h(
           "article",
-          { class: "card sum-card" },
-          h("div", { class: "sum-head" }, h("span", {}, c.currency), h("span", {}, "план на год")),
-          h("div", { class: "sum-main num" }, money(c.planned, c.currency)),
-          h("div", { class: "sum-sub" }, c.count_planned ? plural(c.count_planned, ["платёж", "платежа", "платежей"]) : "платежей нет"),
-          h("progress", { max: Math.max(Number(c.planned), 1), value: Number(c.paid), "aria-label": "Доля оплаченного" }),
-          h("div", { class: "sum-rows" }, h("div", { class: "sum-row" }, h("span", {}, "Оплачено"), h("span", { class: "num ok" }, money(c.paid, c.currency))), h("div", { class: "sum-row" }, h("span", {}, "Осталось"), h("span", { class: "num" }, money(c.remaining, c.currency)))),
+          { class: "tile" },
+          h(
+            "div",
+            { class: "tile-head" },
+            h("span", {}, `${c.currency} · `, h("span", { class: "muted" }, t("budget.plan"))),
+            h("span", { class: "tile-arrow", "aria-hidden": "true" }, icon("chevronRight")),
+          ),
+          h(
+            "div",
+            {},
+            h("div", { class: "tile-amount num" }, money(c.planned, c.currency)),
+            h("div", { class: "tile-sub" }, c.count_planned ? plural(c.count_planned, "payment") : t("budget.none")),
+          ),
+          h("progress", { max: Math.max(Number(c.planned), 1), value: Number(c.paid), "aria-label": t("cal.paidShare") }),
+          h(
+            "div",
+            { class: "tile-rows" },
+            h("div", { class: "tile-row" }, h("span", {}, t("sum.paid")), h("span", { class: "num ok" }, money(c.paid, c.currency))),
+            h("div", { class: "tile-row" }, h("span", {}, t("sum.left")), h("span", { class: "num" }, money(c.remaining, c.currency))),
+          ),
+          tileArt(),
         ),
       ),
     );
@@ -1377,7 +2383,7 @@ async function budgetView(main) {
         ? h(
             "table",
             {},
-            h("thead", {}, h("tr", {}, h("th", {}, "Месяц"), active.map((cur) => h("th", { class: "right" }, cur)))),
+            h("thead", {}, h("tr", {}, h("th", {}, t("budget.month")), active.map((cur) => h("th", { class: "right" }, cur)))),
             h(
               "tbody",
               {},
@@ -1385,87 +2391,70 @@ async function budgetView(main) {
                 h(
                   "tr",
                   { class: "clickable", tabindex: "0", onclick: () => openMonth(year, m.month), onkeydown: (e) => { if (e.key === "Enter") openMonth(year, m.month); } },
-                  h("td", { class: "title-cell" }, h("div", { class: "cell-title" }, MONTHS[m.month - 1])),
+                  h("td", { class: "title-cell" }, h("div", { class: "cell-title" }, monthName(m.month))),
                   active.map((cur) => {
                     const c = m.currencies.find((x) => x.currency === cur);
                     return h(
                       "td",
                       { class: "right num", "data-label": cur },
-                      c.count_planned ? h("div", {}, h("div", { class: "amount" }, money(c.planned, cur)), h("div", { class: "cell-sub" }, c.paid === c.planned ? "оплачено" : `оплачено ${money(c.paid, cur)}`)) : h("span", { class: "muted" }, "—"),
+                      c.count_planned
+                        ? h("div", {}, h("div", { class: "amount" }, money(c.planned, cur)), h("div", { class: "cell-sub" }, c.paid === c.planned ? t("budget.paidAll") : t("budget.paidPart", { amount: money(c.paid, cur) })))
+                        : h("span", { class: "muted" }, "—"),
                     );
                   }),
                 ),
               ),
             ),
           )
-        : h("div", { class: "empty" }, h("strong", {}, "В этом году платежей нет"), "Бюджет появится, как только администратор добавит регулярные платежи."),
+        : h("div", { class: "empty" }, h("strong", {}, t("budget.empty")), t("budget.emptyText")),
     );
   }
 
   function openMonth(year, month) {
     state.cal = { year, month, selected: null };
-    state.tab = "calendar";
-    showApp().catch(report);
+    navigate("calendar").catch(report);
   }
 
   const shift = (delta) => { state.budgetYear += delta; reload().catch(report); };
 
   main.replaceChildren(
-    h("div", { class: "page-head" }, h("div", {}, h("h2", {}, "Бюджет"), h("p", {}, "Плановые расходы по каждой валюте отдельно, без конвертации. Нажмите на месяц, чтобы открыть его в календаре"))),
+    pageHead(t("tab.budget"), t("budget.lead")),
     h(
       "div",
       { class: "cal-nav" },
-      h("button", { class: "btn btn-sm", type: "button", "aria-label": "Предыдущий год", onclick: () => shift(-1) }, "←"),
+      h("button", { class: "btn btn-sm", type: "button", "aria-label": t("budget.prev"), title: t("budget.prev"), onclick: () => shift(-1) }, icon("chevronLeft")),
       title,
-      h("button", { class: "btn btn-sm", type: "button", "aria-label": "Следующий год", onclick: () => shift(1) }, "→"),
+      h("button", { class: "btn btn-sm", type: "button", "aria-label": t("budget.next"), title: t("budget.next"), onclick: () => shift(1) }, icon("chevronRight")),
     ),
     cards,
-    tableBox,
+    section(t("budget.byMonth"), tableBox),
   );
   await reload();
 }
 
 // ---------- раздел «Журнал» (админ) ----------
 
-const AUDIT_LABELS = {
-  "auth.login": "Вход",
-  "auth.login_failed": "Неудачный вход",
-  "auth.login_locked": "Вход заблокирован",
-  "auth.logout": "Выход",
-  "payment.create": "Платёж добавлен",
-  "payment.update": "Платёж изменён",
-  "payment.delete": "Платёж прекращён",
-  "occurrence.paid": "Оплата отмечена",
-  "occurrence.unpaid": "Оплата отменена",
-  "occurrence.paid_at_changed": "Дата оплаты исправлена",
-  "user.create": "Пользователь создан",
-  "user.update": "Пользователь изменён",
-  "user.delete": "Пользователь удалён",
-  "receipt.add": "Чек или ссылка добавлены",
-  "receipt.delete": "Чек или ссылка удалены",
-  "reminder.sent": "Напоминание отправлено",
-  "messenger.link": "Мессенджер привязан",
-  "messenger.unlink": "Мессенджер отвязан",
-};
-
-const ACTOR_LABELS = { admin: "админ", user: "пользователь", telegram: "Telegram", max: "MAX", system: "система", anonymous: "аноним" };
-
 function auditSummary(e) {
   const d = e.details || {};
-  const due = d.due_date ? `срок ${fmtDate(d.due_date)}` : "";
+  const due = d.due_date ? t("audit.due", { date: fmtDate(d.due_date) }) : "";
   switch (e.action) {
     case "occurrence.paid":
     case "occurrence.unpaid":
-      return [d.name, due, d.paid_at ? `оплата ${fmtDate(d.paid_at)}` : ""].filter(Boolean).join(", ");
+      return [d.name, due, d.paid_at ? t("audit.paidOn", { date: fmtDate(d.paid_at) }) : ""].filter(Boolean).join(", ");
     case "occurrence.paid_at_changed":
-      return `${d.name}, ${due}: дата оплаты ${fmtDate(d.paid_at_before)} → ${fmtDate(d.paid_at)}`;
+      return t("audit.paidChanged", { name: d.name, due, before: fmtDate(d.paid_at_before), after: fmtDate(d.paid_at) });
     case "payment.create":
-      return `${d.name}, ${money(d.amount, d.currency)}, ${d.period ? periodLabel(d.period).toLowerCase() + ", " : ""}первый срок ${fmtDate(d.first_due_date)}`;
+      return t("audit.created", {
+        name: d.name,
+        amount: money(d.amount, d.currency),
+        period: d.period ? `${periodLabel(d.period).toLowerCase()}, ` : "",
+        date: fmtDate(d.first_due_date),
+      });
     case "payment.update":
       return [
         d.name_before ? `${d.name_before} → ${d.name}` : d.name,
-        d.amount_before ? `сумма ${money(d.amount_before, d.currency)} → ${money(d.amount, d.currency)}` : "",
-        d.first_due_date_before ? `график: ${periodLabel(d.period).toLowerCase()}, ближайший срок ${fmtDate(d.first_due_date)}` : "",
+        d.amount_before ? t("audit.amountChanged", { before: money(d.amount_before, d.currency), after: money(d.amount, d.currency) }) : "",
+        d.first_due_date_before ? t("audit.scheduleChanged", { period: periodLabel(d.period).toLowerCase(), date: fmtDate(d.first_due_date) }) : "",
       ].filter(Boolean).join(", ");
     case "payment.delete":
       return d.name;
@@ -1473,47 +2462,35 @@ function auditSummary(e) {
     case "user.delete":
       return d.login;
     case "user.update":
-      return [d.login_before ? `${d.login_before} → ${d.login}` : d.login, d.password_changed ? "пароль изменён" : ""].filter(Boolean).join(", ");
+      return [d.login_before ? `${d.login_before} → ${d.login}` : d.login, d.password_changed ? t("audit.passwordChanged") : ""].filter(Boolean).join(", ");
     case "messenger.link":
     case "messenger.unlink":
       return `${MESSENGER_TITLES[d.messenger] || d.messenger}: ${d.account || ""}`;
     case "reminder.sent":
-      return `${d.name}, ${due}, канал: ${d.channel}`;
+    case "reminder.overdue_sent":
+      return t("audit.channel", { name: d.name, due, channel: d.channel });
     case "receipt.add":
     case "receipt.delete":
       return [d.title || d.filename || d.url, d.name].filter(Boolean).join(" · ");
     case "auth.login_failed":
-      return "попытка входа с этим логином";
+      return t("audit.failed");
+    case "auth.login_locked":
+      return d.minutes ? t("audit.locked", { minutes: d.minutes }) : "";
     default:
       return d && Object.keys(d).length ? JSON.stringify(d) : "";
   }
 }
 
-const AUDIT_FILTERS = {
-  group: [
-    { value: "", label: "Всё" },
-    { value: "auth.", label: "Вход" },
-    { value: "occurrence.", label: "Оплаты" },
-    { value: "payment.", label: "Платежи" },
-    { value: "user.", label: "Пользователи" },
-    { value: "reminder.", label: "Напоминания" },
-    { value: "messenger.", label: "Мессенджеры" },
-  ],
-  period: [
-    { value: "", label: "Всё время" },
-    { value: "1", label: "Сегодня" },
-    { value: "7", label: "7 дней" },
-    { value: "30", label: "30 дней" },
-  ],
-};
+const AUDIT_GROUPS = ["", "auth.", "occurrence.", "payment.", "user.", "reminder.", "messenger."];
+const AUDIT_PERIODS = ["", "1", "7", "30"];
 
 const auditState = { group: "", period: "" };
 
 async function auditView(main) {
   const PAGE = 100;
-  const listBox = h("div", { class: "card table-card" });
-  const more = h("button", { class: "btn", type: "button" }, "Показать ещё");
-  const moreWrap = h("div", { class: "more-wrap" }, more);
+  const listBox = h("div", { class: "table-card" }, skeletonRows());
+  const more = h("button", { class: "btn", type: "button" }, t("common.showMore"));
+  const moreWrap = h("div", { class: "more-wrap", hidden: true }, more);
   let offset = 0;
   let rows = [];
 
@@ -1530,7 +2507,7 @@ async function auditView(main) {
         ? h(
             "table",
             {},
-            h("thead", {}, h("tr", {}, h("th", {}, "Время"), h("th", {}, "Кто"), h("th", {}, "Действие"), h("th", {}, "Подробности"), h("th", {}, "Адрес"))),
+            h("thead", {}, h("tr", {}, h("th", {}, t("audit.colTime")), h("th", {}, t("audit.colWho")), h("th", {}, t("audit.colAction")), h("th", {}, t("audit.colDetails")), h("th", {}, t("audit.colIp")))),
             h(
               "tbody",
               {},
@@ -1538,16 +2515,16 @@ async function auditView(main) {
                 h(
                   "tr",
                   {},
-                  h("td", { class: "title-cell num", "data-label": "Время" }, fmtDateTime(e.at)),
-                  h("td", { "data-label": "Кто" }, h("span", { class: `actor ${e.actor_type}` }, e.actor), " ", h("span", { class: "cell-sub" }, ACTOR_LABELS[e.actor_type] || e.actor_type)),
-                  h("td", { "data-label": "Действие" }, h("span", { class: `act ${e.action === "auth.login_failed" ? "bad" : ""}` }, AUDIT_LABELS[e.action] || e.action)),
-                  h("td", { "data-label": "Подробности", class: "details-cell" }, auditSummary(e)),
-                  h("td", { "data-label": "Адрес", class: "num muted" }, e.ip || "—"),
+                  h("td", { class: "title-cell num", "data-label": t("audit.colTime") }, fmtDateTime(e.at)),
+                  h("td", { "data-label": t("audit.colWho") }, h("span", { class: `actor ${e.actor_type}` }, e.actor), " ", h("span", { class: "cell-sub" }, has(`actor.${e.actor_type}`) ? t(`actor.${e.actor_type}`) : e.actor_type)),
+                  h("td", { "data-label": t("audit.colAction") }, h("span", { class: `act ${e.action === "auth.login_failed" || e.action === "auth.login_locked" ? "bad" : ""}` }, has(`action.${e.action}`) ? t(`action.${e.action}`) : e.action)),
+                  h("td", { "data-label": t("audit.colDetails"), class: "details-cell" }, auditSummary(e)),
+                  h("td", { "data-label": t("audit.colIp"), class: "num muted" }, e.ip || "—"),
                 ),
               ),
             ),
           )
-        : h("div", { class: "empty" }, h("strong", {}, "Записей нет"), "Здесь появятся входы, оплаты, изменения платежей и пользователей."),
+        : h("div", { class: "empty" }, h("strong", {}, t("audit.empty")), t("audit.emptyText")),
     );
     moreWrap.hidden = !hasMore;
   }
@@ -1563,21 +2540,26 @@ async function auditView(main) {
     draw(page.length === PAGE);
   }
 
-  more.addEventListener("click", () => load(false).catch(report));
+  more.addEventListener("click", async () => {
+    setBusy(more, true);
+    try {
+      await load(false);
+    } catch (err) {
+      report(err);
+    } finally {
+      setBusy(more, false);
+    }
+  });
 
+  const groupKey = (g) => (g ? `audit.f.${g.slice(0, -1)}` : "audit.f.all");
   const toolbar = h(
     "div",
     { class: "toolbar" },
-    segmented(AUDIT_FILTERS.group, auditState.group, (v) => { auditState.group = v; load(true).catch(report); }),
-    segmented(AUDIT_FILTERS.period, auditState.period, (v) => { auditState.period = v; load(true).catch(report); }),
+    segmented(AUDIT_GROUPS.map((g) => ({ value: g, label: t(groupKey(g)) })), auditState.group, (v) => { auditState.group = v; load(true).catch(report); }),
+    segmented(AUDIT_PERIODS.map((p) => ({ value: p, label: t(p ? `audit.p.${p}` : "audit.p.all") })), auditState.period, (v) => { auditState.period = v; load(true).catch(report); }),
   );
 
-  main.replaceChildren(
-    h("div", { class: "page-head" }, h("div", {}, h("h2", {}, "Журнал"), h("p", {}, "Кто и что делал: входы, оплаты (в том числе из Telegram и MAX), платежи, пользователи. Пароли сюда не попадают"))),
-    toolbar,
-    listBox,
-    moreWrap,
-  );
+  main.replaceChildren(pageHead(t("tab.audit"), t("audit.lead")), toolbar, listBox, moreWrap);
   await load(true);
 }
 
@@ -1586,7 +2568,7 @@ async function auditView(main) {
 const MESSENGER_TITLES = { telegram: "Telegram", max: "MAX" };
 
 async function messengersView(main) {
-  const cards = h("div", { class: "msg-grid" });
+  const cards = h("div", { class: "msg-grid" }, skeletonTileList(2));
 
   async function reload() {
     const items = await api("/me/messengers");
@@ -1594,31 +2576,19 @@ async function messengersView(main) {
     return items;
   }
 
-  main.replaceChildren(
-    h(
-      "div",
-      { class: "page-head" },
-      h(
-        "div",
-        {},
-        h("h2", {}, "Мессенджеры"),
-        h("p", {}, "Привяжите Telegram или MAX, и напоминания об оплате будут приходить вам лично, с кнопкой «Оплачено». Отметка из мессенджера записывается от вашего имени"),
-      ),
-    ),
-    cards,
-  );
+  main.replaceChildren(pageHead(t("tab.messengers"), t("msg.lead")), cards);
   await reload();
 }
 
 function messengerCard(m, reload) {
   let status;
-  if (!m.available) status = h("p", { class: "muted" }, "Бот этого мессенджера не настроен на сервере");
-  else if (m.linked) status = h("p", {}, "Привязан: ", h("b", {}, m.account), h("span", { class: "muted" }, ` · с ${fmtDateTime(m.linked_at)}`));
-  else status = h("p", { class: "muted" }, "Не привязан: напоминания приходят только в общий чат");
+  if (!m.available) status = h("p", { class: "muted" }, t("msg.notConfigured"));
+  else if (m.linked) status = h("p", {}, t("msg.linkedTo"), h("b", {}, m.account), h("span", { class: "muted" }, t("msg.since", { date: fmtDateTime(m.linked_at) })));
+  else status = h("p", { class: "muted" }, t("msg.notLinkedText"));
 
   const actions = [];
   if (m.available) {
-    actions.push(h("button", { class: `btn ${m.linked ? "" : "btn-primary"}`, type: "button", onclick: () => linkDialog(m, reload) }, m.linked ? "Привязать другой аккаунт" : "Привязать"));
+    actions.push(h("button", { class: `btn ${m.linked ? "" : "btn-accent"}`, type: "button", onclick: () => linkDialog(m, reload) }, m.linked ? t("msg.linkOther") : t("msg.link")));
   }
   if (m.linked) {
     actions.push(
@@ -1629,25 +2599,25 @@ function messengerCard(m, reload) {
           type: "button",
           onclick: () =>
             openDialog({
-              title: `Отвязать ${m.title}?`,
-              description: `Личные напоминания в ${m.title} перестанут приходить. Общий чат продолжит работать.`,
-              confirmLabel: "Отвязать",
+              title: t("msg.unlinkTitle", { title: m.title }),
+              description: t("msg.unlinkDesc", { title: m.title }),
+              confirmLabel: t("msg.unlink"),
               danger: true,
               onSubmit: async () => {
                 await api(`/me/messengers/${m.messenger}`, { method: "DELETE" });
-                toast(`${m.title} отвязан`);
+                toast(t("msg.unlinked", { title: m.title }));
                 await reload();
               },
             }),
         },
-        "Отвязать",
+        t("msg.unlink"),
       ),
     );
   }
   return h(
     "article",
-    { class: `card msg-card ${m.linked ? "is-linked" : ""}` },
-    h("div", { class: "msg-head" }, h("h3", {}, m.title), h("span", { class: `badge ${m.linked ? "paid" : ""}` }, m.linked ? "привязан" : "не привязан")),
+    { class: `tile msg-card ${m.linked ? "is-linked" : ""}` },
+    h("div", { class: "tile-head" }, h("h3", {}, m.title), h("span", { class: `badge ${m.linked ? "paid" : ""}` }, m.linked ? t("msg.linked") : t("msg.notLinked"))),
     status,
     h("div", { class: "msg-actions" }, actions),
   );
@@ -1661,8 +2631,8 @@ async function linkDialog(m, reload) {
     report(err);
     return;
   }
-  const until = new Date(link.expires_at).toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
-  const wait = h("p", { class: "muted msg-wait" }, "Жду подтверждения от бота…");
+  const until = new Date(link.expires_at).toLocaleTimeString(locale(), { hour: "2-digit", minute: "2-digit" });
+  const wait = h("p", { class: "muted msg-wait" }, t("msg.wait"));
   const copy = h(
     "button",
     {
@@ -1671,13 +2641,13 @@ async function linkDialog(m, reload) {
       onclick: async () => {
         try {
           await navigator.clipboard.writeText(link.command);
-          toast("Команда скопирована");
+          toast(t("msg.copied"));
         } catch {
-          toast("Не удалось скопировать, выделите команду вручную", "error");
+          toast(t("msg.copyFailed"), "error");
         }
       },
     },
-    "Скопировать",
+    t("msg.copy"),
   );
   const dialog = h(
     "dialog",
@@ -1685,25 +2655,20 @@ async function linkDialog(m, reload) {
     h(
       "div",
       { class: "rc-dialog" },
-      h("h2", {}, `Привязать ${m.title}`),
-      h(
-        "p",
-        { class: "desc" },
-        link.url
-          ? `Откройте бота по ссылке и нажмите «Старт». Ссылка одноразовая и действует до ${until}.`
-          : `Найдите бота ${m.title} и отправьте ему в личку команду ниже. Она одноразовая и действует до ${until}.`,
-      ),
-      link.url ? h("a", { class: "btn btn-primary btn-block", href: link.url, target: "_blank", rel: "noopener noreferrer" }, `Открыть ${m.title}`) : null,
-      link.url ? h("p", { class: "hint msg-alt" }, "Если ссылка не открывается, отправьте боту в личку эту команду:") : null,
+      h("h2", {}, t("msg.linkTitle", { title: m.title })),
+      h("p", { class: "desc" }, link.url ? t("msg.linkByUrl", { until }) : t("msg.linkByCommand", { title: m.title, until })),
+      link.url ? h("a", { class: "btn btn-accent btn-block", href: link.url, target: "_blank", rel: "noopener noreferrer" }, t("msg.open", { title: m.title })) : null,
+      link.url ? h("p", { class: "msg-alt" }, t("msg.alt")) : null,
       h("div", { class: "msg-command" }, h("code", {}, link.command), copy),
       wait,
-      h("div", { class: "dialog-actions" }, h("button", { class: "btn", type: "button", onclick: () => dialog.close() }, "Закрыть")),
+      h("div", { class: "dialog-actions" }, h("button", { class: "btn", type: "button", onclick: () => dialog.close() }, t("common.close"))),
     ),
   );
   // ждём, пока бот примет код: раз в 3 секунды, пока окно открыто и ссылка жива
   const timer = setInterval(async () => {
     if (Date.now() > new Date(link.expires_at).getTime()) {
-      wait.textContent = "Ссылка устарела. Закройте окно и получите новую.";
+      wait.textContent = t("msg.expired");
+      wait.classList.add("done");
       clearInterval(timer);
       return;
     }
@@ -1712,7 +2677,7 @@ async function linkDialog(m, reload) {
       const now = items.find((x) => x.messenger === m.messenger);
       if (now && now.linked && now.account !== m.account) {
         clearInterval(timer);
-        toast(`${m.title} привязан: ${now.account}`);
+        toast(t("msg.done", { title: m.title, account: now.account }));
         dialog.close();
         await reload();
       }
@@ -1720,17 +2685,23 @@ async function linkDialog(m, reload) {
       /* попробуем на следующем шаге */
     }
   }, 3000);
-  dialog.addEventListener("close", () => {
-    clearInterval(timer);
-    dialog.remove();
-  });
-  document.body.append(dialog);
-  dialog.showModal();
+  presentDialog(dialog, () => clearInterval(timer));
 }
 
 // ---------- старт ----------
 
+document.addEventListener("click", (event) => {
+  for (const el of document.querySelectorAll(".lang.open")) if (!el.contains(event.target)) closeLangMenus();
+});
+
+document.addEventListener("keydown", (event) => {
+  if (event.key !== "Escape") return;
+  closeLangMenus();
+  setNavOpen(false);
+});
+
 async function bootstrap() {
+  setTitle();
   try {
     state.me = await api("/auth/me", { silent: true });
   } catch {
