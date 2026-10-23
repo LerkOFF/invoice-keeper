@@ -168,6 +168,7 @@ const I18N = {
     "sum.allClosed": "к оплате · всё закрыто",
     "sum.overdue": "Просрочено",
     "sum.paid": "Оплачено",
+    "sum.due": "Ждёт оплаты",
     "sum.left": "Осталось",
     "sum.sticker": "просрочка!",
 
@@ -505,6 +506,7 @@ const I18N = {
     "sum.allClosed": "to pay · all settled",
     "sum.overdue": "Overdue",
     "sum.paid": "Paid",
+    "sum.due": "Awaiting",
     "sum.left": "Left",
     "sum.sticker": "overdue!",
 
@@ -1574,12 +1576,58 @@ function segmented(options, value, onChange) {
   return h("div", { class: "seg", role: "group" }, buttons);
 }
 
-function tileArt() {
-  return h("div", { class: "tile-art", "aria-hidden": "true" }, h("i"), h("i"), h("i"));
+const toMinor = (value) => Math.round(Number(value) * 100);
+
+// Шкала из отрезков по суммам валюты, как ряды на плитке VPS в кабинете aeza, только с данными.
+// Ширина отрезка задана атрибутом rect, а не style, поэтому CSP панели не мешает.
+function shareBar(parts, currency) {
+  const items = parts.map((p) => ({ ...p, minor: Math.max(toMinor(p.amount), 0) }));
+  const total = items.reduce((sum, p) => sum + p.minor, 0);
+  const shown = items.filter((p) => p.minor > 0);
+  const GAP = 1; // доля ширины между отрезками, из 100
+  const rects = [];
+  if (!total) {
+    rects.push(svg("rect", { class: "seg-empty", width: 100, height: 10 }));
+  } else {
+    const free = 100 - GAP * (shown.length - 1);
+    let x = 0;
+    shown.forEach((p, i) => {
+      const width = i === shown.length - 1 ? 100 - x : (free * p.minor) / total;
+      rects.push(svg("rect", { class: `seg-${p.kind}`, x: x.toFixed(3), width: width.toFixed(3), height: 10 }));
+      x += width + GAP;
+    });
+  }
+  const percent = (minor) => {
+    if (!total || !minor) return "0%";
+    const share = (minor / total) * 100;
+    return share < 1 ? "<1%" : `${Math.round(share)}%`;
+  };
+  return h(
+    "div",
+    { class: "share" },
+    svg(
+      "svg",
+      { class: "share-bar", viewBox: "0 0 100 10", preserveAspectRatio: "none", role: "img", "aria-label": items.map((p) => `${p.label} ${percent(p.minor)}`).join(", ") },
+      ...rects,
+    ),
+    h(
+      "div",
+      { class: "share-legend" },
+      items.map((p) =>
+        h(
+          "div",
+          { class: `share-row ${p.kind} ${p.minor ? "has" : ""}` },
+          h("span", { class: "share-name" }, p.label),
+          h("span", { class: "num share-sum" }, money(p.minor / 100, currency)),
+          h("span", { class: "num share-pct" }, percent(p.minor)),
+        ),
+      ),
+    ),
+  );
 }
 
 function summaryCard(c, onDate = null) {
-  const row = (label, value, cls = "") => h("div", { class: "tile-row" }, h("span", {}, label), h("span", { class: `num ${cls}` }, value));
+  const due = (toMinor(c.unpaid) - toMinor(c.overdue)) / 100;
   return h(
     "article",
     { class: `tile ${c.count_overdue > 0 ? "has-overdue" : ""}` },
@@ -1596,13 +1644,14 @@ function summaryCard(c, onDate = null) {
       h("div", { class: "tile-amount num" }, money(c.unpaid, c.currency)),
       h("div", { class: "tile-sub" }, c.count_unpaid ? t("sum.toPay", { payments: plural(c.count_unpaid, "payment") }) : t("sum.allClosed")),
     ),
-    h(
-      "div",
-      { class: "tile-rows" },
-      row(t("sum.overdue"), money(c.overdue, c.currency), c.count_overdue > 0 ? "bad" : ""),
-      row(t("sum.paid"), money(c.paid, c.currency), c.count_paid > 0 ? "ok" : ""),
+    shareBar(
+      [
+        { kind: "paid", label: t("sum.paid"), amount: c.paid },
+        { kind: "due", label: t("sum.due"), amount: due },
+        { kind: "overdue", label: t("sum.overdue"), amount: c.overdue },
+      ],
+      c.currency,
     ),
-    tileArt(),
   );
 }
 
@@ -2453,14 +2502,13 @@ async function budgetView(main) {
             h("div", { class: "tile-amount num" }, money(c.planned, c.currency)),
             h("div", { class: "tile-sub" }, c.count_planned ? plural(c.count_planned, "payment") : t("budget.none")),
           ),
-          h("progress", { max: Math.max(Number(c.planned), 1), value: Number(c.paid), "aria-label": t("cal.paidShare") }),
-          h(
-            "div",
-            { class: "tile-rows" },
-            h("div", { class: "tile-row" }, h("span", {}, t("sum.paid")), h("span", { class: "num ok" }, money(c.paid, c.currency))),
-            h("div", { class: "tile-row" }, h("span", {}, t("sum.left")), h("span", { class: "num" }, money(c.remaining, c.currency))),
+          shareBar(
+            [
+              { kind: "paid", label: t("sum.paid"), amount: c.paid },
+              { kind: "left", label: t("sum.left"), amount: c.remaining },
+            ],
+            c.currency,
           ),
-          tileArt(),
         ),
       ),
     );
