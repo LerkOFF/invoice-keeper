@@ -5,6 +5,7 @@ import time
 from collections.abc import Callable
 from datetime import date
 from enum import StrEnum
+from html import escape
 from typing import Any, Protocol
 
 from sqlalchemy.orm import Session
@@ -12,7 +13,7 @@ from sqlalchemy.orm import Session
 from app.core.clock import today as today_in_tz
 from app.core.config import Settings
 from app.models import OccurrenceStatus, PaymentOccurrence
-from app.services import audit, bot_commands, links
+from app.services import audit, bot_commands, links, wording
 from app.services.notify import NotifyError
 from app.services.occurrences import apply_update
 from app.services.telegram import PAY_CALLBACK_PREFIX, TelegramApi, TelegramError
@@ -124,13 +125,14 @@ class PayButtonBot:
         if result is PayResult.PAID_NOW:
             logger.info("Оплата периода %s отмечена из Telegram: %s", match.group(1), who)
             self._answer(query_id, "Оплата отмечена ✅")
-            self._finish_message(chat, message, f"{original}\n\n✅ Оплачено {fmt_date(paid_at)}, отметил(а): {who}")
         elif result is PayResult.ALREADY_PAID:
             self._answer(query_id, "Уже отмечено как оплаченное")
-            self._finish_message(chat, message, f"{original}\n\n✅ Оплачено {fmt_date(paid_at)}")
         else:
             self._answer(query_id, "Платёж не найден или прекращён", alert=True)
-            self._finish_message(chat, message, f"{original}\n\n⚠️ Платёж прекращён")
+        new_text = result_message(
+            self._session_factory, int(match.group(1)), result, paid_at, who if result is PayResult.PAID_NOW else None, original
+        )
+        self._finish_message(chat, message, new_text)
 
     # ---------- привязка к пользователю панели ----------
 
@@ -183,7 +185,7 @@ class PayButtonBot:
                 return
         with self._session_factory() as db:
             text = bot_commands.reply(db, command, self._today())
-        self._send(chat.get("id"), text)
+        self._send(chat.get("id"), text, html=True)
 
     def _register_menu(self) -> None:
         """Меню команд в Telegram. Не получилось: не страшно, команды работают и без меню."""
@@ -193,9 +195,12 @@ class PayButtonBot:
         except TelegramError as error:
             logger.warning("Меню команд Telegram не установлено: %s", error)
 
-    def _send(self, chat_id: Any, text: str) -> None:
+    def _send(self, chat_id: Any, text: str, html: bool = False) -> None:
+        payload: dict[str, Any] = {"chat_id": chat_id, "text": text, "disable_web_page_preview": True}
+        if html:
+            payload["parse_mode"] = "HTML"
         try:
-            self._api.call("sendMessage", {"chat_id": chat_id, "text": text, "disable_web_page_preview": True})
+            self._api.call("sendMessage", payload)
         except TelegramError as error:
             logger.warning("Ответ в Telegram не ушёл: %s", error)
 
@@ -259,6 +264,7 @@ class PayButtonBot:
                     "chat_id": chat.get("id"),
                     "message_id": message.get("message_id"),
                     "text": text,
+                    "parse_mode": "HTML",
                     "reply_markup": _NO_BUTTONS,
                     "disable_web_page_preview": True,
                 },
@@ -272,6 +278,26 @@ def _display_name(user: dict[str, Any]) -> str:
         return f"@{user['username']}"
     name = " ".join(part for part in (user.get("first_name"), user.get("last_name")) if part)
     return name or f"id {user.get('id')}"
+
+
+def result_message(
+    session_factory: Callable[[], Session],
+    occurrence_id: int,
+    result: "PayResult",
+    paid_at: date | None,
+    who: str | None,
+    original: str,
+) -> str:
+    """Сообщение после нажатия «Оплачено» в том же виде, что напоминание: статус сверху, сумма жирным (HTML)."""
+    with session_factory() as db:
+        occurrence = db.get(PaymentOccurrence, occurrence_id)
+        if occurrence is None:
+            return f"{escape(original)}\n\n{wording.DOTS['gone']} Платёж прекращён"
+        payment = occurrence.recurring_payment
+        money = wording.format_money(occurrence.amount, payment.currency)
+        if result is PayResult.GONE:
+            return wording.gone_message(payment.name, money, occurrence.due_date)
+        return wording.paid_message(payment.name, money, occurrence.due_date, paid_at, who)
 
 
 def fmt_date(value: date | None) -> str:

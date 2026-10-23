@@ -88,10 +88,15 @@ class MaxNotifier(MaxApi):
     name = "max"
 
     def send(self, reminder: Reminder) -> None:
-        self.send_text(reminder.text, pay_button_for=reminder.occurrence_id)
+        if reminder.html:
+            self.send_text(reminder.html, pay_button_for=reminder.occurrence_id, html=True)
+        else:
+            self.send_text(reminder.text, pay_button_for=reminder.occurrence_id)
 
-    def send_text(self, text: str, *, pay_button_for: int | None = None) -> None:
+    def send_text(self, text: str, *, pay_button_for: int | None = None, html: bool = False) -> None:
         body: dict[str, Any] = {"text": text}
+        if html:
+            body["format"] = "html"
         if pay_button_for is not None and self._settings.max_buttons_enabled:
             body["attachments"] = [pay_keyboard(pay_button_for)]
         query = {"chat_id": self.chat_id_number(), "disable_link_preview": "true"}

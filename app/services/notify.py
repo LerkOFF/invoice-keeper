@@ -21,6 +21,7 @@ class Reminder:
     days_left: int  # отрицательное значение: период уже просрочен
     text: str  # готовый текст для мессенджеров
     overdue_notice: bool = False  # повторное напоминание: срок прошёл, а оплаты нет
+    html: str = ""  # то же для мессенджеров с разметкой HTML (статус, жирная сумма); пусто, значит слать text
 
     @property
     def is_overdue(self) -> bool:

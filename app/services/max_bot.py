@@ -12,7 +12,7 @@ from app.core.config import Settings
 from app.services import audit, bot_commands, links
 from app.services.max_api import MaxApi, MaxError
 from app.services.telegram import PAY_CALLBACK_PREFIX
-from app.services.telegram_bot import PayResult, fmt_date, mark_paid
+from app.services.telegram_bot import PayResult, mark_paid, result_message
 
 logger = logging.getLogger("invoice_keeper")
 
@@ -130,14 +130,16 @@ class MaxPayButtonBot:
         original = (message.get("body") or {}).get("text") or ""
 
         # ответ на нажатие сразу заменяет текст и убирает кнопку, чтобы её нельзя было нажать повторно
+        occurrence_id = int(match.group(1))
+        who = actor.name if result is PayResult.PAID_NOW else None
+        new_text = result_message(self._session_factory, occurrence_id, result, paid_at, who, original)
         if result is PayResult.PAID_NOW:
             logger.info("Оплата периода %s отмечена из MAX: %s", match.group(1), actor.name)
-            done = f"{original}\n\n✅ Оплачено {fmt_date(paid_at)}, отметил(а): {actor.name}"
-            self._answer(callback_id, "Оплата отмечена ✅", done)
+            self._answer(callback_id, "Оплата отмечена ✅", new_text)
         elif result is PayResult.ALREADY_PAID:
-            self._answer(callback_id, "Уже отмечено как оплаченное", f"{original}\n\n✅ Оплачено {fmt_date(paid_at)}")
+            self._answer(callback_id, "Уже отмечено как оплаченное", new_text)
         else:
-            self._answer(callback_id, "Платёж не найден или прекращён", f"{original}\n\n⚠️ Платёж прекращён")
+            self._answer(callback_id, "Платёж не найден или прекращён", new_text)
 
     # ---------- привязка к пользователю панели ----------
 
@@ -179,11 +181,14 @@ class MaxPayButtonBot:
                 return
         with self._session_factory() as db:
             text = bot_commands.reply(db, command, self._today())
-        self._send(chat_id, text)
+        self._send(chat_id, text, html=True)
 
-    def _send(self, chat_id: Any, text: str) -> None:
+    def _send(self, chat_id: Any, text: str, html: bool = False) -> None:
+        body: dict[str, Any] = {"text": text}
+        if html:
+            body["format"] = "html"
         try:
-            self._api.call("POST", "/messages", query={"chat_id": chat_id}, body={"text": text})
+            self._api.call("POST", "/messages", query={"chat_id": chat_id}, body=body)
         except MaxError as error:
             logger.warning("Ответ в личку MAX не ушёл: %s", error)
 
@@ -231,7 +236,7 @@ class MaxPayButtonBot:
     def _answer(self, callback_id: str, notification: str, new_text: str | None = None) -> None:
         body: dict[str, Any] = {"notification": notification}
         if new_text is not None:
-            body["message"] = {"text": new_text, "attachments": []}
+            body["message"] = {"text": new_text, "format": "html", "attachments": []}
         try:
             self._api.call("POST", "/answers", query={"callback_id": callback_id}, body=body)
         except MaxError as error:

@@ -85,7 +85,8 @@ def test_chat_member_marks_payment_and_message_is_updated():
     [(query, body)] = api.of("/answers")
     assert query == {"callback_id": "c1"} and "отмечена" in body["notification"]
     text = body["message"]["text"]
-    assert text.startswith(REMINDER_TEXT) and "Оплачено 23.10.2026" in text and "@ivan" in text
+    # перерисовано в стиле напоминания: зелёный статус сверху, сумма жирным, кто отметил
+    assert text.startswith("🟢 Оплачено 23.10.2026") and "Сумма: <b>100.00 RUB</b>" in text and "@ivan" in text
     assert body["message"]["attachments"] == []  # кнопка убрана
 
 

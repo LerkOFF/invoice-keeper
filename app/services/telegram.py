@@ -57,10 +57,15 @@ class TelegramNotifier(TelegramApi):
     name = "telegram"
 
     def send(self, reminder: Reminder) -> None:
-        self.send_text(reminder.text, pay_button_for=reminder.occurrence_id)
+        if reminder.html:
+            self.send_text(reminder.html, pay_button_for=reminder.occurrence_id, html=True)
+        else:
+            self.send_text(reminder.text, pay_button_for=reminder.occurrence_id)
 
-    def send_text(self, text: str, *, pay_button_for: int | None = None) -> None:
+    def send_text(self, text: str, *, pay_button_for: int | None = None, html: bool = False) -> None:
         payload: dict[str, Any] = {"chat_id": self.chat_id, "text": text, "disable_web_page_preview": True}
+        if html:
+            payload["parse_mode"] = "HTML"
         if pay_button_for is not None and self._settings.telegram_buttons_enabled:
             payload["reply_markup"] = pay_keyboard(pay_button_for)
         self.call("sendMessage", payload)

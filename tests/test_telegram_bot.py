@@ -94,7 +94,9 @@ def test_chat_member_marks_payment_and_message_is_updated():
     assert answer["callback_query_id"] == "q1" and "отмечена" in answer["text"] and not answer["show_alert"]
     edit = api.of("editMessageText")[0]
     assert edit["chat_id"] == CHAT_ID and edit["message_id"] == 7
-    assert edit["text"].startswith(REMINDER_TEXT) and "Оплачено 23.10.2026" in edit["text"] and "@ivan" in edit["text"]
+    # перерисовано в стиле напоминания: зелёный статус сверху, сумма жирным, кто отметил
+    assert edit["text"].startswith("🟢 Оплачено 23.10.2026") and "Сумма: <b>100.00 RUB</b>" in edit["text"] and "@ivan" in edit["text"]
+    assert edit["parse_mode"] == "HTML"
     assert edit["reply_markup"] == {"inline_keyboard": []}
 
 

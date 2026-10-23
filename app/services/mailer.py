@@ -8,6 +8,7 @@ from html import escape
 from pathlib import Path
 
 from app.core.config import Settings
+from app.services import wording
 from app.services.notify import NotifyError, Reminder
 
 logger = logging.getLogger("invoice_keeper")
@@ -53,41 +54,15 @@ class EmailContent:
 
 
 def describe(reminder: Reminder, money: str, due: str) -> EmailContent:
-    """Что сказать в письме: тема, статус, заголовок и первая фраза. Один источник для текста и HTML."""
-    days = reminder.days_left
+    """Тема и анонс письма; статус, заголовок и фраза общие с мессенджерами (services/wording.py)."""
+    w = wording.describe(reminder.days_left, reminder.overdue_notice)
     if reminder.overdue_notice:
-        late = -days
-        return EmailContent(
-            f"Платёж просрочен: {reminder.name}, {money}, срок был {due}",
-            f"Срок прошёл {late} дн. назад, а оплата так и не отмечена.",
-            "overdue",
-            f"Просрочено на {late} дн.",
-            "Платёж просрочен",
-            "Срок оплаты прошёл, а оплата так и не отмечена. Оплатите и отметьте её в панели.",
-        )
-    if days < 0:
-        return EmailContent(
-            f"Напоминание об оплате: {reminder.name}, {money} до {due}",
-            f"Срок уже прошёл: {due}.",
-            "overdue",
-            f"Просрочено на {-days} дн.",
-            "Напоминание об оплате",
-            "Срок оплаты уже прошёл. Оплатите как можно скорее и отметьте оплату в панели.",
-        )
-    if days == 0:
-        chip, lead = "Срок сегодня", "Сегодня последний день оплаты."
-    elif days == 1:
-        chip, lead = "Срок завтра", "Завтра последний день оплаты."
+        subject = f"Платёж просрочен: {reminder.name}, {money}, срок был {due}"
+        preheader = f"Срок прошёл {-reminder.days_left} дн. назад, а оплата так и не отмечена."
     else:
-        chip, lead = f"Через {days} дн.", f"До срока оплаты осталось {days} дн."
-    return EmailContent(
-        f"Напоминание об оплате: {reminder.name}, {money} до {due}",
-        f"{lead} {reminder.name}, {money}.",
-        "today" if days == 0 else "soon",
-        chip,
-        "Напоминание об оплате",
-        lead,
-    )
+        subject = f"Напоминание об оплате: {reminder.name}, {money} до {due}"
+        preheader = f"Срок уже прошёл: {due}." if reminder.days_left < 0 else f"{w.lead} {reminder.name}, {money}."
+    return EmailContent(subject, preheader, w.status, w.chip, w.title, w.lead)
 
 
 def render_text(reminder: Reminder, content: EmailContent, money: str, due: str, panel_url: str) -> str:

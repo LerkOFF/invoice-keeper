@@ -227,7 +227,7 @@ def test_parallel_runs_send_each_reminder_exactly_once():
     for t in threads:
         t.join()
 
-    assert sorted(m.split("\n")[2] for m in notifier.messages) == ["Платёж: A", "Платёж: B"]
+    assert sorted(next(l for l in m.split("\n") if l.startswith("Платёж:")) for m in notifier.messages) == ["Платёж: A", "Платёж: B"]
     assert sum(results) == 2
 
 
@@ -236,3 +236,46 @@ def test_each_reminder_gets_a_pay_button_for_its_period(db):
     notifier = FakeNotifier()
     run(db, notifier)
     assert notifier.buttons == [payment.occurrences[0].id]
+
+
+# ---------- вид сообщений в мессенджерах ----------
+
+
+@pytest.mark.parametrize(
+    ("days", "dot", "chip"),
+    [(2, "🟠", "Через 2 дн."), (1, "🟠", "Срок завтра"), (0, "🟠", "Срок сегодня"), (-3, "🔴", "Просрочено на 3 дн.")],
+)
+def test_messenger_message_has_status_on_top_and_bold_amount(db, days, dot, chip):
+    add_payment(db, TODAY + timedelta(days=days), name="Аренда <офис>")
+    notifier = FakeNotifier()
+    run(db, notifier)
+    [reminder] = notifier.reminders
+    lines = reminder.html.split("\n")
+    assert lines[0] == f"{dot} {chip}" and lines[1] == "<b>Напоминание об оплате</b>"
+    assert "Сумма: <b>45 000.00 RUB</b>" in reminder.html
+    assert "Платёж: Аренда &lt;офис&gt;" in reminder.html  # название экранируется
+    assert "<b>" not in reminder.text and reminder.text.split("\n")[0] == f"{dot} {chip}"  # webhook без разметки
+
+
+def test_overdue_notice_message_style():
+    from app.services import wording
+
+    html = wording.reminder_message("Сервер", "20.00 USD", date(2026, 10, 20), -3, overdue_notice=True)
+    assert html.startswith("🔴 Просрочено на 3 дн.\n<b>Платёж просрочен</b>") and "Сумма: <b>20.00 USD</b>" in html
+
+
+def test_telegram_notifier_sends_html_and_button():
+    import httpx, json
+    from app.services.telegram import TelegramNotifier
+
+    seen = {}
+
+    def handler(request):
+        seen.update(json.loads(request.content))
+        return httpx.Response(200, json={"ok": True, "result": {}})
+
+    from app.services.notify import Reminder
+
+    r = Reminder(occurrence_id=5, payment_id=1, name="A", amount=Decimal("1"), currency="RUB", due_date=TODAY, days_left=0, text="t", html="<b>h</b>")
+    TelegramNotifier(Settings(telegram_bot_token="1:T", telegram_chat_id="-1", telegram_buttons_enabled=True), transport=httpx.MockTransport(handler)).send(r)
+    assert seen["text"] == "<b>h</b>" and seen["parse_mode"] == "HTML" and seen["reply_markup"]["inline_keyboard"]

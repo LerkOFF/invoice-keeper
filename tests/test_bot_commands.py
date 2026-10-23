@@ -57,16 +57,16 @@ def test_todo_lists_week_ahead_and_overdue_with_totals():
     add_payment("Подписка", TODAY + timedelta(days=12), "9.99", "EUR")
     with SessionLocal() as db:
         text = bot_commands.reply(db, "todo", TODAY)
-    assert text.startswith("📋 Что оплатить до 30.10.2026")
-    assert "🔴 20.10 Аренда — 45 000.00 RUB (просрочен на 3 дн.)" in text
-    assert "• 25.10 Сервер — 20.00 USD (через 2 дн.)" in text
+    assert text.startswith("<b>📋 Что оплатить до 30.10.2026</b>")
+    assert "🔴 20.10 Аренда — <b>45 000.00 RUB</b> (просрочен на 3 дн.)" in text
+    assert "🟠 25.10 Сервер — <b>20.00 USD</b> (через 2 дн.)" in text
     assert "Подписка" not in text  # дальше недели
-    assert text.endswith("Итого: 45 000.00 RUB, 20.00 USD")
+    assert text.endswith("Итого: <b>45 000.00 RUB</b>, <b>20.00 USD</b>")
 
 
 def test_overdue_and_empty_answers():
     with SessionLocal() as db:
-        assert bot_commands.reply(db, "overdue", TODAY) == "Просроченных платежей нет ✅"
+        assert bot_commands.reply(db, "overdue", TODAY) == "🟢 Просроченных платежей нет"
         assert "оплат нет" in bot_commands.reply(db, "todo", TODAY)
     add_payment("Аренда", TODAY - timedelta(days=1))
     with SessionLocal() as db:

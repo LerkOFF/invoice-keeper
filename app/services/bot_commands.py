@@ -2,10 +2,13 @@ from collections import defaultdict
 from datetime import date, timedelta
 from decimal import Decimal
 
+from html import escape
+
 from sqlalchemy.orm import Session
 
 from app.models import OccurrenceStatus, PaymentOccurrence
 from app.services.occurrences import OccurrenceFilter, list_occurrences
+from app.services.wording import DOTS
 
 # Сколько дней вперёд показывает /todo
 TODO_DAYS = 7
@@ -65,33 +68,35 @@ def _when(occurrence: PaymentOccurrence, today: date) -> str:
 
 
 def _listing(title: str, items: list[PaymentOccurrence], today: date) -> str:
+    """Список в HTML: точка статуса как в напоминаниях, сумма жирным, итог по валютам."""
     lines = []
     totals: dict[str, int] = defaultdict(int)
     for occurrence in items:
         payment = occurrence.recurring_payment
         totals[payment.currency] += occurrence.due_amount_minor
-        mark = "🔴" if occurrence.due_date < today else "•"
+        days = (occurrence.due_date - today).days
+        mark = DOTS["overdue"] if days < 0 else DOTS["soon"] if days <= 3 else "⚪️"
         lines.append(
-            f"{mark} {occurrence.due_date:%d.%m} {payment.name} — "
-            f"{_money(occurrence.due_amount_minor, payment.currency)} ({_when(occurrence, today)})"
+            f"{mark} {occurrence.due_date:%d.%m} {escape(payment.name)} — "
+            f"<b>{escape(_money(occurrence.due_amount_minor, payment.currency))}</b> ({_when(occurrence, today)})"
         )
     if len(lines) > MAX_LINES:
         lines = lines[:MAX_LINES] + [f"…и ещё {len(lines) - MAX_LINES}, полный список в панели"]
-    total = ", ".join(_money(minor, currency) for currency, minor in totals.items())
-    return f"{title}\n\n" + "\n".join(lines) + f"\n\nИтого: {total}"
+    total = ", ".join(f"<b>{escape(_money(minor, currency))}</b>" for currency, minor in totals.items())
+    return f"<b>{escape(title)}</b>\n\n" + "\n".join(lines) + f"\n\nИтого: {total}"
 
 
 def reply(db: Session, command: str, today: date) -> str:
     """Текст ответа на команду. Только чтение: команды ничего не меняют и в журнал не пишут."""
     if command == "help":
-        return HELP
+        return escape(HELP)
     if command == "overdue":
         flt = OccurrenceFilter(status=OccurrenceStatus.UNPAID, overdue=True)
         items = list_occurrences(db, flt, today, limit=1000, offset=0)
-        return _listing("🔴 Просроченные платежи", items, today) if items else "Просроченных платежей нет ✅"
+        return _listing(f"{DOTS['overdue']} Просроченные платежи", items, today) if items else f"{DOTS['paid']} Просроченных платежей нет"
 
     flt = OccurrenceFilter(status=OccurrenceStatus.UNPAID, due_to=today + timedelta(days=TODO_DAYS))
     items = list_occurrences(db, flt, today, limit=1000, offset=0)
     if not items:
-        return f"На ближайшие {TODO_DAYS} дней оплат нет, просрочек нет ✅"
+        return f"{DOTS['paid']} На ближайшие {TODO_DAYS} дней оплат нет, просрочек нет"
     return _listing(f"📋 Что оплатить до {today + timedelta(days=TODO_DAYS):%d.%m.%Y}", items, today)

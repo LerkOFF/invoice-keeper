@@ -10,7 +10,7 @@ from sqlalchemy.orm import InstrumentedAttribute, Session, joinedload
 
 from app.core.config import Settings
 from app.models import OccurrenceStatus, OverdueDelivery, PaymentOccurrence, RecurringPayment, ReminderDelivery
-from app.services import audit
+from app.services import audit, wording
 from app.services.notify import Notifier, NotifyError, Reminder
 
 logger = logging.getLogger("invoice_keeper")
@@ -20,40 +20,31 @@ _run_lock = threading.Lock()
 
 
 def _days_phrase(days_left: int) -> str:
-    if days_left < 0:
-        return f"просрочен на {-days_left} дн."
-    if days_left == 0:
-        return "сегодня"
-    if days_left == 1:
-        return "завтра"
-    return f"через {days_left} дн."
+    return wording.days_phrase(days_left)
 
 
-def format_money(amount, currency: str) -> str:
-    """45000.00 RUB -> «45 000.00 RUB»."""
-    whole, _, frac = f"{amount:.2f}".partition(".")
-    return f"{int(whole):,}".replace(",", " ") + f".{frac} {currency}"
+format_money = wording.format_money
 
 
-def build_message(occurrence: PaymentOccurrence, today: date) -> str:
-    payment = occurrence.recurring_payment
-    days_left = (occurrence.due_date - today).days
-    return (
-        "🔔 Напоминание об оплате\n\n"
-        f"Платёж: {payment.name}\n"
-        f"Сумма: {format_money(occurrence.amount, payment.currency)}\n"
-        f"Дата оплаты: {occurrence.due_date:%d.%m.%Y} ({_days_phrase(days_left)})"
+def _money(occurrence: PaymentOccurrence) -> str:
+    return format_money(occurrence.amount, occurrence.recurring_payment.currency)
+
+
+def build_message(occurrence: PaymentOccurrence, today: date, html: bool = False) -> str:
+    """Напоминание о сроке. Обычный текст для webhook, html=True для Telegram и MAX."""
+    return wording.reminder_message(
+        occurrence.recurring_payment.name, _money(occurrence), occurrence.due_date, (occurrence.due_date - today).days, html=html
     )
 
 
-def build_overdue_message(occurrence: PaymentOccurrence, today: date) -> str:
-    payment = occurrence.recurring_payment
-    return (
-        "⚠️ Платёж просрочен\n\n"
-        f"Платёж: {payment.name}\n"
-        f"Сумма: {format_money(occurrence.amount, payment.currency)}\n"
-        f"Срок был: {occurrence.due_date:%d.%m.%Y} (просрочен на {(today - occurrence.due_date).days} дн.)\n"
-        "Оплата так и не отмечена."
+def build_overdue_message(occurrence: PaymentOccurrence, today: date, html: bool = False) -> str:
+    return wording.reminder_message(
+        occurrence.recurring_payment.name,
+        _money(occurrence),
+        occurrence.due_date,
+        (occurrence.due_date - today).days,
+        overdue_notice=True,
+        html=html,
     )
 
 
@@ -128,6 +119,7 @@ def build_reminder(occurrence: PaymentOccurrence, today: date, overdue_notice: b
         due_date=occurrence.due_date,
         days_left=(occurrence.due_date - today).days,
         text=build_overdue_message(occurrence, today) if overdue_notice else build_message(occurrence, today),
+        html=build_overdue_message(occurrence, today, html=True) if overdue_notice else build_message(occurrence, today, html=True),
         overdue_notice=overdue_notice,
     )
 

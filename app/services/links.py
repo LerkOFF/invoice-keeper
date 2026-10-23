@@ -196,14 +196,18 @@ class PersonalNotifier:
         if self._link.messenger == "telegram":
             from app.services.telegram import pay_keyboard
 
-            payload: dict[str, Any] = {"chat_id": self._link.chat_id, "text": reminder.text, "disable_web_page_preview": True}
+            payload: dict[str, Any] = {"chat_id": self._link.chat_id, "text": reminder.html or reminder.text, "disable_web_page_preview": True}
+            if reminder.html:
+                payload["parse_mode"] = "HTML"
             if self._settings.telegram_buttons_enabled:
                 payload["reply_markup"] = pay_keyboard(reminder.occurrence_id)
             api.call("sendMessage", payload)
         else:
             from app.services.max_api import pay_keyboard as max_keyboard
 
-            body: dict[str, Any] = {"text": reminder.text}
+            body: dict[str, Any] = {"text": reminder.html or reminder.text}
+            if reminder.html:
+                body["format"] = "html"
             if self._settings.max_buttons_enabled:
                 body["attachments"] = [max_keyboard(reminder.occurrence_id)]
             api.call("POST", "/messages", query={"chat_id": int(self._link.chat_id), "disable_link_preview": "true"}, body=body)
