@@ -14,15 +14,15 @@
                         ├── догенерация периодов
                         └── напоминания ──► Telegram Bot API ──► чат
                 
-SQLite (volume /data)
+SQLite (volume /data), схема создаётся при старте через create_all
 ```
 
 ## Модель данных
 
 - **users**: `id`, `login` (уникален), `password_hash`, `role` (`user`), `created_at`.
   Администратор в таблице не хранится: логин и пароль берутся из `.env`.
-- **sessions**: `token_hash`, `user_ref` (id пользователя или признак админа), `expires_at`.
-- **recurring_payments**: `id`, `name`, `amount` (Decimal), `currency` (`RUB`/`USD`/`EUR`),
+- **sessions**: `token_hash`, `user_id` (пусто для админа), `is_admin`, `expires_at`.
+- **recurring_payments**: `id`, `name`, `amount_minor` (целое: копейки и центы, в коде свойство `amount` как `Decimal`), `currency` (`RUB`/`USD`/`EUR`),
   `first_due_date`, `period` (`monthly`), `created_at`, `deleted_at`.
 - **payment_occurrences**: `id`, `recurring_id`, `due_date`, `status` (`paid`/`unpaid`),
   `paid_at` (date, nullable), `reminded_at` (datetime, nullable).

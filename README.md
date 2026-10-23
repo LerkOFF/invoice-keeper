@@ -31,14 +31,23 @@
 
 ## Быстрый старт
 
-Инструкция будет дополнена по мере готовности кода. Целевой вид:
-
 ```bash
 cp .env.example .env     # заполнить ADMIN_*, TELEGRAM_*, APP_TIMEZONE
 docker compose up --build
 ```
 
-Панель: `http://localhost:8000`, Swagger: `http://localhost:8000/api/v1/docs`.
+Приложение: `http://localhost:8000`, Swagger: `http://localhost:8000/api/v1/docs`.
+При первом запуске подгружаются тестовые данные: аренда в рублях, сервер в долларах,
+подписка в евро и обычный пользователь из `SEED_USER_LOGIN` / `SEED_USER_PASSWORD`.
+Отключить: `SEED_DEMO_DATA=false`. Данные лежат в Docker volume `invoice_data` и переживают перезапуск.
+
+### Локальная разработка и тесты
+
+```bash
+python3 -m venv .venv && .venv/bin/pip install -r requirements-dev.txt
+.venv/bin/pytest
+.venv/bin/uvicorn app.main:app --reload
+```
 
 ## Документация
 
