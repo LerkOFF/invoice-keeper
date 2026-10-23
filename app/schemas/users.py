@@ -35,3 +35,4 @@ class UserOut(BaseModel):
     login: str
     role: Role
     created_at: UtcDateTime
+    messengers: list[str] = Field(default=[], description="Привязанные мессенджеры: telegram, max")

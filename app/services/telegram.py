@@ -31,8 +31,8 @@ class TelegramApi:
 
     def call(self, method: str, payload: dict[str, Any] | None = None, *, timeout: float = 10.0) -> Any:
         """Вызывает метод Bot API и возвращает поле result."""
-        if not self.configured:
-            raise TelegramError("Telegram не настроен: нужны TELEGRAM_BOT_TOKEN и TELEGRAM_CHAT_ID")
+        if not self._token:
+            raise TelegramError("Telegram не настроен: нужен TELEGRAM_BOT_TOKEN")
 
         url = f"{self._base}/bot{self._token}/{method}"
         try:

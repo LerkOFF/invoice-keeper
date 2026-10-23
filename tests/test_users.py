@@ -66,7 +66,7 @@ def test_list_returns_regular_users_without_secrets_and_without_admin(admin):
     create(admin)
     items = admin.get(f"{B}/users").json()
     assert [u["login"] for u in items] == ["ivan", "petr"]
-    assert all(set(u) == {"id", "login", "role", "created_at"} for u in items)
+    assert all(set(u) == {"id", "login", "role", "created_at", "messengers"} for u in items)
     assert all(u["role"] == "user" for u in items)
 
 

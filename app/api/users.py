@@ -1,7 +1,9 @@
 from fastapi import APIRouter, HTTPException, Response, status
 
 from app.api.deps import AdminPrincipal, DbDep, SettingsDep
-from app.models import User
+from sqlalchemy import select
+
+from app.models import MessengerLink, User
 from app.schemas.users import UserCreate, UserOut, UserUpdate
 from app.services import audit
 from app.services import users as users_service
@@ -36,7 +38,13 @@ def _guard(call):
     responses=_ADMIN_ONLY,
 )
 def list_users(_admin: AdminPrincipal, db: DbDep) -> list[User]:
-    return users_service.list_users(db)
+    users = users_service.list_users(db)
+    linked: dict[int, list[str]] = {}
+    for link in db.scalars(select(MessengerLink).where(MessengerLink.user_id.is_not(None)).order_by(MessengerLink.messenger)):
+        linked.setdefault(link.user_id, []).append(link.messenger)
+    for user in users:
+        user.messengers = linked.get(user.id, [])  # не колонка: только для ответа
+    return users
 
 
 @router.post(

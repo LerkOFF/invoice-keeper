@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.core.clock import today as today_in_tz
 from app.core.config import Settings
-from app.services import audit
+from app.services import audit, links
 from app.services.max_api import MaxApi, MaxError
 from app.services.telegram import PAY_CALLBACK_PREFIX
 from app.services.telegram_bot import PayResult, fmt_date, mark_paid
@@ -63,7 +63,7 @@ class MaxPayButtonBot:
     def poll_once(self, marker: int | None) -> int | None:
         """Один long-poll запрос GET /updates. Возвращает marker для следующего."""
         timeout = self._settings.max_poll_timeout
-        query = {"timeout": timeout, "types": "message_callback", "marker": marker}
+        query = {"timeout": timeout, "types": "message_callback,bot_started,message_created", "marker": marker}
         result = self._api.call("GET", "/updates", query=query, timeout=timeout + 10) or {}
 
         for update in result.get("updates") or []:
@@ -77,7 +77,19 @@ class MaxPayButtonBot:
     # ---------- обработка нажатия ----------
 
     def process_update(self, update: dict[str, Any]) -> None:
-        if update.get("update_type") != "message_callback":
+        kind = update.get("update_type")
+        if kind == "bot_started":
+            self._process_start(update.get("chat_id"), update.get("user") or {}, update.get("payload"))
+            return
+        if kind == "message_created":
+            message = update.get("message") or {}
+            recipient = message.get("recipient") or {}
+            text = ((message.get("body") or {}).get("text") or "").strip()
+            if recipient.get("chat_type") == "dialog" and text.startswith("/start"):
+                parts = text.split(maxsplit=1)
+                self._process_start(recipient.get("chat_id"), message.get("sender") or {}, parts[1] if len(parts) > 1 else None)
+            return
+        if kind != "message_callback":
             return
 
         callback = update.get("callback") or {}
@@ -90,11 +102,16 @@ class MaxPayButtonBot:
         if not match:
             self._answer(callback_id, "Неизвестная кнопка")
             return
-        if not self._is_our_chat(recipient):
+        link = self._linked(user)
+        personal = (
+            recipient.get("chat_type") == "dialog" and link is not None and link.chat_id == str(recipient.get("chat_id"))
+        )
+        if not personal and not self._is_our_chat(recipient):
             self._answer(callback_id, "Эта кнопка из другого чата")
             return
 
-        allowed = self._is_authorized(user, recipient)
+        # в личке привязанного пользователя нажимать может только он сам; в общем чате правила прежние
+        allowed = True if personal else self._is_authorized(user, recipient)
         if allowed is None:
             self._answer(callback_id, "Не удалось проверить доступ, попробуйте позже")
             return
@@ -103,7 +120,7 @@ class MaxPayButtonBot:
             self._answer(callback_id, "Нет доступа: отмечать оплату могут только участники чата")
             return
 
-        actor = audit.max_actor(user)
+        actor = self._actor(user, link)
         result, paid_at = mark_paid(self._session_factory, int(match.group(1)), actor, self._today(), source="max")
         original = (message.get("body") or {}).get("text") or ""
 
@@ -116,6 +133,40 @@ class MaxPayButtonBot:
             self._answer(callback_id, "Уже отмечено как оплаченное", f"{original}\n\n✅ Оплачено {fmt_date(paid_at)}")
         else:
             self._answer(callback_id, "Платёж не найден или прекращён", f"{original}\n\n⚠️ Платёж прекращён")
+
+    # ---------- привязка к пользователю панели ----------
+
+    def _linked(self, user: dict[str, Any]):  # noqa: ANN202
+        with self._session_factory() as db:
+            link = links.find(db, "max", user.get("user_id"))
+            if link is not None:
+                db.expunge(link)
+            return link
+
+    def _actor(self, user: dict[str, Any], link) -> audit.Actor:  # noqa: ANN001
+        if link is None:
+            return audit.max_actor(user)
+        with self._session_factory() as db:
+            return links.actor_for(db, self._settings, link)
+
+    def _process_start(self, chat_id: Any, user: dict[str, Any], payload: Any) -> None:
+        """«Начать» по ссылке с кодом (или /start <код> в диалоге) привязывает аккаунт к пользователю панели."""
+        if chat_id is None or user.get("is_bot"):
+            return
+        if not payload:
+            self._send(chat_id, links.START_HELP)
+            return
+        with self._session_factory() as db:
+            result = links.redeem(
+                db, self._settings, "max", str(payload), str(user.get("user_id")), str(chat_id), audit.max_actor(user).name
+            )
+        self._send(chat_id, result.message)
+
+    def _send(self, chat_id: Any, text: str) -> None:
+        try:
+            self._api.call("POST", "/messages", query={"chat_id": chat_id}, body={"text": text})
+        except MaxError as error:
+            logger.warning("Ответ в личку MAX не ушёл: %s", error)
 
     # ---------- авторизация ----------
 

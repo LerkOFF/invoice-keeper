@@ -32,6 +32,8 @@ ACTION_LABELS = {
     "receipt.add": "Чек или ссылка добавлены",
     "receipt.delete": "Чек или ссылка удалены",
     "reminder.sent": "Напоминание отправлено",
+    "messenger.link": "Мессенджер привязан",
+    "messenger.unlink": "Мессенджер отвязан",
 }
 
 

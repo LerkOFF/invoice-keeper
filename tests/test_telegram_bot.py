@@ -312,7 +312,7 @@ def test_poll_once_requests_callbacks_and_advances_offset():
     offset = bot.poll_once(None)
 
     first = api.of("getUpdates")[0]
-    assert first["allowed_updates"] == ["callback_query"] and "offset" not in first
+    assert first["allowed_updates"] == ["callback_query", "message"] and "offset" not in first
     assert offset == 43 and state(occ)[0] == "paid"
 
     bot.poll_once(offset)

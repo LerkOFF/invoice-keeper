@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 from app.core.clock import today as today_in_tz
 from app.core.config import Settings
 from app.models import OccurrenceStatus, PaymentOccurrence
-from app.services import audit
+from app.services import audit, links
 from app.services.notify import NotifyError
 from app.services.occurrences import apply_update
 from app.services.telegram import PAY_CALLBACK_PREFIX, TelegramApi, TelegramError
@@ -65,7 +65,7 @@ class PayButtonBot:
     def poll_once(self, offset: int | None) -> int | None:
         """Один long-poll запрос. Возвращает offset для следующего."""
         timeout = self._settings.telegram_poll_timeout
-        payload: dict[str, Any] = {"timeout": timeout, "allowed_updates": ["callback_query"]}
+        payload: dict[str, Any] = {"timeout": timeout, "allowed_updates": ["callback_query", "message"]}
         if offset is not None:
             payload["offset"] = offset
         updates = self._api.call("getUpdates", payload, timeout=timeout + 10) or []
@@ -81,6 +81,9 @@ class PayButtonBot:
     # ---------- обработка нажатия ----------
 
     def process_update(self, update: dict[str, Any]) -> None:
+        if update.get("message"):
+            self._process_message(update["message"])
+            return
         query = update.get("callback_query")
         if not query:
             return
@@ -94,11 +97,14 @@ class PayButtonBot:
         if not match:
             self._answer(query_id, "Неизвестная кнопка", alert=True)
             return
-        if not self._is_our_chat(chat):
+        link = self._linked(user)
+        personal = chat.get("type") == "private" and link is not None and link.chat_id == str(chat.get("id"))
+        if not personal and not self._is_our_chat(chat):
             self._answer(query_id, "Эта кнопка из другого чата", alert=True)
             return
 
-        allowed = self._is_authorized(user, chat)
+        # в личке привязанного пользователя нажимать может только он сам; в общем чате правила прежние
+        allowed = True if personal else self._is_authorized(user, chat)
         if allowed is None:
             self._answer(query_id, "Не удалось проверить доступ, попробуйте позже", alert=True)
             return
@@ -107,9 +113,10 @@ class PayButtonBot:
             self._answer(query_id, "Нет доступа: отмечать оплату могут только участники чата", alert=True)
             return
 
-        result, paid_at = self._mark_paid(int(match.group(1)), audit.telegram_actor(user))
+        actor = self._actor(user, link)
+        result, paid_at = self._mark_paid(int(match.group(1)), actor)
         original = message.get("text") or ""
-        who = _display_name(user)
+        who = f"{actor.name} ({_display_name(user)})" if link is not None else _display_name(user)
 
         if result is PayResult.PAID_NOW:
             logger.info("Оплата периода %s отмечена из Telegram: %s", match.group(1), who)
@@ -121,6 +128,46 @@ class PayButtonBot:
         else:
             self._answer(query_id, "Платёж не найден или прекращён", alert=True)
             self._finish_message(chat, message, f"{original}\n\n⚠️ Платёж прекращён")
+
+    # ---------- привязка к пользователю панели ----------
+
+    def _linked(self, user: dict[str, Any]):  # noqa: ANN202
+        with self._session_factory() as db:
+            link = links.find(db, "telegram", user.get("id"))
+            if link is not None:
+                db.expunge(link)
+            return link
+
+    def _actor(self, user: dict[str, Any], link) -> audit.Actor:  # noqa: ANN001
+        if link is None:
+            return audit.telegram_actor(user)
+        with self._session_factory() as db:
+            return links.actor_for(db, self._settings, link)
+
+    def _process_message(self, message: dict[str, Any]) -> None:
+        """Личный чат с ботом: /start <код> привязывает аккаунт к пользователю панели."""
+        chat = message.get("chat") or {}
+        if chat.get("type") != "private":
+            return  # в группах команды не обрабатываем
+        text = (message.get("text") or "").strip()
+        if not text.startswith("/start"):
+            return
+        parts = text.split(maxsplit=1)
+        user = message.get("from") or {}
+        if len(parts) < 2:
+            self._send(chat.get("id"), links.START_HELP)
+            return
+        with self._session_factory() as db:
+            result = links.redeem(
+                db, self._settings, "telegram", parts[1], str(user.get("id")), str(chat.get("id")), _display_name(user)
+            )
+        self._send(chat.get("id"), result.message)
+
+    def _send(self, chat_id: Any, text: str) -> None:
+        try:
+            self._api.call("sendMessage", {"chat_id": chat_id, "text": text, "disable_web_page_preview": True})
+        except TelegramError as error:
+            logger.warning("Ответ в личку Telegram не ушёл: %s", error)
 
     # ---------- авторизация ----------
 

@@ -254,7 +254,7 @@ def test_poll_once_requests_callbacks_and_advances_marker():
     marker = bot.poll_once(None)
 
     first, _ = api.of("/updates")[0]
-    assert first["types"] == "message_callback" and first["marker"] is None
+    assert first["types"] == "message_callback,bot_started,message_created" and first["marker"] is None
     assert marker == 101 and state(occ)[0] == "paid"
 
     bot.poll_once(marker)

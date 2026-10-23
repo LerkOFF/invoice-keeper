@@ -858,6 +858,89 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/me/messengers:
+    get:
+      tags:
+      - messengers
+      summary: Мои привязки Telegram и MAX
+      description: Привязанному аккаунту бот присылает напоминания в личку с кнопкой «Оплачено».
+      operationId: my_messengers
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/MessengerStatusOut'
+                type: array
+                title: Response My Messengers
+      security:
+      - HTTPBearer: []
+  /api/v1/me/messengers/{messenger}/link:
+    post:
+      tags:
+      - messengers
+      summary: Получить ссылку для привязки
+      description: 'Одноразовый код на 10 минут. Откройте `url` и нажмите «Старт» (или отправьте боту
+        `command`): бот свяжет аккаунт с текущим пользователем. Новая ссылка отменяет прежнюю.'
+      operationId: create_link
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: messenger
+        in: path
+        required: true
+        schema:
+          enum:
+          - telegram
+          - max
+          type: string
+          title: Messenger
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LinkCodeOut'
+        '503':
+          description: Бот этого мессенджера не настроен
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/me/messengers/{messenger}:
+    delete:
+      tags:
+      - messengers
+      summary: Отвязать аккаунт
+      operationId: remove_link
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: messenger
+        in: path
+        required: true
+        schema:
+          enum:
+          - telegram
+          - max
+          type: string
+          title: Messenger
+      responses:
+        '204':
+          description: Successful Response
+        '404':
+          description: Аккаунт не привязан
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
 components:
   schemas:
     AuditEntryOut:
@@ -1197,6 +1280,34 @@ components:
           title: Detail
       type: object
       title: HTTPValidationError
+    LinkCodeOut:
+      properties:
+        messenger:
+          type: string
+          enum:
+          - telegram
+          - max
+          title: Messenger
+        url:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Url
+          description: 'Ссылка на бота с кодом: открыть и нажать «Старт»'
+        command:
+          type: string
+          title: Command
+          description: 'Запасной путь: отправить это сообщение боту в личку'
+        expires_at:
+          type: string
+          title: Expires At
+      type: object
+      required:
+      - messenger
+      - url
+      - command
+      - expires_at
+      title: LinkCodeOut
     LoginRequest:
       properties:
         login:
@@ -1241,6 +1352,43 @@ components:
           default: true
       type: object
       title: LogoutResponse
+    MessengerStatusOut:
+      properties:
+        messenger:
+          type: string
+          enum:
+          - telegram
+          - max
+          title: Messenger
+        title:
+          type: string
+          title: Title
+        available:
+          type: boolean
+          title: Available
+          description: Бот этого мессенджера настроен на сервере
+        linked:
+          type: boolean
+          title: Linked
+        account:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Account
+          description: Имя аккаунта в мессенджере, например @ivan
+        linked_at:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Linked At
+      type: object
+      required:
+      - messenger
+      - title
+      - available
+      - linked
+      - account
+      title: MessengerStatusOut
     OccurrenceOut:
       properties:
         id:
@@ -1565,6 +1713,13 @@ components:
         created_at:
           type: string
           title: Created At
+        messengers:
+          items:
+            type: string
+          type: array
+          title: Messengers
+          description: 'Привязанные мессенджеры: telegram, max'
+          default: []
       type: object
       required:
       - id
@@ -1637,6 +1792,8 @@ tags:
   description: Обычные пользователи (только админ)
 - name: receipts
   description: Чеки и ссылки, прикреплённые к оплате
+- name: messengers
+  description: 'Привязка Telegram и MAX к пользователю: личные напоминания'
 - name: audit
   description: Журнал авторизации и действий (только админ)
 - name: system

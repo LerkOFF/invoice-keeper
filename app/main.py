@@ -8,7 +8,7 @@ from fastapi import APIRouter, FastAPI, Request
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-from app.api import audit, auth, payment_occurrences, receipts, recurring_payments, summary, users
+from app.api import audit, auth, messengers, payment_occurrences, receipts, recurring_payments, summary, users
 from app.core.clock import today
 from app.core.config import get_settings
 from app.core.db import SessionLocal, init_db
@@ -101,6 +101,7 @@ def create_app() -> FastAPI:
             {"name": "summary", "description": "Итоги по валютам без конвертации"},
             {"name": "users", "description": "Обычные пользователи (только админ)"},
             {"name": "receipts", "description": "Чеки и ссылки, прикреплённые к оплате"},
+            {"name": "messengers", "description": "Привязка Telegram и MAX к пользователю: личные напоминания"},
             {"name": "audit", "description": "Журнал авторизации и действий (только админ)"},
             {"name": "system", "description": "Служебное"},
         ],
@@ -119,6 +120,7 @@ def create_app() -> FastAPI:
     api.include_router(users.router)
     api.include_router(audit.router)
     api.include_router(receipts.router)
+    api.include_router(messengers.router)
 
     app.include_router(api)
 

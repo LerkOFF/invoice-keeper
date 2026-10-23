@@ -356,6 +356,7 @@ function tabsFor(me) {
   if (me.role === "admin") {
     tabs.push({ id: "recurring", label: "Регулярные платежи" }, { id: "users", label: "Пользователи" }, { id: "audit", label: "Журнал" });
   }
+  tabs.push({ id: "messengers", label: "Мессенджеры" });
   return tabs;
 }
 
@@ -416,6 +417,7 @@ async function loadTab(main) {
     else if (state.tab === "recurring" && state.me.role === "admin") await recurringView(main);
     else if (state.tab === "users" && state.me.role === "admin") await usersView(main);
     else if (state.tab === "audit" && state.me.role === "admin") await auditView(main);
+    else if (state.tab === "messengers") await messengersView(main);
     else await paymentsView(main);
   } catch (err) {
     if (err.status !== 401) main.replaceChildren(h("div", { class: "empty" }, h("strong", {}, "Не удалось загрузить данные"), err.message));
@@ -922,7 +924,7 @@ async function usersView(main) {
         ? h(
             "table",
             {},
-            h("thead", {}, h("tr", {}, h("th", {}, "Логин"), h("th", {}, "Создан"), h("th", {}, ""))),
+            h("thead", {}, h("tr", {}, h("th", {}, "Логин"), h("th", {}, "Создан"), h("th", {}, "Мессенджеры"), h("th", {}, ""))),
             h(
               "tbody",
               {},
@@ -932,6 +934,13 @@ async function usersView(main) {
                   {},
                   h("td", { class: "title-cell" }, h("div", { class: "cell-title" }, u.login)),
                   h("td", { "data-label": "Создан", class: "num" }, fmtDateTime(u.created_at)),
+                  h(
+                    "td",
+                    { "data-label": "Мессенджеры" },
+                    (u.messengers || []).length
+                      ? u.messengers.map((m) => h("span", { class: "badge paid msg-badge" }, MESSENGER_TITLES[m] || m))
+                      : h("span", { class: "muted" }, "—"),
+                  ),
                   h(
                     "td",
                     { class: "actions" },
@@ -1295,6 +1304,8 @@ const AUDIT_LABELS = {
   "receipt.add": "Чек или ссылка добавлены",
   "receipt.delete": "Чек или ссылка удалены",
   "reminder.sent": "Напоминание отправлено",
+  "messenger.link": "Мессенджер привязан",
+  "messenger.unlink": "Мессенджер отвязан",
 };
 
 const ACTOR_LABELS = { admin: "админ", user: "пользователь", telegram: "Telegram", max: "MAX", system: "система", anonymous: "аноним" };
@@ -1317,6 +1328,9 @@ function auditSummary(e) {
       return d.login;
     case "user.update":
       return [d.login_before ? `${d.login_before} → ${d.login}` : d.login, d.password_changed ? "пароль изменён" : ""].filter(Boolean).join(", ");
+    case "messenger.link":
+    case "messenger.unlink":
+      return `${MESSENGER_TITLES[d.messenger] || d.messenger}: ${d.account || ""}`;
     case "reminder.sent":
       return `${d.name}, ${due}, канал: ${d.channel}`;
     case "receipt.add":
@@ -1337,6 +1351,7 @@ const AUDIT_FILTERS = {
     { value: "payment.", label: "Платежи" },
     { value: "user.", label: "Пользователи" },
     { value: "reminder.", label: "Напоминания" },
+    { value: "messenger.", label: "Мессенджеры" },
   ],
   period: [
     { value: "", label: "Всё время" },
@@ -1418,6 +1433,153 @@ async function auditView(main) {
     moreWrap,
   );
   await load(true);
+}
+
+// ---------- раздел «Мессенджеры» ----------
+
+const MESSENGER_TITLES = { telegram: "Telegram", max: "MAX" };
+
+async function messengersView(main) {
+  const cards = h("div", { class: "msg-grid" });
+
+  async function reload() {
+    const items = await api("/me/messengers");
+    cards.replaceChildren(...items.map((m) => messengerCard(m, reload)));
+    return items;
+  }
+
+  main.replaceChildren(
+    h(
+      "div",
+      { class: "page-head" },
+      h(
+        "div",
+        {},
+        h("h2", {}, "Мессенджеры"),
+        h("p", {}, "Привяжите Telegram или MAX, и напоминания об оплате будут приходить вам лично, с кнопкой «Оплачено». Отметка из мессенджера записывается от вашего имени"),
+      ),
+    ),
+    cards,
+  );
+  await reload();
+}
+
+function messengerCard(m, reload) {
+  let status;
+  if (!m.available) status = h("p", { class: "muted" }, "Бот этого мессенджера не настроен на сервере");
+  else if (m.linked) status = h("p", {}, "Привязан: ", h("b", {}, m.account), h("span", { class: "muted" }, ` · с ${fmtDateTime(m.linked_at)}`));
+  else status = h("p", { class: "muted" }, "Не привязан: напоминания приходят только в общий чат");
+
+  const actions = [];
+  if (m.available) {
+    actions.push(h("button", { class: `btn ${m.linked ? "" : "btn-primary"}`, type: "button", onclick: () => linkDialog(m, reload) }, m.linked ? "Привязать другой аккаунт" : "Привязать"));
+  }
+  if (m.linked) {
+    actions.push(
+      h(
+        "button",
+        {
+          class: "btn btn-danger",
+          type: "button",
+          onclick: () =>
+            openDialog({
+              title: `Отвязать ${m.title}?`,
+              description: `Личные напоминания в ${m.title} перестанут приходить. Общий чат продолжит работать.`,
+              confirmLabel: "Отвязать",
+              danger: true,
+              onSubmit: async () => {
+                await api(`/me/messengers/${m.messenger}`, { method: "DELETE" });
+                toast(`${m.title} отвязан`);
+                await reload();
+              },
+            }),
+        },
+        "Отвязать",
+      ),
+    );
+  }
+  return h(
+    "article",
+    { class: `card msg-card ${m.linked ? "is-linked" : ""}` },
+    h("div", { class: "msg-head" }, h("h3", {}, m.title), h("span", { class: `badge ${m.linked ? "paid" : ""}` }, m.linked ? "привязан" : "не привязан")),
+    status,
+    h("div", { class: "msg-actions" }, actions),
+  );
+}
+
+async function linkDialog(m, reload) {
+  let link;
+  try {
+    link = await api(`/me/messengers/${m.messenger}/link`, { method: "POST" });
+  } catch (err) {
+    report(err);
+    return;
+  }
+  const until = new Date(link.expires_at).toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
+  const wait = h("p", { class: "muted msg-wait" }, "Жду подтверждения от бота…");
+  const copy = h(
+    "button",
+    {
+      class: "btn btn-sm",
+      type: "button",
+      onclick: async () => {
+        try {
+          await navigator.clipboard.writeText(link.command);
+          toast("Команда скопирована");
+        } catch {
+          toast("Не удалось скопировать, выделите команду вручную", "error");
+        }
+      },
+    },
+    "Скопировать",
+  );
+  const dialog = h(
+    "dialog",
+    {},
+    h(
+      "div",
+      { class: "rc-dialog" },
+      h("h2", {}, `Привязать ${m.title}`),
+      h(
+        "p",
+        { class: "desc" },
+        link.url
+          ? `Откройте бота по ссылке и нажмите «Старт». Ссылка одноразовая и действует до ${until}.`
+          : `Найдите бота ${m.title} и отправьте ему в личку команду ниже. Она одноразовая и действует до ${until}.`,
+      ),
+      link.url ? h("a", { class: "btn btn-primary btn-block", href: link.url, target: "_blank", rel: "noopener noreferrer" }, `Открыть ${m.title}`) : null,
+      link.url ? h("p", { class: "hint msg-alt" }, "Если ссылка не открывается, отправьте боту в личку эту команду:") : null,
+      h("div", { class: "msg-command" }, h("code", {}, link.command), copy),
+      wait,
+      h("div", { class: "dialog-actions" }, h("button", { class: "btn", type: "button", onclick: () => dialog.close() }, "Закрыть")),
+    ),
+  );
+  // ждём, пока бот примет код: раз в 3 секунды, пока окно открыто и ссылка жива
+  const timer = setInterval(async () => {
+    if (Date.now() > new Date(link.expires_at).getTime()) {
+      wait.textContent = "Ссылка устарела. Закройте окно и получите новую.";
+      clearInterval(timer);
+      return;
+    }
+    try {
+      const items = await api("/me/messengers");
+      const now = items.find((x) => x.messenger === m.messenger);
+      if (now && now.linked && now.account !== m.account) {
+        clearInterval(timer);
+        toast(`${m.title} привязан: ${now.account}`);
+        dialog.close();
+        await reload();
+      }
+    } catch {
+      /* попробуем на следующем шаге */
+    }
+  }, 3000);
+  dialog.addEventListener("close", () => {
+    clearInterval(timer);
+    dialog.remove();
+  });
+  document.body.append(dialog);
+  dialog.showModal();
 }
 
 // ---------- старт ----------

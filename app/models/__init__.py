@@ -1,5 +1,6 @@
 from app.models.audit import AuditEntry
 from app.models.delivery import ReminderDelivery
+from app.models.messenger import MessengerLink, MessengerLinkCode
 from app.models.enums import Currency, OccurrenceStatus, Period, Role
 from app.models.payment_occurrence import PaymentOccurrence
 from app.models.receipt import OccurrenceReceipt
@@ -12,6 +13,8 @@ __all__ = [
     "AuthSession",
     "Currency",
     "OccurrenceStatus",
+    "MessengerLink",
+    "MessengerLinkCode",
     "OccurrenceReceipt",
     "PaymentOccurrence",
     "Period",

@@ -81,7 +81,7 @@ def as_list(notifiers: Notifier | Iterable[Notifier]) -> list[Notifier]:
 
 
 def send_due_reminders(
-    db: Session, notifiers: Notifier | Iterable[Notifier], settings: Settings, today: date
+    db: Session, notifiers: Notifier | Iterable[Notifier], settings: Settings, today: date, personal: bool = True
 ) -> int:
     """Отправляет напоминания по всем настроенным каналам, возвращает число периодов с новыми доставками.
 
@@ -89,8 +89,19 @@ def send_due_reminders(
     поэтому сбой одного канала не повторяет отправку в другие. `reminded_at` ставится, когда период
     доставлен по всем настроенным каналам. Упавший канал пропускается до конца прохода,
     его период остаётся в очереди и повторяется в следующий раз.
+
+    Личные напоминания: каждый привязанный к пользователю аккаунт Telegram или MAX это отдельный канал
+    (`telegram:u5`, `max:admin`), поэтому каждому человеку напоминание приходит один раз. Если человек
+    заблокировал бота, его канал считается закрытым для этого периода, чтобы не повторять попытки бесконечно.
     """
     channels = [n for n in as_list(notifiers) if n.configured]
+    if personal:
+        from app.services.links import is_permanent, personal_notifiers
+
+        channels += [n for n in personal_notifiers(db, settings) if n.configured]
+    else:
+        def is_permanent(_error: Exception) -> bool:  # noqa: E306
+            return False
     if not channels:
         logger.warning("Ни один канал напоминаний не настроен, напоминания не отправляются")
         return 0
@@ -113,6 +124,11 @@ def send_due_reminders(
                     channel.send(reminder)
                 except NotifyError as error:
                     logger.error("Напоминание по периоду %s не ушло (%s): %s", occurrence.id, channel.name, error)
+                    if ":" in channel.name and is_permanent(error):
+                        # личный чат закрыт навсегда (бот заблокирован): больше не пытаемся для этого периода
+                        occurrence.deliveries.append(ReminderDelivery(channel=channel.name))
+                        delivered.add(channel.name)
+                        continue
                     down.add(channel.name)  # канал недоступен: не долбим его остальными периодами
                     continue
                 occurrence.deliveries.append(ReminderDelivery(channel=channel.name))
