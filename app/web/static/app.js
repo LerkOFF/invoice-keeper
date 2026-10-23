@@ -361,6 +361,71 @@ const I18N = {
     "msg.wait": "Жду подтверждения от бота…",
     "msg.expired": "Ссылка устарела. Закройте окно и получите новую.",
     "msg.done": "{title} привязан: {account}",
+
+    "tab.help": "Помощь",
+    "help.lead": "Как устроена панель, ответы на частые вопросы и куда писать, если что-то не так",
+    "help.overview": "разделы панели",
+    "help.open": "Открыть",
+    "help.adminOnly": "только администратор",
+    "help.about.payments": "Итоги по каждой валюте и все периоды: отметить оплату, исправить дату, приложить чек, выгрузить CSV.",
+    "help.about.calendar": "Сроки по дням на любой месяц. Будущие месяцы считаются по правилу повторения.",
+    "help.about.budget": "Плановые расходы на год и по месяцам, отдельно по валютам: сколько оплачено и сколько осталось.",
+    "help.about.recurring": "Добавить, изменить или прекратить регулярный платёж.",
+    "help.about.users": "Создать, переименовать или удалить обычных пользователей и сменить им пароль.",
+    "help.about.audit": "Кто входил и что менял: оплаты, платежи, пользователи, отправленные напоминания.",
+    "help.about.messengers": "Привяжите Telegram или MAX, и напоминания будут приходить вам лично.",
+    "help.rules": "как считаются сроки",
+    "help.rule.reminder": "Напоминание приходит за {days} до срока, по одному разу на каждый период.",
+    "help.rule.overdueNotice": "Если оплату так и не отметили, на следующий день после срока придёт одно повторное напоминание.",
+    "help.rule.overdue": "Просрочка начинается со следующего дня после срока. Оплата в день срока считается вовремя.",
+    "help.rule.periods": "Сроки считаются от первой даты платежа. Если такого числа в месяце нет, срок падает на последний день месяца.",
+    "help.rule.currency": "RUB, USD и EUR считаются отдельно, без пересчёта по курсу.",
+    "help.rule.timezone": "«Сегодня» считается по часовому поясу {tz}.",
+    "help.rule.channels": "Напоминания уходят: {list}.",
+    "help.rule.noChannels": "Каналы напоминаний на сервере пока не настроены.",
+    "help.channel.telegram": "в Telegram",
+    "help.channel.max": "в MAX",
+    "help.channel.email": "на почту",
+    "help.channel.webhook": "на webhook",
+    "help.faq": "частые вопросы",
+    "help.q.pay": "Как отметить оплату?",
+    "help.a.pay": "Во вкладке «Платежи» нажмите «Отметить оплату» у нужного периода. По умолчанию ставится сегодняшняя дата, её можно поменять. Ещё быстрее — кнопка «✅ Оплачено» прямо в напоминании в Telegram или MAX.",
+    "help.q.wrongOverdue": "Оплатили вовремя, а платёж показан просроченным",
+    "help.a.wrongOverdue": "Значит, дата оплаты указана позже срока. Нажмите «Изменить дату» и поставьте настоящую: просрочка пересчитается, а срок останется прежним.",
+    "help.q.undo": "Отметили оплату по ошибке",
+    "help.a.undo": "Нажмите «Отменить» у этого периода: он снова станет неоплаченным, дата оплаты очистится. Другие периоды не изменятся.",
+    "help.q.noReminder": "Не пришло напоминание",
+    "help.a.noReminder": "Напоминание приходит за {days} до срока и один раз на период. Оплаченные и прекращённые платежи не напоминают. Если всё равно тишина, проверьте, что бот добавлен в чат, и напишите администратору.",
+    "help.q.personal": "Как получать напоминания себе в личку?",
+    "help.a.personal": "Во вкладке «Мессенджеры» нажмите «Привязать» и откройте ссылку на бота. После этого напоминания будут приходить и вам лично, с той же кнопкой «Оплачено».",
+    "help.q.commands": "Какие команды понимает бот?",
+    "help.a.commands": "/todo — что оплатить в ближайшие 7 дней и что уже просрочено, /overdue — только просрочка, /help — справка. Списки видны в чате напоминаний и тем, кто привязал мессенджер.",
+    "help.q.currency": "Почему суммы в разных валютах не складываются?",
+    "help.a.currency": "Так задумано: рубли, доллары и евро считаются отдельно, без пересчёта по курсу, чтобы итоги не зависели от курса на сегодня.",
+    "help.q.edit": "Как добавить или изменить платёж?",
+    "help.a.edit.admin": "Во вкладке «Регулярные платежи»: форма сверху добавляет платёж, кнопка «Изменить» меняет название, сумму и график. Новая сумма действует для неоплаченных периодов с сегодняшнего дня, прошлые остаются как были.",
+    "help.a.edit.user": "Платежи добавляет и меняет администратор. Если сумма или срок изменились, напишите ему.",
+    "help.q.stop": "Что будет, если прекратить платёж?",
+    "help.a.stop": "Новых периодов и напоминаний не будет, а история оплат сохранится: её видно с флажком «С прекращёнными».",
+    "help.q.csv": "Как выгрузить платежи в Excel?",
+    "help.a.csv": "Во вкладке «Платежи» нажмите «Скачать CSV». В файл попадут периоды с текущими фильтрами и поиском, Excel откроет его без настройки.",
+    "help.q.password": "Забыли пароль",
+    "help.a.password.admin": "Пароль администратора задаётся в файле .env на сервере (ADMIN_PASSWORD), через панель его не поменять.",
+    "help.a.password.user": "Пароль меняет администратор во вкладке «Пользователи». Напишите ему.",
+    "help.q.api": "Можно ли работать через API?",
+    "help.a.api": "Да, всё, что умеет панель, доступно через REST API. Документация открывается по ссылке «API и Swagger» в боковой панели.",
+    "help.contacts": "связаться",
+    "help.admin.title": "Администратор",
+    "help.admin.text.user": "Вопросы по платежам, суммам и доступу — администратору вашей команды.",
+    "help.admin.text.admin": "Вы администратор: платежи, пользователи и доступ в ваших руках.",
+    "help.support.title": "Поддержка Invoice Keeper",
+    "help.support.text": "Ошибки и пожелания по сервису.",
+    "help.support.none": "Контакты поддержки не заданы. Добавьте SUPPORT_TELEGRAM, SUPPORT_EMAIL или SUPPORT_URL в .env.",
+    "help.bots.title": "Бот напоминаний",
+    "help.bots.text": "Напишите боту /help, чтобы увидеть команды.",
+    "help.api.title": "API",
+    "help.api.text": "REST API и документация Swagger.",
+    "help.api.link": "Открыть документацию",
   },
 
   en: {
@@ -699,6 +764,71 @@ const I18N = {
     "msg.wait": "Waiting for the bot to confirm…",
     "msg.expired": "The link has expired. Close this window and get a new one.",
     "msg.done": "{title} linked: {account}",
+
+    "tab.help": "Help",
+    "help.lead": "How the panel works, answers to common questions and whom to contact if something is wrong",
+    "help.overview": "panel sections",
+    "help.open": "Open",
+    "help.adminOnly": "admin only",
+    "help.about.payments": "Totals per currency and every period: mark as paid, fix the date, attach a receipt, download CSV.",
+    "help.about.calendar": "Due dates by day for any month. Future months follow the repeat rule.",
+    "help.about.budget": "Planned spending for the year and by month, per currency: how much is paid and how much is left.",
+    "help.about.recurring": "Add, edit or stop a recurring payment.",
+    "help.about.users": "Create, rename or delete regular users and change their passwords.",
+    "help.about.audit": "Who signed in and what changed: payments, users, sent reminders.",
+    "help.about.messengers": "Link Telegram or MAX to get reminders personally.",
+    "help.rules": "how due dates work",
+    "help.rule.reminder": "A reminder comes {days} before the due date, once per period.",
+    "help.rule.overdueNotice": "If the payment is still not marked, one more reminder comes the day after the due date.",
+    "help.rule.overdue": "A payment is overdue from the day after the due date. Paying on the due date is on time.",
+    "help.rule.periods": "Due dates follow the first payment date. If a month has no such day, the last day of the month is used.",
+    "help.rule.currency": "RUB, USD and EUR are counted separately, without exchange rates.",
+    "help.rule.timezone": "“Today” follows the {tz} time zone.",
+    "help.rule.channels": "Reminders go {list}.",
+    "help.rule.noChannels": "No reminder channels are configured on the server yet.",
+    "help.channel.telegram": "to Telegram",
+    "help.channel.max": "to MAX",
+    "help.channel.email": "by email",
+    "help.channel.webhook": "to a webhook",
+    "help.faq": "faq",
+    "help.q.pay": "How do I mark a payment as paid?",
+    "help.a.pay": "On the Payments tab, click “Mark as paid” next to the period. Today's date is used by default and you can change it. Even faster: the “✅ Paid” button right in the Telegram or MAX reminder.",
+    "help.q.wrongOverdue": "We paid on time, but the payment shows as overdue",
+    "help.a.wrongOverdue": "The payment date is later than the due date. Click “Change date” and set the real one: the overdue status is recalculated, the due date stays the same.",
+    "help.q.undo": "I marked a payment by mistake",
+    "help.a.undo": "Click “Undo” on that period: it becomes unpaid again and the payment date is cleared. Other periods are not affected.",
+    "help.q.noReminder": "A reminder did not arrive",
+    "help.a.noReminder": "A reminder comes {days} before the due date, once per period. Paid and stopped payments get no reminders. If it is still silent, check that the bot is in the chat and contact the administrator.",
+    "help.q.personal": "How do I get reminders in a private chat?",
+    "help.a.personal": "On the Messengers tab, click “Link” and open the bot link. From then on reminders also come to you personally, with the same “Paid” button.",
+    "help.q.commands": "Which commands does the bot understand?",
+    "help.a.commands": "/todo — what to pay in the next 7 days and what is overdue, /overdue — overdue only, /help — help. Lists are shown in the reminder chat and to those who linked a messenger.",
+    "help.q.currency": "Why are amounts in different currencies not added up?",
+    "help.a.currency": "By design: rubles, dollars and euros are counted separately, without exchange rates, so totals do not depend on today's rate.",
+    "help.q.edit": "How do I add or change a payment?",
+    "help.a.edit.admin": "On the Recurring payments tab: the form at the top adds a payment, “Edit” changes the name, amount and schedule. A new amount applies to unpaid periods from today on, past ones stay as they were.",
+    "help.a.edit.user": "Payments are added and changed by the administrator. If an amount or a date changed, let them know.",
+    "help.q.stop": "What happens when a payment is stopped?",
+    "help.a.stop": "No new periods or reminders, but the payment history stays: turn on “Include stopped” to see it.",
+    "help.q.csv": "How do I export payments to Excel?",
+    "help.a.csv": "On the Payments tab, click “Download CSV”. The file contains the periods matching the current filters and search, and Excel opens it as is.",
+    "help.q.password": "I forgot my password",
+    "help.a.password.admin": "The administrator password is set in the .env file on the server (ADMIN_PASSWORD); it cannot be changed in the panel.",
+    "help.a.password.user": "The administrator changes passwords on the Users tab. Ask them.",
+    "help.q.api": "Is there an API?",
+    "help.a.api": "Yes, everything the panel does is available via the REST API. The docs open from “API & Swagger” in the sidebar.",
+    "help.contacts": "contacts",
+    "help.admin.title": "Administrator",
+    "help.admin.text.user": "Questions about payments, amounts and access go to your team's administrator.",
+    "help.admin.text.admin": "You are the administrator: payments, users and access are up to you.",
+    "help.support.title": "Invoice Keeper support",
+    "help.support.text": "Bugs and wishes about the service.",
+    "help.support.none": "No support contacts are set. Add SUPPORT_TELEGRAM, SUPPORT_EMAIL or SUPPORT_URL to .env.",
+    "help.bots.title": "Reminder bot",
+    "help.bots.text": "Send /help to the bot to see its commands.",
+    "help.api.title": "API",
+    "help.api.text": "REST API and Swagger docs.",
+    "help.api.link": "Open the docs",
   },
 };
 
@@ -844,6 +974,7 @@ const ICONS = {
   sun: [{ circle: [12, 12, 4] }, "M12 2v2", "M12 20v2", "m4.93 4.93 1.41 1.41", "m17.66 17.66 1.41 1.41", "M2 12h2", "M20 12h2", "m6.34 17.66-1.41 1.41", "m19.07 4.93-1.41 1.41"],
   moon: ["M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"],
   monitor: [{ rect: [2, 3, 20, 14, 2] }, "M8 21h8", "M12 17v4"],
+  help: [{ circle: [12, 12, 10] }, "M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3", "M12 17h.01"],
 };
 
 function icon(name, extra = "") {
@@ -1376,7 +1507,7 @@ function tabsFor(me) {
   if (me.role === "admin") {
     tabs.push({ id: "recurring", icon: "recurring" }, { id: "users", icon: "users" }, { id: "audit", icon: "audit" });
   }
-  tabs.push({ id: "messengers", icon: "messengers" });
+  tabs.push({ id: "messengers", icon: "messengers" }, { id: "help", icon: "help" });
   return tabs;
 }
 
@@ -1525,6 +1656,7 @@ async function loadTab(main) {
     else if (state.tab === "users" && state.me.role === "admin") await usersView(main);
     else if (state.tab === "audit" && state.me.role === "admin") await auditView(main);
     else if (state.tab === "messengers") await messengersView(main);
+    else if (state.tab === "help") await helpView(main);
     else await paymentsView(main);
   } catch (err) {
     if (err.status !== 401) {
@@ -2697,6 +2829,85 @@ async function auditView(main) {
 
   main.replaceChildren(pageHead(t("tab.audit"), t("audit.lead")), toolbar, listBox, moreWrap);
   await load(true);
+}
+
+// ---------- раздел «Помощь» ----------
+
+const ADMIN_TABS = new Set(["recurring", "users", "audit"]);
+const HELP_FAQ = ["pay", "wrongOverdue", "undo", "noReminder", "personal", "commands", "currency", "edit", "stop", "csv", "password", "api"];
+
+async function helpView(main) {
+  const info = await api("/help");
+  const isAdmin = state.me.role === "admin";
+  const days = plural(info.reminder_days, "day");
+  const roleKey = (key) => (has(`${key}.${state.me.role}`) ? `${key}.${state.me.role}` : key);
+
+  const overview = h(
+    "div",
+    { class: "help-grid" },
+    tabsFor(state.me)
+      .filter((tab) => tab.id !== "help")
+      .map((tab) =>
+        h(
+          "article",
+          { class: "tile help-card" },
+          h("h3", {}, icon(tab.icon), t(`tab.${tab.id}`)),
+          h("p", {}, t(`help.about.${tab.id}`), ADMIN_TABS.has(tab.id) ? h("span", { class: "help-note" }, ` · ${t("help.adminOnly")}`) : null),
+          h("button", { type: "button", class: "btn btn-sm", onclick: () => navigate(tab.id).catch(report) }, t("help.open")),
+        ),
+      ),
+  );
+
+  const channels = info.channels.map((c) => t(`help.channel.${c}`));
+  const rules = h(
+    "ul",
+    { class: "help-rules" },
+    h("li", {}, t("help.rule.reminder", { days })),
+    info.overdue_reminders ? h("li", {}, t("help.rule.overdueNotice")) : null,
+    h("li", {}, t("help.rule.overdue")),
+    h("li", {}, t("help.rule.periods")),
+    h("li", {}, t("help.rule.currency")),
+    h("li", {}, t("help.rule.timezone", { tz: info.timezone })),
+    h("li", {}, channels.length ? t("help.rule.channels", { list: channels.join(", ") }) : t("help.rule.noChannels")),
+  );
+
+  const faq = h(
+    "div",
+    { class: "faq" },
+    HELP_FAQ.map((key) =>
+      h(
+        "details",
+        { class: "faq-item" },
+        h("summary", {}, h("span", {}, t(`help.q.${key}`)), icon("chevronRight")),
+        h("div", { class: "faq-answer" }, t(roleKey(`help.a.${key}`), { days })),
+      ),
+    ),
+  );
+
+  const link = (c) => h("a", { href: c.url, target: "_blank", rel: "noopener" }, c.label);
+  const supportLinks = [info.contacts.telegram, info.contacts.email, info.contacts.url].filter(Boolean);
+  const card = (title, text, ...links) =>
+    h("article", { class: "tile help-card" }, h("h3", {}, title), h("p", {}, text), links.length ? h("div", { class: "help-links" }, links) : null);
+  const contacts = h(
+    "div",
+    { class: "help-grid" },
+    card(t("help.admin.title"), t(isAdmin ? "help.admin.text.admin" : "help.admin.text.user")),
+    supportLinks.length
+      ? card(t("help.support.title"), t("help.support.text"), ...supportLinks.map(link))
+      : isAdmin
+        ? card(t("help.support.title"), t("help.support.none"))
+        : null,
+    Object.keys(info.bots).length ? card(t("help.bots.title"), t("help.bots.text"), ...Object.values(info.bots).map(link)) : null,
+    card(t("help.api.title"), t("help.api.text"), link({ url: `${API}/docs`, label: t("help.api.link") })),
+  );
+
+  main.replaceChildren(
+    pageHead(t("tab.help"), t("help.lead")),
+    section(t("help.overview"), overview),
+    section(t("help.rules"), rules),
+    section(t("help.faq"), faq),
+    section(t("help.contacts"), contacts),
+  );
 }
 
 // ---------- раздел «Мессенджеры» ----------

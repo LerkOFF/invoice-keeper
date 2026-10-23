@@ -872,3 +872,30 @@ dialog:has(.rc-dialog) { width: min(580px, calc(100vw - 32px)); }
   .toast-icon, .toast-icon::before, .toast-icon::after { opacity: 1; }
   .toast-icon { transform: rotate(45deg); }
 }
+
+/* ---------- помощь ---------- */
+
+.help-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; }
+.help-card { gap: 12px; }
+.help-card h3 { display: flex; align-items: center; gap: 10px; color: var(--title); font-size: 16px; line-height: 20px; font-weight: 600; }
+.help-card h3 .ic { width: 20px; height: 20px; color: var(--orange); }
+.help-card p { flex: 1; color: var(--subtitle); font-size: 14px; line-height: 20px; }
+.help-card .btn { align-self: flex-start; }
+.help-note { color: var(--subtext); }
+.help-links { display: flex; flex-direction: column; gap: 6px; }
+.help-links a { color: var(--orange-ink); font-size: 14px; line-height: 20px; text-decoration: none; overflow-wrap: anywhere; }
+.help-links a:hover { text-decoration: underline; }
+.help-rules { display: grid; gap: 10px; margin: 0; padding: 16px; list-style: none; background: var(--block); border-radius: 16px; }
+.help-rules li { position: relative; padding-left: 20px; color: var(--title); font-size: 14px; line-height: 20px; }
+.help-rules li::before { content: ""; position: absolute; left: 4px; top: 7px; width: 6px; height: 6px; border-radius: 50%; background: var(--orange); }
+.faq { display: flex; flex-direction: column; overflow: hidden; background: var(--block); border-radius: 16px; }
+.faq-item + .faq-item { border-top: 1px solid var(--line); }
+.faq-item summary {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 16px;
+  color: var(--title); font-size: 15px; line-height: 20px; font-weight: 500; cursor: pointer; list-style: none;
+}
+.faq-item summary::-webkit-details-marker { display: none; }
+.faq-item summary:hover { color: var(--orange-ink); }
+.faq-item summary .ic { width: 18px; height: 18px; color: var(--subtext); transition: transform 0.3s ease-in-out; }
+.faq-item[open] summary .ic { transform: rotate(90deg); }
+.faq-answer { padding: 0 16px 16px; color: var(--subtitle); font-size: 14px; line-height: 22px; }
