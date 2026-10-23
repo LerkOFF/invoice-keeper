@@ -3,6 +3,7 @@ from fastapi import APIRouter, HTTPException, Response, status
 from app.api.deps import AdminPrincipal, DbDep, SettingsDep
 from app.models import User
 from app.schemas.users import UserCreate, UserOut, UserUpdate
+from app.services import audit
 from app.services import users as users_service
 
 router = APIRouter(prefix="/users", tags=["users"])
@@ -45,8 +46,11 @@ def list_users(_admin: AdminPrincipal, db: DbDep) -> list[User]:
     summary="Создание обычного пользователя (администратор)",
     responses={**_ADMIN_ONLY, 409: {"description": "Логин занят или зарезервирован"}},
 )
-def create_user(payload: UserCreate, _admin: AdminPrincipal, db: DbDep, settings: SettingsDep) -> User:
-    return _guard(lambda: users_service.create_user(db, settings, payload.login, payload.password))
+def create_user(payload: UserCreate, admin: AdminPrincipal, db: DbDep, settings: SettingsDep) -> User:
+    user = _guard(lambda: users_service.create_user(db, settings, payload.login, payload.password))
+    audit.record(db, "user.create", audit.actor_of(admin), "user", user.id, {"login": user.login})
+    db.commit()
+    return user
 
 
 @router.patch(
@@ -57,14 +61,26 @@ def create_user(payload: UserCreate, _admin: AdminPrincipal, db: DbDep, settings
     responses={**_ADMIN_ONLY, 409: {"description": "Логин занят или зарезервирован"}},
 )
 def update_user(
-    id: int, payload: UserUpdate, _admin: AdminPrincipal, db: DbDep, settings: SettingsDep
+    id: int, payload: UserUpdate, admin: AdminPrincipal, db: DbDep, settings: SettingsDep
 ) -> User:
     if payload.login is None and payload.password is None:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="Нужно передать login или password"
         )
     user = _get_or_404(db, id)
-    return _guard(lambda: users_service.update_user(db, settings, user, payload.login, payload.password))
+    old_login = user.login
+    _guard(lambda: users_service.update_user(db, settings, user, payload.login, payload.password))
+    # пароль в журнал не попадает, только факт его смены
+    audit.record(
+        db,
+        "user.update",
+        audit.actor_of(admin),
+        "user",
+        user.id,
+        {"login": user.login, "login_before": old_login if old_login != user.login else None, "password_changed": payload.password is not None},
+    )
+    db.commit()
+    return user
 
 
 @router.delete(
@@ -73,7 +89,10 @@ def update_user(
     summary="Удаление пользователя (администратор)",
     responses=_ADMIN_ONLY,
 )
-def delete_user(id: int, _admin: AdminPrincipal, db: DbDep) -> Response:  # noqa: A002
+def delete_user(id: int, admin: AdminPrincipal, db: DbDep) -> Response:  # noqa: A002
     user = _get_or_404(db, id)
+    login = user.login
     _guard(lambda: users_service.delete_user(db, user))
+    audit.record(db, "user.delete", audit.actor_of(admin), "user", id, {"login": login})
+    db.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)

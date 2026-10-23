@@ -311,7 +311,7 @@ async function logout() {
 function tabsFor(me) {
   const tabs = [{ id: "payments", label: "Платежи" }];
   if (me.role === "admin") {
-    tabs.push({ id: "recurring", label: "Регулярные платежи" }, { id: "users", label: "Пользователи" });
+    tabs.push({ id: "recurring", label: "Регулярные платежи" }, { id: "users", label: "Пользователи" }, { id: "audit", label: "Журнал" });
   }
   return tabs;
 }
@@ -370,6 +370,7 @@ async function loadTab(main) {
   try {
     if (state.tab === "recurring" && state.me.role === "admin") await recurringView(main);
     else if (state.tab === "users" && state.me.role === "admin") await usersView(main);
+    else if (state.tab === "audit" && state.me.role === "admin") await auditView(main);
     else await paymentsView(main);
   } catch (err) {
     if (err.status !== 401) main.replaceChildren(h("div", { class: "empty" }, h("strong", {}, "Не удалось загрузить данные"), err.message));
@@ -821,6 +822,148 @@ function deleteUserDialog(u, reload) {
       await reload();
     },
   });
+}
+
+// ---------- раздел «Журнал» (админ) ----------
+
+const AUDIT_LABELS = {
+  "auth.login": "Вход",
+  "auth.login_failed": "Неудачный вход",
+  "auth.logout": "Выход",
+  "payment.create": "Платёж добавлен",
+  "payment.delete": "Платёж прекращён",
+  "occurrence.paid": "Оплата отмечена",
+  "occurrence.unpaid": "Оплата отменена",
+  "occurrence.paid_at_changed": "Дата оплаты исправлена",
+  "user.create": "Пользователь создан",
+  "user.update": "Пользователь изменён",
+  "user.delete": "Пользователь удалён",
+  "receipt.add": "Чек или ссылка добавлены",
+  "receipt.delete": "Чек или ссылка удалены",
+  "reminder.sent": "Напоминание отправлено",
+};
+
+const ACTOR_LABELS = { admin: "админ", user: "пользователь", telegram: "Telegram", system: "система", anonymous: "аноним" };
+
+function auditSummary(e) {
+  const d = e.details || {};
+  const due = d.due_date ? `срок ${fmtDate(d.due_date)}` : "";
+  switch (e.action) {
+    case "occurrence.paid":
+    case "occurrence.unpaid":
+      return [d.name, due, d.paid_at ? `оплата ${fmtDate(d.paid_at)}` : ""].filter(Boolean).join(", ");
+    case "occurrence.paid_at_changed":
+      return `${d.name}, ${due}: дата оплаты ${fmtDate(d.paid_at_before)} → ${fmtDate(d.paid_at)}`;
+    case "payment.create":
+      return `${d.name}, ${money(d.amount, d.currency)}, первый срок ${fmtDate(d.first_due_date)}`;
+    case "payment.delete":
+      return d.name;
+    case "user.create":
+    case "user.delete":
+      return d.login;
+    case "user.update":
+      return [d.login_before ? `${d.login_before} → ${d.login}` : d.login, d.password_changed ? "пароль изменён" : ""].filter(Boolean).join(", ");
+    case "reminder.sent":
+      return `${d.name}, ${due}, канал: ${d.channel}`;
+    case "receipt.add":
+    case "receipt.delete":
+      return [d.title || d.filename || d.url, d.name].filter(Boolean).join(" · ");
+    case "auth.login_failed":
+      return "попытка входа с этим логином";
+    default:
+      return d && Object.keys(d).length ? JSON.stringify(d) : "";
+  }
+}
+
+const AUDIT_FILTERS = {
+  group: [
+    { value: "", label: "Всё" },
+    { value: "auth.", label: "Вход" },
+    { value: "occurrence.", label: "Оплаты" },
+    { value: "payment.", label: "Платежи" },
+    { value: "user.", label: "Пользователи" },
+    { value: "reminder.", label: "Напоминания" },
+  ],
+  period: [
+    { value: "", label: "Всё время" },
+    { value: "1", label: "Сегодня" },
+    { value: "7", label: "7 дней" },
+    { value: "30", label: "30 дней" },
+  ],
+};
+
+const auditState = { group: "", period: "" };
+
+async function auditView(main) {
+  const PAGE = 100;
+  const listBox = h("div", { class: "card table-card" });
+  const more = h("button", { class: "btn", type: "button" }, "Показать ещё");
+  const moreWrap = h("div", { class: "more-wrap" }, more);
+  let offset = 0;
+  let rows = [];
+
+  function params() {
+    const since = auditState.period
+      ? new Date(Date.now() - (Number(auditState.period) - 1) * 86400000).toISOString().slice(0, 10)
+      : undefined;
+    return { action: auditState.group || undefined, since, limit: PAGE, offset };
+  }
+
+  function draw(hasMore) {
+    listBox.replaceChildren(
+      rows.length
+        ? h(
+            "table",
+            {},
+            h("thead", {}, h("tr", {}, h("th", {}, "Время"), h("th", {}, "Кто"), h("th", {}, "Действие"), h("th", {}, "Подробности"), h("th", {}, "Адрес"))),
+            h(
+              "tbody",
+              {},
+              rows.map((e) =>
+                h(
+                  "tr",
+                  {},
+                  h("td", { class: "title-cell num", "data-label": "Время" }, fmtDateTime(e.at)),
+                  h("td", { "data-label": "Кто" }, h("span", { class: `actor ${e.actor_type}` }, e.actor), " ", h("span", { class: "cell-sub" }, ACTOR_LABELS[e.actor_type] || e.actor_type)),
+                  h("td", { "data-label": "Действие" }, h("span", { class: `act ${e.action === "auth.login_failed" ? "bad" : ""}` }, AUDIT_LABELS[e.action] || e.action)),
+                  h("td", { "data-label": "Подробности", class: "details-cell" }, auditSummary(e)),
+                  h("td", { "data-label": "Адрес", class: "num muted" }, e.ip || "—"),
+                ),
+              ),
+            ),
+          )
+        : h("div", { class: "empty" }, h("strong", {}, "Записей нет"), "Здесь появятся входы, оплаты, изменения платежей и пользователей."),
+    );
+    moreWrap.hidden = !hasMore;
+  }
+
+  async function load(reset) {
+    if (reset) {
+      offset = 0;
+      rows = [];
+    }
+    const page = await api("/audit-log", { params: params() });
+    rows = rows.concat(page);
+    offset = rows.length;
+    draw(page.length === PAGE);
+  }
+
+  more.addEventListener("click", () => load(false).catch(report));
+
+  const toolbar = h(
+    "div",
+    { class: "toolbar" },
+    segmented(AUDIT_FILTERS.group, auditState.group, (v) => { auditState.group = v; load(true).catch(report); }),
+    segmented(AUDIT_FILTERS.period, auditState.period, (v) => { auditState.period = v; load(true).catch(report); }),
+  );
+
+  main.replaceChildren(
+    h("div", { class: "page-head" }, h("div", {}, h("h2", {}, "Журнал"), h("p", {}, "Кто и что делал: входы, оплаты (в том числе из Telegram), платежи, пользователи. Пароли сюда не попадают"))),
+    toolbar,
+    listBox,
+    moreWrap,
+  );
+  await load(true);
 }
 
 // ---------- старт ----------

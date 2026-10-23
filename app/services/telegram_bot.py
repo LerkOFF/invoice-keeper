@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 from app.core.clock import today as today_in_tz
 from app.core.config import Settings
 from app.models import OccurrenceStatus, PaymentOccurrence
+from app.services import audit
 from app.services.occurrences import apply_update
 from app.services.telegram import PAY_CALLBACK_PREFIX, TelegramApi, TelegramError
 
@@ -105,7 +106,7 @@ class PayButtonBot:
             self._answer(query_id, "Нет доступа: отмечать оплату могут только участники чата", alert=True)
             return
 
-        result, paid_at = self._mark_paid(int(match.group(1)))
+        result, paid_at = self._mark_paid(int(match.group(1)), audit.telegram_actor(user))
         original = message.get("text") or ""
         who = _display_name(user)
 
@@ -161,7 +162,7 @@ class PayButtonBot:
 
     # ---------- действия ----------
 
-    def _mark_paid(self, occurrence_id: int) -> tuple[PayResult, date | None]:
+    def _mark_paid(self, occurrence_id: int, actor: audit.Actor) -> tuple[PayResult, date | None]:
         with self._session_factory() as db:
             occurrence = db.get(PaymentOccurrence, occurrence_id)
             if occurrence is None or occurrence.recurring_payment.deleted_at is not None:
@@ -170,7 +171,9 @@ class PayButtonBot:
                 return PayResult.ALREADY_PAID, occurrence.paid_at
 
             # те же правила, что и в API: дата по умолчанию сегодняшняя
+            before_status, before_paid_at = occurrence.status, occurrence.paid_at
             apply_update(occurrence, self._today(), OccurrenceStatus.PAID, None, False)
+            audit.record_occurrence_change(db, occurrence, before_status, before_paid_at, actor, source="telegram")
             db.commit()
             return PayResult.PAID_NOW, occurrence.paid_at
 

@@ -5,6 +5,7 @@ from fastapi.security import HTTPAuthorizationCredentials
 
 from app.api.deps import (
     SESSION_COOKIE,
+    client_ip,
     CurrentPrincipal,
     DbDep,
     SettingsDep,
@@ -12,6 +13,7 @@ from app.api.deps import (
     extract_token,
 )
 from app.schemas.auth import CurrentUser, LoginRequest, LoginResponse, LogoutResponse
+from app.services import audit
 from app.services import auth as auth_service
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -27,12 +29,20 @@ def _to_user(principal: auth_service.Principal) -> CurrentUser:
     summary="Вход по логину и паролю",
     responses={401: {"description": "Неверный логин или пароль"}},
 )
-def login(payload: LoginRequest, response: Response, db: DbDep, settings: SettingsDep) -> LoginResponse:
+def login(
+    payload: LoginRequest, request: Request, response: Response, db: DbDep, settings: SettingsDep
+) -> LoginResponse:
     principal = auth_service.authenticate(db, settings, payload.login, payload.password)
+    ip = client_ip(request)
     if principal is None:
+        # пароль в журнал не попадает, только попытка входа с таким логином
+        audit.record(db, "auth.login_failed", audit.Actor("anonymous", payload.login[:64]), ip=ip)
+        db.commit()
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Неверный логин или пароль")
 
     token = auth_service.create_session(db, settings, principal)
+    audit.record(db, "auth.login", audit.actor_of(principal), ip=ip)
+    db.commit()
     response.set_cookie(
         SESSION_COOKIE,
         token,
@@ -64,11 +74,13 @@ def logout(
     request: Request,
     response: Response,
     db: DbDep,
-    _principal: CurrentPrincipal,
+    principal: CurrentPrincipal,
     credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer_scheme)],
 ) -> LogoutResponse:
     token = extract_token(request, credentials)
     if token:
         auth_service.delete_session(db, token)
+    audit.record(db, "auth.logout", audit.actor_of(principal), ip=client_ip(request))
+    db.commit()
     response.delete_cookie(SESSION_COOKIE)
     return LogoutResponse()

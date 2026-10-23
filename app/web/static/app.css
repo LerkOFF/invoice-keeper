@@ -257,6 +257,18 @@ tr.row-deleted { opacity: .62; }
 .empty strong { display: block; color: var(--ink); font-size: 16px; margin-bottom: 4px; }
 .loading { padding: 40px; text-align: center; color: var(--muted); }
 
+/* ---------- журнал ---------- */
+
+.actor { display: inline-block; padding: 1px 9px; border-radius: 999px; font-size: 12.5px; font-weight: 650; background: var(--gray-bg); }
+.actor.admin { background: rgb(14 165 233 / .16); color: var(--accent-ink); }
+.actor.telegram { background: rgb(41 182 246 / .16); color: var(--accent-ink); }
+.actor.system { color: var(--muted); }
+.actor.anonymous { background: var(--amber-bg); color: var(--amber); }
+.act.bad { color: var(--red); font-weight: 650; }
+.details-cell { max-width: 420px; overflow-wrap: anywhere; }
+.more-wrap { text-align: center; margin-top: 14px; }
+.more-wrap[hidden] { display: none; }
+
 /* ---------- формы в разделах ---------- */
 
 .inline-form { padding: 18px 18px 6px; margin-bottom: 20px; }

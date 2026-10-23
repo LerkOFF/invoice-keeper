@@ -494,8 +494,143 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/audit-log:
+    get:
+      tags:
+      - audit
+      summary: Журнал авторизации и действий (администратор)
+      description: 'Новые записи первыми. Фильтр `action`: точное имя (`occurrence.paid`) или группа с
+        точкой на конце (`auth.`, `payment.`, `occurrence.`, `user.`, `receipt.`, `reminder.`). Пароли
+        в журнал не попадают.'
+      operationId: list_audit_log
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: action
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            maxLength: 48
+          - type: 'null'
+          title: Action
+      - name: actor
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            maxLength: 100
+          - type: 'null'
+          description: 'Точное имя: логин или @username'
+          title: Actor
+        description: 'Точное имя: логин или @username'
+      - name: since
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            format: date
+          - type: 'null'
+          title: Since
+      - name: until
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            format: date
+          - type: 'null'
+          title: Until
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 500
+          minimum: 1
+          default: 100
+          title: Limit
+      - name: offset
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 0
+          default: 0
+          title: Offset
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AuditEntryOut'
+                title: Response List Audit Log
+        '403':
+          description: Нужна роль администратора
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
 components:
   schemas:
+    AuditEntryOut:
+      properties:
+        id:
+          type: integer
+          title: Id
+        at:
+          type: string
+          title: At
+        actor_type:
+          type: string
+          title: Actor Type
+          description: admin, user, telegram, system или anonymous
+        actor:
+          type: string
+          title: Actor
+          description: Логин, @username в Telegram или «планировщик»
+        action:
+          type: string
+          title: Action
+          examples:
+          - occurrence.paid
+        target_type:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Target Type
+        target_id:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Target Id
+        details:
+          anyOf:
+          - additionalProperties: true
+            type: object
+          - type: 'null'
+          title: Details
+        ip:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Ip
+      type: object
+      required:
+      - id
+      - at
+      - actor_type
+      - actor
+      - action
+      title: AuditEntryOut
     Currency:
       type: string
       enum:

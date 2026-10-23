@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session, joinedload
 
 from app.core.config import Settings
 from app.models import OccurrenceStatus, PaymentOccurrence, RecurringPayment
+from app.services import audit
 from app.services.telegram import Notifier, TelegramError
 
 logger = logging.getLogger("invoice_keeper")
@@ -85,6 +86,15 @@ def send_due_reminders(db: Session, notifier: Notifier, settings: Settings, toda
                 .where(PaymentOccurrence.id == occurrence.id, PaymentOccurrence.reminded_at.is_(None))
                 .values(reminded_at=datetime.now(UTC))
             )
+            if claimed.rowcount:
+                audit.record(
+                    db,
+                    "reminder.sent",
+                    audit.SYSTEM,
+                    "occurrence",
+                    occurrence.id,
+                    {"name": occurrence.recurring_payment.name, "due_date": occurrence.due_date.isoformat(), "channel": "telegram"},
+                )
             db.commit()
             if claimed.rowcount:
                 sent += 1

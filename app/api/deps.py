@@ -36,6 +36,11 @@ def get_notifier(settings: SettingsDep) -> Notifier:
 NotifierDep = Annotated[Notifier, Depends(get_notifier)]
 
 
+def client_ip(request: Request) -> str | None:
+    """Адрес клиента для журнала. За прокси это адрес прокси: заголовкам X-Forwarded-For не верим."""
+    return request.client.host if request.client else None
+
+
 def extract_token(request: Request, credentials: HTTPAuthorizationCredentials | None) -> str | None:
     if credentials is not None and credentials.credentials:
         return credentials.credentials

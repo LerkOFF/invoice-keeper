@@ -8,7 +8,7 @@ from fastapi import APIRouter, FastAPI, Request
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-from app.api import auth, payment_occurrences, recurring_payments, summary, users
+from app.api import audit, auth, payment_occurrences, recurring_payments, summary, users
 from app.core.clock import today
 from app.core.config import get_settings
 from app.core.db import SessionLocal, init_db
@@ -105,6 +105,7 @@ def create_app() -> FastAPI:
     api.include_router(payment_occurrences.router)
     api.include_router(summary.router)
     api.include_router(users.router)
+    api.include_router(audit.router)
 
     app.include_router(api)
 

@@ -4,6 +4,7 @@ from typing import Annotated
 from fastapi import APIRouter, HTTPException, Query, status
 
 from app.api.deps import CurrentPrincipal, DbDep, TodayDep
+from app.services import audit
 from app.models import Currency, OccurrenceStatus, PaymentOccurrence
 from app.schemas.payments import OccurrenceOut, OccurrenceUpdate
 from app.services.occurrences import (
@@ -94,7 +95,7 @@ def get_payment_occurrence(
 def update_payment_occurrence(
     id: int,  # noqa: A002
     payload: OccurrenceUpdate,
-    _principal: CurrentPrincipal,
+    principal: CurrentPrincipal,
     db: DbDep,
     today: TodayDep,
 ) -> OccurrenceOut:
@@ -103,6 +104,7 @@ def update_payment_occurrence(
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT, detail="Регулярный платёж прекращён, период изменить нельзя"
         )
+    before_status, before_paid_at = occurrence.status, occurrence.paid_at
     try:
         apply_update(
             occurrence,
@@ -113,5 +115,8 @@ def update_payment_occurrence(
         )
     except OccurrenceRuleError as error:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(error)) from error
+    audit.record_occurrence_change(
+        db, occurrence, before_status, before_paid_at, audit.actor_of(principal), source="web"
+    )
     db.commit()
     return to_out(occurrence, today)

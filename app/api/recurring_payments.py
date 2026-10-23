@@ -5,6 +5,7 @@ from sqlalchemy import select
 
 from app.api.deps import AdminPrincipal, CurrentPrincipal, DbDep, NotifierDep, SettingsDep, TodayDep
 from app.core.db import SessionLocal
+from app.services import audit
 from app.models import RecurringPayment
 from app.schemas.payments import RecurringPaymentCreate, RecurringPaymentOut
 from app.services.periods import ensure_occurrences
@@ -38,7 +39,7 @@ def list_recurring_payments(
 )
 def create_recurring_payment(
     payload: RecurringPaymentCreate,
-    _admin: AdminPrincipal,
+    admin: AdminPrincipal,
     db: DbDep,
     today: TodayDep,
     background: BackgroundTasks,
@@ -55,6 +56,19 @@ def create_recurring_payment(
     db.add(payment)
     db.flush()
     ensure_occurrences(db, payment, today)
+    audit.record(
+        db,
+        "payment.create",
+        audit.actor_of(admin),
+        "payment",
+        payment.id,
+        {
+            "name": payment.name,
+            "amount": str(payment.amount),
+            "currency": payment.currency,
+            "first_due_date": payment.first_due_date.isoformat(),
+        },
+    )
     db.commit()
     # Платёж добавлен меньше чем за 3 дня до срока: напоминание уходит сразу, не дожидаясь планировщика
     background.add_task(run_reminders, SessionLocal, notifier, settings, today)
@@ -67,8 +81,9 @@ def create_recurring_payment(
     summary="Прекращение регулярного платежа (администратор)",
     description="Платёж и его напоминания прекращаются, история периодов сохраняется.",
 )
-def delete_recurring_payment(id: int, _admin: AdminPrincipal, db: DbDep) -> Response:  # noqa: A002
+def delete_recurring_payment(id: int, admin: AdminPrincipal, db: DbDep) -> Response:  # noqa: A002
     payment = _get_active(db, id)
     payment.deleted_at = datetime.now(UTC)
+    audit.record(db, "payment.delete", audit.actor_of(admin), "payment", payment.id, {"name": payment.name})
     db.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
