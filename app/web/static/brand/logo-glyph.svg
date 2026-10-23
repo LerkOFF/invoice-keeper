@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Invoice Keeper">
+  <path d="M164 56H348A28 28 0 0 1 376 84V424L352 448L328 424L304 448L280 424L256 448L232 424L208 448L184 424L160 448L136 424V84A28 28 0 0 1 164 56Z" fill="#0b1220" stroke="#0b1220" stroke-width="6" stroke-linejoin="round"/>
+  <path d="M198 238L240 280L318 190" fill="none" stroke="#0ea5e9" stroke-width="38" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="168" y="334" width="176" height="14" rx="7" fill="#64748b"/>
+  <rect x="168" y="362" width="112" height="14" rx="7" fill="#64748b"/>
+  <rect x="168" y="108" width="76" height="16" rx="8" fill="#64748b"/>
+</svg>

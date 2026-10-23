@@ -1,3 +1,8 @@
+<p align="center">
+  <img src="app/web/static/brand/logo-horizontal-light.svg#gh-light-mode-only" alt="Invoice Keeper" height="72">
+  <img src="app/web/static/brand/logo-horizontal-dark.svg#gh-dark-mode-only" alt="Invoice Keeper" height="72">
+</p>
+
 # Invoice Keeper
 
 Сервис напоминаний о регулярных платежах: аренда, подписки, серверы и другие периодические расходы.
@@ -182,3 +187,12 @@ docs/          план работ и архитектура
 
 - [План работ и чек-лист](docs/PLAN.md)
 - [Архитектура и правила предметной области](docs/ARCHITECTURE.md)
+
+## Фирменный стиль
+
+Файлы в `app/web/static/brand/`: знак `logo-mark.svg` (плитка со скруглением), `logo-square.svg` (без скругления, для круглых и квадратных аватаров),
+`logo-glyph.svg` (одноцветный знак без плитки), горизонтальные `logo-horizontal-light.svg` и `logo-horizontal-dark.svg`, `favicon.svg`,
+PNG для сайта (`favicon-32`, `apple-touch-icon`, `icon-192`, `icon-512`), `og-image.png` (карточка 1200×630 для ссылок) и `bot-avatar.png` (640×640).
+
+Аватар бота ставится вручную в @BotFather: `/setuserpic`, выбрать бота, отправить `bot-avatar.png`. Описание: `/setdescription`.
+Цвета: фон знака `#05070a`, акцент `#0ea5e9` (светлее `#7dd3fc`), бумага `#f8fafc`.

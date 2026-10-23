@@ -283,17 +283,12 @@ function showLogin(notice = "") {
 }
 
 function brand() {
-  const mark = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-  mark.setAttribute("viewBox", "0 0 32 32");
-  const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
-  path.setAttribute("d", "M9 17l5 5 9-12");
-  path.setAttribute("fill", "none");
-  path.setAttribute("stroke", "#38bdf8");
-  path.setAttribute("stroke-width", "3.2");
-  path.setAttribute("stroke-linecap", "round");
-  path.setAttribute("stroke-linejoin", "round");
-  mark.append(path);
-  return h("div", { class: "brand" }, h("div", { class: "brand-mark" }, mark), h("span", { class: "brand-name" }, "Invoice Keeper"));
+  return h(
+    "div",
+    { class: "brand" },
+    h("img", { class: "brand-mark", src: "/static/brand/logo-mark.svg", alt: "", width: 38, height: 38 }),
+    h("span", { class: "brand-name" }, "Invoice Keeper"),
+  );
 }
 
 async function logout() {
