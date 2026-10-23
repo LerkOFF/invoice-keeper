@@ -1,6 +1,7 @@
 from datetime import date, datetime
+from decimal import Decimal
 
-from sqlalchemy import CheckConstraint, Date, DateTime, ForeignKey, String, UniqueConstraint
+from sqlalchemy import CheckConstraint, Date, DateTime, ForeignKey, Integer, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.db import Base
@@ -24,6 +25,8 @@ class PaymentOccurrence(Base):
     status: Mapped[str] = mapped_column(String(8), default=OccurrenceStatus.UNPAID.value)
     paid_at: Mapped[date | None] = mapped_column(Date)
     reminded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # Сумма периода в минорных единицах: фиксируется при создании, правка платежа не меняет историю
+    amount_minor: Mapped[int | None] = mapped_column(Integer)
 
     recurring_payment: Mapped["RecurringPayment"] = relationship(back_populates="occurrences")
     deliveries: Mapped[list["ReminderDelivery"]] = relationship(
@@ -32,3 +35,12 @@ class PaymentOccurrence(Base):
     receipts: Mapped[list["OccurrenceReceipt"]] = relationship(
         order_by="OccurrenceReceipt.id", lazy="selectin", cascade="all, delete-orphan", passive_deletes=True
     )
+
+    @property
+    def due_amount_minor(self) -> int:
+        """Сумма к оплате за этот период. Пусто только у периодов из старой базы до миграции."""
+        return self.amount_minor if self.amount_minor is not None else self.recurring_payment.amount_minor
+
+    @property
+    def amount(self) -> Decimal:
+        return Decimal(self.due_amount_minor).scaleb(-2)

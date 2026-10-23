@@ -140,6 +140,41 @@ paths:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
   /api/v1/recurring-payments/{id}:
+    patch:
+      tags:
+      - recurring-payments
+      summary: Изменение регулярного платежа (администратор)
+      description: 'Меняет название, сумму и график. Новая сумма действует для неоплаченных периодов со
+        сроком с сегодняшнего дня, прошлые и оплаченные периоды сохраняют свою. Новый график задаётся
+        вместе с датой ближайшей оплаты (не раньше сегодня): неоплаченные будущие периоды старого графика
+        убираются, история остаётся. Валюту изменить нельзя.'
+      operationId: update_recurring_payment
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          title: Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RecurringPaymentUpdate'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecurringPaymentOut'
+        '404':
+          description: Платёж не найден или прекращён
+        '422':
+          description: Нарушено правило правки
     delete:
       tags:
       - recurring-payments
@@ -1659,6 +1694,45 @@ components:
       - created_at
       - deleted_at
       title: RecurringPaymentOut
+    RecurringPaymentUpdate:
+      properties:
+        name:
+          anyOf:
+          - type: string
+            maxLength: 200
+            minLength: 1
+          - type: 'null'
+          title: Name
+        amount:
+          anyOf:
+          - anyOf:
+            - type: number
+              exclusiveMinimum: 0.0
+            - type: string
+            examples:
+            - '45000.00'
+          - type: 'null'
+          title: Amount
+          description: Новая сумма для неоплаченных периодов с сегодняшнего дня и всех следующих. Прошлые
+            и оплаченные сохраняют свою
+        period:
+          anyOf:
+          - $ref: '#/components/schemas/Period'
+          - type: 'null'
+          description: Новая периодичность, вместе с first_due_date
+        first_due_date:
+          anyOf:
+          - type: string
+            format: date
+          - type: 'null'
+          title: First Due Date
+          description: Дата ближайшей оплаты по новому графику, не раньше сегодня. Нужна, если меняется
+            график
+      additionalProperties: false
+      type: object
+      title: RecurringPaymentUpdate
+      description: 'Правка платежа. Валюта не меняется: у истории оплат своя валюта, для другой заведите
+        новый платёж.'
     Role:
       type: string
       enum:

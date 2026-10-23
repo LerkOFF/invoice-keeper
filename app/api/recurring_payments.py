@@ -7,7 +7,8 @@ from app.api.deps import AdminPrincipal, CurrentPrincipal, DbDep, NotifiersDep, 
 from app.core.db import SessionLocal
 from app.services import audit
 from app.models import RecurringPayment
-from app.schemas.payments import RecurringPaymentCreate, RecurringPaymentOut
+from app.schemas.payments import RecurringPaymentCreate, RecurringPaymentOut, RecurringPaymentUpdate
+from app.services.payments import PaymentRuleError, update_payment
 from app.services.periods import ensure_occurrences
 from app.services.reminders import run_reminders
 
@@ -72,6 +73,65 @@ def create_recurring_payment(
     )
     db.commit()
     # Платёж добавлен меньше чем за 3 дня до срока: напоминание уходит сразу, не дожидаясь планировщика
+    background.add_task(run_reminders, SessionLocal, notifiers, settings, today)
+    return payment
+
+
+@router.patch(
+    "/{id}",
+    response_model=RecurringPaymentOut,
+    summary="Изменение регулярного платежа (администратор)",
+    description=(
+        "Меняет название, сумму и график. Новая сумма действует для неоплаченных периодов со сроком "
+        "с сегодняшнего дня, прошлые и оплаченные периоды сохраняют свою. Новый график задаётся вместе с датой "
+        "ближайшей оплаты (не раньше сегодня): неоплаченные будущие периоды старого графика убираются, история остаётся. "
+        "Валюту изменить нельзя."
+    ),
+    responses={404: {"description": "Платёж не найден или прекращён"}, 422: {"description": "Нарушено правило правки"}},
+)
+def update_recurring_payment(
+    id: int,  # noqa: A002
+    payload: RecurringPaymentUpdate,
+    admin: AdminPrincipal,
+    db: DbDep,
+    today: TodayDep,
+    background: BackgroundTasks,
+    notifiers: NotifiersDep,
+    settings: SettingsDep,
+) -> RecurringPayment:
+    if not payload.model_fields_set:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="Нужно передать хотя бы одно поле")
+    payment = _get_active(db, id)
+    try:
+        changes = update_payment(
+            db,
+            payment,
+            today,
+            name=payload.name,
+            amount=payload.amount,
+            period=payload.period,
+            first_due_date=payload.first_due_date,
+        )
+    except PaymentRuleError as error:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(error)) from error
+    if changes:
+        audit.record(
+            db,
+            "payment.update",
+            audit.actor_of(admin),
+            "payment",
+            payment.id,
+            {
+                "name": payment.name,
+                "amount": str(payment.amount),
+                "currency": payment.currency,
+                "period": payment.period,
+                "first_due_date": payment.first_due_date.isoformat(),
+                **changes,
+            },
+        )
+    db.commit()
+    # новый график мог поставить срок ближе чем через 3 дня: напоминание сразу, как при создании
     background.add_task(run_reminders, SessionLocal, notifiers, settings, today)
     return payment
 

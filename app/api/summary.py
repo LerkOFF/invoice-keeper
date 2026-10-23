@@ -136,7 +136,7 @@ def payments_calendar(
             occurrence_id=occ.id if occ else None,
             recurring_id=period.payment.id,
             name=period.payment.name,
-            amount=period.payment.amount,
+            amount=period.amount,
             currency=period.payment.currency,
             due_date=period.due_date,
             status=occ.status if occ else "planned",

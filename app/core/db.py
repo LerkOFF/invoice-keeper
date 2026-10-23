@@ -1,7 +1,7 @@
 from collections.abc import Iterator
 from pathlib import Path
 
-from sqlalchemy import Engine, create_engine, event
+from sqlalchemy import Engine, create_engine, event, inspect, text
 from sqlalchemy.engine import make_url
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
@@ -38,10 +38,30 @@ SessionLocal = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False
 
 
 def init_db(target: Engine | None = None) -> None:
-    """Создаёт схему, если её ещё нет."""
+    """Создаёт схему, если её ещё нет, и доводит старую базу до текущей схемы."""
     import app.models  # noqa: F401  регистрирует модели в Base.metadata
 
-    Base.metadata.create_all(target or engine)
+    target = target or engine
+    Base.metadata.create_all(target)
+    migrate(target)
+
+
+def migrate(target: Engine) -> None:
+    """create_all не добавляет колонки в существующие таблицы, поэтому новые колонки добавляем здесь.
+
+    Каждый шаг идемпотентен: повторный запуск ничего не меняет.
+    """
+    with target.begin() as conn:
+        columns = {column["name"] for column in inspect(conn).get_columns("payment_occurrences")}
+        if "amount_minor" not in columns:
+            conn.execute(text("ALTER TABLE payment_occurrences ADD COLUMN amount_minor INTEGER"))
+        # периоды из старой базы получают текущую сумму своего платежа
+        conn.execute(
+            text(
+                "UPDATE payment_occurrences SET amount_minor = (SELECT r.amount_minor FROM recurring_payments r "
+                "WHERE r.id = payment_occurrences.recurring_id) WHERE amount_minor IS NULL"
+            )
+        )
 
 
 def get_db() -> Iterator[Session]:

@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal
 
-from sqlalchemy import Select, and_, or_, select
+from sqlalchemy import Select, and_, func, or_, select
 from sqlalchemy.orm import Session, joinedload
 
 from app.models import Currency, OccurrenceStatus, PaymentOccurrence, RecurringPayment
@@ -148,7 +148,13 @@ def summarize(
     ref = on or today
     rows = db.execute(
         filtered_statement(
-            select(PaymentOccurrence, RecurringPayment.currency, RecurringPayment.amount_minor), flt, today
+            select(
+                PaymentOccurrence,
+                RecurringPayment.currency,
+                func.coalesce(PaymentOccurrence.amount_minor, RecurringPayment.amount_minor),
+            ),
+            flt,
+            today,
         )
     )
     result = {currency: CurrencySummary(currency) for currency in Currency}

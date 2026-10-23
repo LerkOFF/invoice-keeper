@@ -21,6 +21,23 @@ class RecurringPaymentCreate(BaseModel):
     )
 
 
+class RecurringPaymentUpdate(BaseModel):
+    """Правка платежа. Валюта не меняется: у истории оплат своя валюта, для другой заведите новый платёж."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    name: str | None = Field(default=None, min_length=1, max_length=200)
+    amount: Money | None = Field(
+        default=None,
+        description="Новая сумма для неоплаченных периодов с сегодняшнего дня и всех следующих. Прошлые и оплаченные сохраняют свою",
+    )
+    period: Period | None = Field(default=None, description="Новая периодичность, вместе с first_due_date")
+    first_due_date: date | None = Field(
+        default=None,
+        description="Дата ближайшей оплаты по новому графику, не раньше сегодня. Нужна, если меняется график",
+    )
+
+
 class RecurringPaymentOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

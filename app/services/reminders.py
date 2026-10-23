@@ -39,7 +39,7 @@ def build_message(occurrence: PaymentOccurrence, today: date) -> str:
     return (
         "🔔 Напоминание об оплате\n\n"
         f"Платёж: {payment.name}\n"
-        f"Сумма: {format_money(payment.amount, payment.currency)}\n"
+        f"Сумма: {format_money(occurrence.amount, payment.currency)}\n"
         f"Дата оплаты: {occurrence.due_date:%d.%m.%Y} ({_days_phrase(days_left)})"
     )
 
@@ -68,7 +68,7 @@ def build_reminder(occurrence: PaymentOccurrence, today: date) -> Reminder:
         occurrence_id=occurrence.id,
         payment_id=payment.id,
         name=payment.name,
-        amount=payment.amount,
+        amount=occurrence.amount,
         currency=payment.currency,
         due_date=occurrence.due_date,
         days_left=(occurrence.due_date - today).days,

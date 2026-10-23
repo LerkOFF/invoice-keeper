@@ -25,7 +25,7 @@ def to_out(occurrence: PaymentOccurrence, today: date) -> OccurrenceOut:
         id=occurrence.id,
         recurring_id=occurrence.recurring_id,
         name=payment.name,
-        amount=payment.amount,
+        amount=occurrence.amount,
         currency=Currency(payment.currency),
         due_date=occurrence.due_date,
         status=OccurrenceStatus(occurrence.status),

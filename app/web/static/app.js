@@ -855,7 +855,12 @@ async function recurringView(main) {
                   h("td", { class: "right", "data-label": "Сумма" }, h("span", { class: "amount num" }, money(p.amount, p.currency))),
                   h("td", { "data-label": "Периодичность" }, h("div", {}, periodLabel(p.period)), h("div", { class: "cell-sub" }, periodHint(p))),
                   h("td", { "data-label": "Ближайший срок", class: "num" }, next ? fmtDate(next) : "—"),
-                  h("td", { class: "actions" }, h("button", { class: "btn btn-sm btn-danger", onclick: () => deletePaymentDialog(p, reload) }, "Прекратить")),
+                  h(
+                    "td",
+                    { class: "actions" },
+                    h("button", { class: "btn btn-sm", onclick: () => editPaymentDialog(p, reload) }, "Изменить"),
+                    h("button", { class: "btn btn-sm btn-danger", onclick: () => deletePaymentDialog(p, reload) }, "Прекратить"),
+                  ),
                 );
               }),
             ),
@@ -922,6 +927,48 @@ async function recurringView(main) {
     listBox,
   );
   await reload();
+}
+
+function editPaymentDialog(p, reload) {
+  openDialog({
+    title: "Изменить платёж",
+    description: `Новая сумма действует для неоплаченных периодов с сегодняшнего дня, оплаченные и прошлые сохраняют свою. Валюта (${p.currency}) не меняется.`,
+    fields: [
+      field({ label: "Название", name: "name", value: p.name, maxlength: "200" }),
+      field({ label: `Сумма, ${p.currency}`, name: "amount", value: p.amount, inputmode: "decimal" }),
+      h(
+        "label",
+        { class: "field" },
+        h("span", {}, "Периодичность"),
+        h("select", { name: "period" }, PERIODS.map((o) => h("option", { value: o.value, selected: o.value === p.period }, o.label))),
+      ),
+      field({
+        label: "Дата ближайшей оплаты по новому графику",
+        name: "first_due_date",
+        type: "date",
+        required: false,
+        min: state.asOf,
+        hint: "только если меняется график: неоплаченные будущие сроки старого графика уберутся, история останется",
+      }),
+    ],
+    onSubmit: async (data) => {
+      const body = {};
+      const name = String(data.get("name")).trim();
+      if (!name) throw new Error("Название: укажите название платежа");
+      if (name !== p.name) body.name = name;
+      const amount = parseAmount(data.get("amount"));
+      if (Number(amount) !== Number(p.amount)) body.amount = amount;
+      const period = String(data.get("period"));
+      const firstDue = String(data.get("first_due_date") || "");
+      if (period !== p.period) body.period = period;
+      if (firstDue) body.first_due_date = firstDue;
+      if (body.period && !firstDue) throw new Error("Новый график: укажите дату ближайшей оплаты");
+      if (!Object.keys(body).length) throw new Error("Нечего менять");
+      await api(`/recurring-payments/${p.id}`, { method: "PATCH", body });
+      toast(`Платёж «${name}» обновлён`);
+      await reload();
+    },
+  });
 }
 
 function deletePaymentDialog(p, reload) {
@@ -1320,6 +1367,7 @@ const AUDIT_LABELS = {
   "auth.login_failed": "Неудачный вход",
   "auth.logout": "Выход",
   "payment.create": "Платёж добавлен",
+  "payment.update": "Платёж изменён",
   "payment.delete": "Платёж прекращён",
   "occurrence.paid": "Оплата отмечена",
   "occurrence.unpaid": "Оплата отменена",
@@ -1347,6 +1395,12 @@ function auditSummary(e) {
       return `${d.name}, ${due}: дата оплаты ${fmtDate(d.paid_at_before)} → ${fmtDate(d.paid_at)}`;
     case "payment.create":
       return `${d.name}, ${money(d.amount, d.currency)}, ${d.period ? periodLabel(d.period).toLowerCase() + ", " : ""}первый срок ${fmtDate(d.first_due_date)}`;
+    case "payment.update":
+      return [
+        d.name_before ? `${d.name_before} → ${d.name}` : d.name,
+        d.amount_before ? `сумма ${money(d.amount_before, d.currency)} → ${money(d.amount, d.currency)}` : "",
+        d.first_due_date_before ? `график: ${periodLabel(d.period).toLowerCase()}, ближайший срок ${fmtDate(d.first_due_date)}` : "",
+      ].filter(Boolean).join(", ");
     case "payment.delete":
       return d.name;
     case "user.create":

@@ -50,7 +50,7 @@ def ensure_occurrences(db: Session, payment: RecurringPayment, today: date) -> l
         if due > horizon and upcoming_seen:
             break
         if due not in existing:
-            occurrence = PaymentOccurrence(recurring_payment=payment, due_date=due)
+            occurrence = PaymentOccurrence(recurring_payment=payment, due_date=due, amount_minor=payment.amount_minor)
             db.add(occurrence)
             created.append(occurrence)
         upcoming_seen = upcoming_seen or due >= today

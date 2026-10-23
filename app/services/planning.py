@@ -23,6 +23,15 @@ class PlannedPeriod:
     def is_paid(self) -> bool:
         return self.occurrence is not None and self.occurrence.status == OccurrenceStatus.PAID.value
 
+    @property
+    def amount_minor(self) -> int:
+        """У созданного периода своя сумма, у запланированного текущая сумма платежа."""
+        return self.occurrence.due_amount_minor if self.occurrence is not None else self.payment.amount_minor
+
+    @property
+    def amount(self) -> Decimal:
+        return Decimal(self.amount_minor).scaleb(-2)
+
 
 def projected_due_dates(
     first_due: date, start: date, end: date, period: Period | str = Period.MONTHLY
@@ -49,8 +58,10 @@ def load_periods(db: Session, start: date, end: date, include_deleted: bool = Fa
     result: list[PlannedPeriod] = []
     for payment in db.scalars(select(RecurringPayment).order_by(RecurringPayment.id)):
         if payment.deleted_at is None:
-            for due in projected_due_dates(payment.first_due_date, start, end, payment.period):
-                result.append(PlannedPeriod(payment, due, existing.get((payment.id, due))))
+            projected = set(projected_due_dates(payment.first_due_date, start, end, payment.period))
+            # периоды из базы показываем всегда: после смены графика прошлые сроки уже не совпадают с правилом
+            projected |= {due for (rid, due) in existing if rid == payment.id}
+            result.extend(PlannedPeriod(payment, due, existing.get((payment.id, due))) for due in projected)
         elif include_deleted:
             # у прекращённого платежа будущее не планируем, остаётся только его история
             result.extend(
@@ -87,10 +98,10 @@ def _empty_lines() -> dict[Currency, BudgetLine]:
 
 def _add(lines: dict[Currency, BudgetLine], period: PlannedPeriod) -> None:
     line = lines[Currency(period.payment.currency)]
-    line.planned_minor += period.payment.amount_minor
+    line.planned_minor += period.amount_minor
     line.count_planned += 1
     if period.is_paid:
-        line.paid_minor += period.payment.amount_minor
+        line.paid_minor += period.amount_minor
         line.count_paid += 1
 
 

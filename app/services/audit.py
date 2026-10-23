@@ -22,6 +22,7 @@ ACTION_LABELS = {
     "auth.login_failed": "Неудачный вход",
     "auth.logout": "Выход",
     "payment.create": "Платёж добавлен",
+    "payment.update": "Платёж изменён",
     "payment.delete": "Платёж прекращён",
     "occurrence.paid": "Оплата отмечена",
     "occurrence.unpaid": "Оплата отменена",
