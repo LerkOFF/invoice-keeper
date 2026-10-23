@@ -159,6 +159,10 @@ docker compose up --build
     <td><img src="docs/screenshots/payments-light.png" alt="Светлая тема"><br>Светлая тема: по умолчанию как в системе, переключатель в боковой панели</td>
     <td align="center"><img src="docs/screenshots/mobile-light.png" alt="Телефон, светлая тема" width="260"><br>Телефон в светлой теме</td>
   </tr>
+  <tr>
+    <td><img src="docs/screenshots/help.png" alt="Помощь"><br>Помощь: обзор разделов с переходом в каждый</td>
+    <td><img src="docs/screenshots/help-faq.png" alt="Частые вопросы"><br>Частые вопросы, правила сроков и контакты</td>
+  </tr>
 </table>
 
 ## Проверка за минуту
