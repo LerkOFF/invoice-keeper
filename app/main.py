@@ -2,8 +2,11 @@ import asyncio
 import contextlib
 import logging
 from contextlib import asynccontextmanager
+from pathlib import Path
 
-from fastapi import APIRouter, FastAPI
+from fastapi import APIRouter, FastAPI, Request
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 
 from app.api import auth, payment_occurrences, recurring_payments, summary, users
 from app.core.clock import today
@@ -15,6 +18,13 @@ from app.services.telegram import build_notifier
 from app.services.periods import ensure_all_occurrences
 
 API_PREFIX = "/api/v1"
+WEB_DIR = Path(__file__).parent / "web"
+
+# Панель целиком своя: ни внешних скриптов, ни шрифтов, ни инлайновых стилей
+PANEL_CSP = (
+    "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; "
+    "connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'"
+)
 
 logger = logging.getLogger("invoice_keeper")
 if not logger.handlers:
@@ -81,6 +91,23 @@ def create_app() -> FastAPI:
     api.include_router(users.router)
 
     app.include_router(api)
+
+    @app.middleware("http")
+    async def panel_security_headers(request: Request, call_next):
+        response = await call_next(request)
+        path = request.url.path
+        if path == "/" or path.startswith("/static/"):
+            response.headers["Content-Security-Policy"] = PANEL_CSP
+            response.headers["X-Content-Type-Options"] = "nosniff"
+            response.headers["Referrer-Policy"] = "same-origin"
+            response.headers["X-Frame-Options"] = "DENY"
+        return response
+
+    @app.get("/", include_in_schema=False)
+    def panel() -> FileResponse:
+        return FileResponse(WEB_DIR / "index.html", headers={"Cache-Control": "no-cache"})
+
+    app.mount("/static", StaticFiles(directory=WEB_DIR / "static"), name="static")
     return app
 
 

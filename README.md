@@ -36,7 +36,8 @@ cp .env.example .env     # заполнить ADMIN_*, TELEGRAM_*, APP_TIMEZONE
 docker compose up --build
 ```
 
-Приложение: `http://localhost:8000`, Swagger: `http://localhost:8000/api/v1/docs`.
+Панель: `http://localhost:8000`, Swagger: `http://localhost:8000/api/v1/docs`.
+Вход администратором: `ADMIN_LOGIN` и `ADMIN_PASSWORD` из `.env`, демо-пользователем: `SEED_USER_LOGIN` и `SEED_USER_PASSWORD`.
 При первом запуске подгружаются тестовые данные: аренда в рублях, сервер в долларах,
 подписка в евро и обычный пользователь из `SEED_USER_LOGIN` / `SEED_USER_PASSWORD`.
 Отключить: `SEED_DEMO_DATA=false`. Данные лежат в Docker volume `invoice_data` и переживают перезапуск.
