@@ -62,13 +62,13 @@ def create_recurring_payment(
 
 
 @router.delete(
-    "/{payment_id}",
+    "/{id}",
     status_code=status.HTTP_204_NO_CONTENT,
     summary="Прекращение регулярного платежа (администратор)",
     description="Платёж и его напоминания прекращаются, история периодов сохраняется.",
 )
-def delete_recurring_payment(payment_id: int, _admin: AdminPrincipal, db: DbDep) -> Response:
-    payment = _get_active(db, payment_id)
+def delete_recurring_payment(id: int, _admin: AdminPrincipal, db: DbDep) -> Response:  # noqa: A002
+    payment = _get_active(db, id)
     payment.deleted_at = datetime.now(UTC)
     db.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)

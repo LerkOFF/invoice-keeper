@@ -17,7 +17,6 @@ class Settings(BaseSettings):
     reminder_days: int = 3
     scheduler_enabled: bool = True
     scheduler_interval_seconds: float = 60
-    secret_key: str = "change-me"
     session_ttl_hours: int = 12
     cookie_secure: bool = False
     database_url: str = "sqlite:///./data/invoice_keeper.db"

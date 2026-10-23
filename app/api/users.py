@@ -50,30 +50,30 @@ def create_user(payload: UserCreate, _admin: AdminPrincipal, db: DbDep, settings
 
 
 @router.patch(
-    "/{user_id}",
+    "/{id}",
     response_model=UserOut,
     summary="Изменение пользователя (администратор)",
     description="Меняет логин и/или пароль. Роль изменить нельзя. Смена пароля завершает сессии пользователя.",
     responses={**_ADMIN_ONLY, 409: {"description": "Логин занят или зарезервирован"}},
 )
 def update_user(
-    user_id: int, payload: UserUpdate, _admin: AdminPrincipal, db: DbDep, settings: SettingsDep
+    id: int, payload: UserUpdate, _admin: AdminPrincipal, db: DbDep, settings: SettingsDep
 ) -> User:
     if payload.login is None and payload.password is None:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="Нужно передать login или password"
         )
-    user = _get_or_404(db, user_id)
+    user = _get_or_404(db, id)
     return _guard(lambda: users_service.update_user(db, settings, user, payload.login, payload.password))
 
 
 @router.delete(
-    "/{user_id}",
+    "/{id}",
     status_code=status.HTTP_204_NO_CONTENT,
     summary="Удаление пользователя (администратор)",
     responses=_ADMIN_ONLY,
 )
-def delete_user(user_id: int, _admin: AdminPrincipal, db: DbDep) -> Response:
-    user = _get_or_404(db, user_id)
+def delete_user(id: int, _admin: AdminPrincipal, db: DbDep) -> Response:  # noqa: A002
+    user = _get_or_404(db, id)
     _guard(lambda: users_service.delete_user(db, user))
     return Response(status_code=status.HTTP_204_NO_CONTENT)

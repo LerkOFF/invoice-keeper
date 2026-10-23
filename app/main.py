@@ -38,8 +38,8 @@ if not logger.handlers:
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     settings = get_settings()
-    if "change-me" in (settings.admin_password, settings.secret_key):
-        logger.warning("ADMIN_PASSWORD или SECRET_KEY остались значениями по умолчанию, поменяйте их в .env")
+    if settings.admin_password == "change-me":
+        logger.warning("ADMIN_PASSWORD остался значением по умолчанию, поменяйте его в .env")
     init_db()
     with SessionLocal() as db:
         if settings.seed_demo_data:
@@ -76,6 +76,16 @@ def create_app() -> FastAPI:
         openapi_url=f"{API_PREFIX}/openapi.json",
         redoc_url=None,
         lifespan=lifespan,
+        # читаемые operationId в OpenAPI: login, create_user, update_payment_occurrence
+        generate_unique_id_function=lambda route: route.name,
+        openapi_tags=[
+            {"name": "auth", "description": "Вход, текущий пользователь, завершение сессии"},
+            {"name": "recurring-payments", "description": "Регулярные платежи (создание и удаление только админ)"},
+            {"name": "payment-occurrences", "description": "Периоды платежей: оплата, отмена, правка даты, просрочка"},
+            {"name": "summary", "description": "Итоги по валютам без конвертации"},
+            {"name": "users", "description": "Обычные пользователи (только админ)"},
+            {"name": "system", "description": "Служебное"},
+        ],
     )
 
     api = APIRouter(prefix=API_PREFIX)

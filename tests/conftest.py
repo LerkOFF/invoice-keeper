@@ -9,7 +9,6 @@ os.environ["TELEGRAM_BOT_TOKEN"] = ""
 os.environ["TELEGRAM_CHAT_ID"] = ""
 os.environ["ADMIN_LOGIN"] = "boss"
 os.environ["ADMIN_PASSWORD"] = "boss-pass-test"
-os.environ["SECRET_KEY"] = "test-secret"
 
 import pytest
 from sqlalchemy import create_engine

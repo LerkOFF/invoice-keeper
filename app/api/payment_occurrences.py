@@ -70,15 +70,15 @@ def list_payment_occurrences(
     return [to_out(item, today) for item in list_occurrences(db, flt, today, limit, offset)]
 
 
-@router.get("/{occurrence_id}", response_model=OccurrenceOut, summary="Конкретный платёж")
+@router.get("/{id}", response_model=OccurrenceOut, summary="Конкретный платёж")
 def get_payment_occurrence(
-    occurrence_id: int, _principal: CurrentPrincipal, db: DbDep, today: TodayDep
+    id: int, _principal: CurrentPrincipal, db: DbDep, today: TodayDep  # noqa: A002
 ) -> OccurrenceOut:
-    return to_out(_get_or_404(db, occurrence_id), today)
+    return to_out(_get_or_404(db, id), today)
 
 
 @router.patch(
-    "/{occurrence_id}",
+    "/{id}",
     response_model=OccurrenceOut,
     summary="Подтверждение или отмена оплаты, исправление фактической даты",
     description=(
@@ -92,13 +92,13 @@ def get_payment_occurrence(
     },
 )
 def update_payment_occurrence(
-    occurrence_id: int,
+    id: int,  # noqa: A002
     payload: OccurrenceUpdate,
     _principal: CurrentPrincipal,
     db: DbDep,
     today: TodayDep,
 ) -> OccurrenceOut:
-    occurrence = _get_or_404(db, occurrence_id)
+    occurrence = _get_or_404(db, id)
     if occurrence.recurring_payment.deleted_at is not None:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT, detail="Регулярный платёж прекращён, период изменить нельзя"

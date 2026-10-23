@@ -1,0 +1,918 @@
+openapi: 3.1.0
+info:
+  title: Invoice Keeper
+  description: 'Напоминания о регулярных платежах: аренда, подписки, серверы.'
+  version: 0.1.0
+paths:
+  /api/v1/health:
+    get:
+      tags:
+      - system
+      summary: Проверка работоспособности
+      operationId: health
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                additionalProperties:
+                  type: string
+                type: object
+                title: Response Health
+  /api/v1/auth/login:
+    post:
+      tags:
+      - auth
+      summary: Вход по логину и паролю
+      operationId: login
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        '401':
+          description: Неверный логин или пароль
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/auth/me:
+    get:
+      tags:
+      - auth
+      summary: Текущий пользователь
+      operationId: me
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CurrentUser'
+        '401':
+          description: Нет авторизации
+      security:
+      - HTTPBearer: []
+  /api/v1/auth/logout:
+    post:
+      tags:
+      - auth
+      summary: Завершение текущей сессии
+      operationId: logout
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LogoutResponse'
+        '401':
+          description: Нет авторизации
+      security:
+      - HTTPBearer: []
+  /api/v1/recurring-payments:
+    get:
+      tags:
+      - recurring-payments
+      summary: Список регулярных платежей
+      operationId: list_recurring_payments
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: include_deleted
+        in: query
+        required: false
+        schema:
+          type: boolean
+          default: false
+          title: Include Deleted
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/RecurringPaymentOut'
+                title: Response List Recurring Payments
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    post:
+      tags:
+      - recurring-payments
+      summary: Создание регулярного платежа (администратор)
+      operationId: create_recurring_payment
+      security:
+      - HTTPBearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RecurringPaymentCreate'
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecurringPaymentOut'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/recurring-payments/{id}:
+    delete:
+      tags:
+      - recurring-payments
+      summary: Прекращение регулярного платежа (администратор)
+      description: Платёж и его напоминания прекращаются, история периодов сохраняется.
+      operationId: delete_recurring_payment
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          title: Id
+      responses:
+        '204':
+          description: Successful Response
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/payment-occurrences:
+    get:
+      tags:
+      - payment-occurrences
+      summary: 'Список платежей: оплаченные и просроченные'
+      operationId: list_payment_occurrences
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: status
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - $ref: '#/components/schemas/OccurrenceStatus'
+          - type: 'null'
+          title: Status
+      - name: overdue
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: boolean
+          - type: 'null'
+          description: Только просроченные или только без просрочки
+          title: Overdue
+        description: Только просроченные или только без просрочки
+      - name: currency
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - $ref: '#/components/schemas/Currency'
+          - type: 'null'
+          title: Currency
+      - name: recurring_id
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Recurring Id
+      - name: due_from
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            format: date
+          - type: 'null'
+          title: Due From
+      - name: due_to
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            format: date
+          - type: 'null'
+          title: Due To
+      - name: include_deleted
+        in: query
+        required: false
+        schema:
+          type: boolean
+          description: Показать историю прекращённых платежей
+          default: false
+          title: Include Deleted
+        description: Показать историю прекращённых платежей
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 1000
+          minimum: 1
+          default: 500
+          title: Limit
+      - name: offset
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 0
+          default: 0
+          title: Offset
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/OccurrenceOut'
+                title: Response List Payment Occurrences
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/payment-occurrences/{id}:
+    get:
+      tags:
+      - payment-occurrences
+      summary: Конкретный платёж
+      operationId: get_payment_occurrence
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          title: Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OccurrenceOut'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    patch:
+      tags:
+      - payment-occurrences
+      summary: Подтверждение или отмена оплаты, исправление фактической даты
+      description: Доступно и пользователю, и администратору. Меняет только этот период. `status=paid`
+        без даты ставит сегодняшнюю, `status=unpaid` очищает дату. Срок периода не меняется, просрочка
+        пересчитывается по фактической дате.
+      operationId: update_payment_occurrence
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          title: Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OccurrenceUpdate'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OccurrenceOut'
+        '409':
+          description: Регулярный платёж прекращён
+        '422':
+          description: Нарушено правило оплаты
+  /api/v1/payments/summary:
+    get:
+      tags:
+      - summary
+      summary: Итоговые суммы платежей по валютам
+      description: Суммы считаются отдельно по RUB, USD и EUR, без конвертации. Все три валюты есть всегда.
+      operationId: payments_summary
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: due_from
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            format: date
+          - type: 'null'
+          title: Due From
+      - name: due_to
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            format: date
+          - type: 'null'
+          title: Due To
+      - name: include_deleted
+        in: query
+        required: false
+        schema:
+          type: boolean
+          description: Учитывать историю прекращённых платежей
+          default: false
+          title: Include Deleted
+        description: Учитывать историю прекращённых платежей
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SummaryOut'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/users:
+    get:
+      tags:
+      - users
+      summary: Список пользователей (администратор)
+      description: Только обычные пользователи. Администратор из .env в списке не показывается.
+      operationId: list_users
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/UserOut'
+                type: array
+                title: Response List Users
+        '403':
+          description: Нужна роль администратора
+      security:
+      - HTTPBearer: []
+    post:
+      tags:
+      - users
+      summary: Создание обычного пользователя (администратор)
+      operationId: create_user
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserCreate'
+        required: true
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserOut'
+        '403':
+          description: Нужна роль администратора
+        '409':
+          description: Логин занят или зарезервирован
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - HTTPBearer: []
+  /api/v1/users/{id}:
+    patch:
+      tags:
+      - users
+      summary: Изменение пользователя (администратор)
+      description: Меняет логин и/или пароль. Роль изменить нельзя. Смена пароля завершает сессии пользователя.
+      operationId: update_user
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          title: Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserUpdate'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserOut'
+        '403':
+          description: Нужна роль администратора
+        '409':
+          description: Логин занят или зарезервирован
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    delete:
+      tags:
+      - users
+      summary: Удаление пользователя (администратор)
+      operationId: delete_user
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          title: Id
+      responses:
+        '204':
+          description: Successful Response
+        '403':
+          description: Нужна роль администратора
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+components:
+  schemas:
+    Currency:
+      type: string
+      enum:
+      - RUB
+      - USD
+      - EUR
+      title: Currency
+    CurrencySummaryOut:
+      properties:
+        currency:
+          $ref: '#/components/schemas/Currency'
+        total:
+          type: string
+          title: Total
+          description: Все периоды выборки
+        paid:
+          type: string
+          title: Paid
+        unpaid:
+          type: string
+          title: Unpaid
+        overdue:
+          type: string
+          title: Overdue
+          description: Неоплаченные периоды после срока
+        count_total:
+          type: integer
+          title: Count Total
+        count_paid:
+          type: integer
+          title: Count Paid
+        count_unpaid:
+          type: integer
+          title: Count Unpaid
+        count_overdue:
+          type: integer
+          title: Count Overdue
+      type: object
+      required:
+      - currency
+      - total
+      - paid
+      - unpaid
+      - overdue
+      - count_total
+      - count_paid
+      - count_unpaid
+      - count_overdue
+      title: CurrencySummaryOut
+    CurrentUser:
+      properties:
+        id:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Id
+          description: Пусто у администратора из .env
+        login:
+          type: string
+          title: Login
+        role:
+          $ref: '#/components/schemas/Role'
+      type: object
+      required:
+      - id
+      - login
+      - role
+      title: CurrentUser
+    HTTPValidationError:
+      properties:
+        detail:
+          items:
+            $ref: '#/components/schemas/ValidationError'
+          type: array
+          title: Detail
+      type: object
+      title: HTTPValidationError
+    LoginRequest:
+      properties:
+        login:
+          type: string
+          maxLength: 64
+          minLength: 1
+          title: Login
+          examples:
+          - admin
+        password:
+          type: string
+          maxLength: 256
+          minLength: 1
+          title: Password
+      type: object
+      required:
+      - login
+      - password
+      title: LoginRequest
+    LoginResponse:
+      properties:
+        token:
+          type: string
+          title: Token
+          description: 'Токен сессии: заголовок Authorization: Bearer <token> или cookie'
+        token_type:
+          type: string
+          title: Token Type
+          default: bearer
+        user:
+          $ref: '#/components/schemas/CurrentUser'
+      type: object
+      required:
+      - token
+      - user
+      title: LoginResponse
+    LogoutResponse:
+      properties:
+        ok:
+          type: boolean
+          title: Ok
+          default: true
+      type: object
+      title: LogoutResponse
+    OccurrenceOut:
+      properties:
+        id:
+          type: integer
+          title: Id
+        recurring_id:
+          type: integer
+          title: Recurring Id
+        name:
+          type: string
+          title: Name
+        amount:
+          type: string
+          title: Amount
+          examples:
+          - '45000.00'
+        currency:
+          $ref: '#/components/schemas/Currency'
+        due_date:
+          type: string
+          format: date
+          title: Due Date
+        status:
+          $ref: '#/components/schemas/OccurrenceStatus'
+        paid_at:
+          anyOf:
+          - type: string
+            format: date
+          - type: 'null'
+          title: Paid At
+          description: Фактическая дата оплаты
+        is_overdue:
+          type: boolean
+          title: Is Overdue
+          description: Не оплачен после срока либо оплачен позже срока
+        overdue_days:
+          type: integer
+          title: Overdue Days
+          description: Дней просрочки, 0 если просрочки нет
+        reminded_at:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Reminded At
+          description: Когда ушло напоминание в Telegram
+        payment_deleted:
+          type: boolean
+          title: Payment Deleted
+          description: Регулярный платёж прекращён, период остался в истории
+      type: object
+      required:
+      - id
+      - recurring_id
+      - name
+      - amount
+      - currency
+      - due_date
+      - status
+      - paid_at
+      - is_overdue
+      - overdue_days
+      - reminded_at
+      - payment_deleted
+      title: OccurrenceOut
+    OccurrenceStatus:
+      type: string
+      enum:
+      - paid
+      - unpaid
+      title: OccurrenceStatus
+    OccurrenceUpdate:
+      properties:
+        status:
+          anyOf:
+          - $ref: '#/components/schemas/OccurrenceStatus'
+          - type: 'null'
+          description: paid или unpaid
+        paid_at:
+          anyOf:
+          - type: string
+            format: date
+          - type: 'null'
+          title: Paid At
+          description: Фактическая дата оплаты. При status=paid без даты ставится сегодняшняя
+      additionalProperties: false
+      type: object
+      title: OccurrenceUpdate
+      description: Подтверждение или отмена оплаты и правка фактической даты.
+    Period:
+      type: string
+      enum:
+      - monthly
+      title: Period
+    RecurringPaymentCreate:
+      properties:
+        name:
+          type: string
+          maxLength: 200
+          minLength: 1
+          title: Name
+          examples:
+          - Аренда офиса
+        amount:
+          anyOf:
+          - type: number
+            exclusiveMinimum: 0.0
+          - type: string
+          title: Amount
+          examples:
+          - '45000.00'
+        currency:
+          $ref: '#/components/schemas/Currency'
+        first_due_date:
+          type: string
+          format: date
+          title: First Due Date
+          description: Дата ближайшей оплаты, от неё считаются все периоды
+        period:
+          $ref: '#/components/schemas/Period'
+          default: monthly
+      type: object
+      required:
+      - name
+      - amount
+      - currency
+      - first_due_date
+      title: RecurringPaymentCreate
+    RecurringPaymentOut:
+      properties:
+        id:
+          type: integer
+          title: Id
+        name:
+          type: string
+          title: Name
+        amount:
+          type: string
+          title: Amount
+          description: Строка с двумя знаками после точки
+          examples:
+          - '45000.00'
+        currency:
+          $ref: '#/components/schemas/Currency'
+        first_due_date:
+          type: string
+          format: date
+          title: First Due Date
+        period:
+          $ref: '#/components/schemas/Period'
+        created_at:
+          type: string
+          title: Created At
+        deleted_at:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Deleted At
+          description: Заполнено у прекращённого платежа
+      type: object
+      required:
+      - id
+      - name
+      - amount
+      - currency
+      - first_due_date
+      - period
+      - created_at
+      - deleted_at
+      title: RecurringPaymentOut
+    Role:
+      type: string
+      enum:
+      - admin
+      - user
+      title: Role
+    SummaryOut:
+      properties:
+        as_of:
+          type: string
+          format: date
+          title: As Of
+          description: Дата, на которую считается просрочка
+        currencies:
+          items:
+            $ref: '#/components/schemas/CurrencySummaryOut'
+          type: array
+          title: Currencies
+      type: object
+      required:
+      - as_of
+      - currencies
+      title: SummaryOut
+    UserCreate:
+      properties:
+        login:
+          type: string
+          maxLength: 64
+          minLength: 3
+          pattern: ^[A-Za-z0-9._@-]+$
+          title: Login
+          examples:
+          - ivan
+        password:
+          type: string
+          maxLength: 128
+          minLength: 8
+          title: Password
+      additionalProperties: false
+      type: object
+      required:
+      - login
+      - password
+      title: UserCreate
+      description: 'Создаётся только обычный пользователь: поля роли нет, лишние поля запрещены.'
+    UserOut:
+      properties:
+        id:
+          type: integer
+          title: Id
+        login:
+          type: string
+          title: Login
+        role:
+          $ref: '#/components/schemas/Role'
+        created_at:
+          type: string
+          title: Created At
+      type: object
+      required:
+      - id
+      - login
+      - role
+      - created_at
+      title: UserOut
+    UserUpdate:
+      properties:
+        login:
+          anyOf:
+          - type: string
+            maxLength: 64
+            minLength: 3
+            pattern: ^[A-Za-z0-9._@-]+$
+          - type: 'null'
+          title: Login
+        password:
+          anyOf:
+          - type: string
+            maxLength: 128
+            minLength: 8
+          - type: 'null'
+          title: Password
+          description: Новый пароль, прежние сессии пользователя завершаются
+      additionalProperties: false
+      type: object
+      title: UserUpdate
+    ValidationError:
+      properties:
+        loc:
+          items:
+            anyOf:
+            - type: string
+            - type: integer
+          type: array
+          title: Location
+        msg:
+          type: string
+          title: Message
+        type:
+          type: string
+          title: Error Type
+        input:
+          title: Input
+        ctx:
+          type: object
+          title: Context
+      type: object
+      required:
+      - loc
+      - msg
+      - type
+      title: ValidationError
+  securitySchemes:
+    HTTPBearer:
+      type: http
+      description: Токен из POST /auth/login
+      scheme: bearer
+tags:
+- name: auth
+  description: Вход, текущий пользователь, завершение сессии
+- name: recurring-payments
+  description: Регулярные платежи (создание и удаление только админ)
+- name: payment-occurrences
+  description: 'Периоды платежей: оплата, отмена, правка даты, просрочка'
+- name: summary
+  description: Итоги по валютам без конвертации
+- name: users
+  description: Обычные пользователи (только админ)
+- name: system
+  description: Служебное
