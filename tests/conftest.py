@@ -2,7 +2,9 @@ import os
 import tempfile
 
 # Окружение выставляется до импорта приложения, чтобы тесты не трогали рабочую базу
-os.environ["DATABASE_URL"] = f"sqlite:///{tempfile.mkdtemp()}/test.db"
+_tmp = tempfile.mkdtemp()
+os.environ["DATABASE_URL"] = f"sqlite:///{_tmp}/test.db"
+os.environ["RECEIPTS_DIR"] = f"{_tmp}/receipts"
 os.environ["SEED_DEMO_DATA"] = "false"
 os.environ["SCHEDULER_ENABLED"] = "false"
 os.environ["TELEGRAM_BUTTONS_ENABLED"] = "false"

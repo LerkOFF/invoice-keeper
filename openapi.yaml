@@ -703,6 +703,161 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/payment-occurrences/{id}/receipts:
+    get:
+      tags:
+      - receipts
+      summary: Чеки и ссылки периода
+      operationId: list_receipts
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          title: Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ReceiptOut'
+                title: Response List Receipts
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/payment-occurrences/{id}/receipts/link:
+    post:
+      tags:
+      - receipts
+      summary: Прикрепить ссылку к оплате
+      operationId: add_link
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          title: Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReceiptLinkCreate'
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReceiptOut'
+        '409':
+          description: Платёж прекращён или слишком много вложений
+        '422':
+          description: Некорректная ссылка
+  /api/v1/payment-occurrences/{id}/receipts/file:
+    post:
+      tags:
+      - receipts
+      summary: Загрузить чек (PDF, PNG, JPEG, WebP)
+      description: 'multipart/form-data: поле `file` и необязательное `title`. Тип проверяется по содержимому,
+        размер до `RECEIPT_MAX_MB`.'
+      operationId: add_file
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          title: Id
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Body_add_file'
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReceiptOut'
+        '409':
+          description: Платёж прекращён или слишком много вложений
+        '413':
+          description: Файл слишком большой
+        '422':
+          description: Недопустимый формат
+  /api/v1/receipts/{id}/file:
+    get:
+      tags:
+      - receipts
+      summary: Скачать загруженный чек
+      operationId: download_receipt
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          title: Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '404':
+          description: Нет такого файла
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/receipts/{id}:
+    delete:
+      tags:
+      - receipts
+      summary: Удалить чек или ссылку
+      description: Удалить может администратор или тот, кто прикрепил.
+      operationId: delete_receipt
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          title: Id
+      responses:
+        '204':
+          description: Successful Response
+        '403':
+          description: Чужое вложение
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
 components:
   schemas:
     AuditEntryOut:
@@ -755,6 +910,23 @@ components:
       - actor
       - action
       title: AuditEntryOut
+    Body_add_file:
+      properties:
+        file:
+          type: string
+          contentMediaType: application/octet-stream
+          title: File
+          description: PDF, PNG, JPEG или WebP
+        title:
+          anyOf:
+          - type: string
+            maxLength: 200
+          - type: 'null'
+          title: Title
+      type: object
+      required:
+      - file
+      title: Body_add_file
     BudgetLineOut:
       properties:
         currency:
@@ -897,6 +1069,10 @@ components:
         payment_deleted:
           type: boolean
           title: Payment Deleted
+        receipts_count:
+          type: integer
+          title: Receipts Count
+          default: 0
       type: object
       required:
       - occurrence_id
@@ -1114,6 +1290,11 @@ components:
           type: boolean
           title: Payment Deleted
           description: Регулярный платёж прекращён, период остался в истории
+        receipts_count:
+          type: integer
+          title: Receipts Count
+          description: Сколько чеков и ссылок прикреплено к этому периоду
+          default: 0
       type: object
       required:
       - id
@@ -1158,6 +1339,98 @@ components:
       enum:
       - monthly
       title: Period
+    ReceiptLinkCreate:
+      properties:
+        url:
+          type: string
+          maxLength: 2000
+          title: Url
+          examples:
+          - https://bank.example/receipts/123
+        title:
+          anyOf:
+          - type: string
+            maxLength: 200
+          - type: 'null'
+          title: Title
+          examples:
+          - Чек из банка
+      additionalProperties: false
+      type: object
+      required:
+      - url
+      title: ReceiptLinkCreate
+    ReceiptOut:
+      properties:
+        id:
+          type: integer
+          title: Id
+        occurrence_id:
+          type: integer
+          title: Occurrence Id
+        kind:
+          type: string
+          enum:
+          - link
+          - file
+          title: Kind
+        title:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Title
+        url:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Url
+          description: Адрес для ссылки
+        filename:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Filename
+          description: Имя загруженного файла
+        content_type:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Content Type
+        size_bytes:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Size Bytes
+        download_url:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Download Url
+          description: Адрес скачивания файла, нужна авторизация
+        created_at:
+          type: string
+          title: Created At
+        created_by:
+          type: string
+          title: Created By
+        created_by_type:
+          type: string
+          title: Created By Type
+      type: object
+      required:
+      - id
+      - occurrence_id
+      - kind
+      - title
+      - url
+      - filename
+      - content_type
+      - size_bytes
+      - download_url
+      - created_at
+      - created_by
+      - created_by_type
+      title: ReceiptOut
     RecurringPaymentCreate:
       properties:
         name:
@@ -1362,5 +1635,9 @@ tags:
   description: Итоги по валютам без конвертации
 - name: users
   description: Обычные пользователи (только админ)
+- name: receipts
+  description: Чеки и ссылки, прикреплённые к оплате
+- name: audit
+  description: Журнал авторизации и действий (только админ)
 - name: system
   description: Служебное

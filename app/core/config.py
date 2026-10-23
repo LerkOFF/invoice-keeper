@@ -18,6 +18,11 @@ class Settings(BaseSettings):
     telegram_allowed_user_ids: str = ""
     telegram_poll_timeout: int = 8
 
+    # Чеки: куда класть файлы (по умолчанию рядом с базой, в volume) и лимиты
+    receipts_dir: str = ""
+    receipt_max_mb: int = 5
+    receipts_per_period: int = 10
+
     app_timezone: str = "Europe/Moscow"
     reminder_days: int = 3
     scheduler_enabled: bool = True

@@ -40,6 +40,7 @@ class CalendarItemOut(BaseModel):
     is_overdue: bool
     overdue_days: int
     payment_deleted: bool
+    receipts_count: int = 0
 
 
 class CalendarDayOut(BaseModel):

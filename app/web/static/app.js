@@ -94,6 +94,9 @@ const FIELD_NAMES = {
   first_due_date: "Дата ближайшей оплаты",
   status: "Статус",
   paid_at: "Дата оплаты",
+  url: "Ссылка",
+  file: "Файл",
+  title: "Название",
 };
 
 const VALIDATION_TEXT = {
@@ -134,10 +137,11 @@ async function api(path, { method = "GET", body, params, silent = false } = {}) 
 
   let response;
   try {
+    const isForm = body instanceof FormData;
     response = await fetch(url, {
       method,
-      headers: body ? { "Content-Type": "application/json" } : {},
-      body: body ? JSON.stringify(body) : undefined,
+      headers: body && !isForm ? { "Content-Type": "application/json" } : {},
+      body: body ? (isForm ? body : JSON.stringify(body)) : undefined,
       credentials: "same-origin",
     });
   } catch {
@@ -542,15 +546,16 @@ function occurrenceRow(o, reload) {
   const note = dueNote(o);
   const rowClass = [o.status === "unpaid" && o.is_overdue ? "row-overdue" : "", o.payment_deleted ? "row-deleted" : ""].join(" ");
 
-  let actions = null;
+  let actions = [receiptsButton(o, reload)];
   if (!o.payment_deleted) {
-    actions =
-      o.status === "unpaid"
+    actions.push(
+      ...(o.status === "unpaid"
         ? [h("button", { class: "btn btn-sm btn-primary", onclick: () => payDialog(o, reload, false) }, "Отметить оплату")]
         : [
             h("button", { class: "btn btn-sm", onclick: () => payDialog(o, reload, true) }, "Изменить дату"),
             h("button", { class: "btn btn-sm btn-danger", onclick: () => cancelDialog(o, reload) }, "Отменить"),
-          ];
+          ]),
+    );
   }
 
   return h(
@@ -603,6 +608,153 @@ function cancelDialog(o, reload) {
       await reload();
     },
   });
+}
+
+// ---------- чеки и ссылки ----------
+
+function receiptsButton(o, reload) {
+  const count = o.receipts_count || 0;
+  return h("button", { class: "btn btn-sm", type: "button", onclick: () => receiptsDialog(o, reload) }, count ? `Чеки (${count})` : "Чеки");
+}
+
+function fmtSize(bytes) {
+  if (bytes >= 1048576) return `${(bytes / 1048576).toFixed(1).replace(".", ",")} МБ`;
+  return `${Math.max(1, Math.round(bytes / 1024))} КБ`;
+}
+
+function safeHref(url) {
+  return /^https?:\/\//i.test(url) ? url : "#";
+}
+
+function receiptsDialog(o, reload) {
+  const listBox = h("div", { class: "rc-list" });
+  const error = h("p", { class: "form-error", role: "alert" });
+  const dialog = h("dialog", {});
+
+  async function refresh() {
+    const items = await api(`/payment-occurrences/${o.id}/receipts`);
+    o.receipts_count = items.length;
+    listBox.replaceChildren(
+      ...(items.length
+        ? items.map((r) => {
+            const mine = state.me.role === "admin" || (r.created_by === state.me.login && r.created_by_type === state.me.role);
+            const label = r.title || r.filename || r.url;
+            const open = r.kind === "file" ? r.download_url : safeHref(r.url);
+            return h(
+              "div",
+              { class: "rc-item" },
+              h("span", { class: `rc-kind ${r.kind}` }, r.kind === "file" ? "файл" : "ссылка"),
+              h(
+                "div",
+                { class: "rc-main" },
+                h("a", { href: open, target: "_blank", rel: "noopener noreferrer", class: "rc-name" }, label),
+                h("div", { class: "cell-sub" }, [r.kind === "file" ? fmtSize(r.size_bytes) : new URL(safeHref(r.url), location.origin).hostname, r.created_by, fmtDateTime(r.created_at)].filter(Boolean).join(" · ")),
+              ),
+              mine
+                ? h(
+                    "button",
+                    {
+                      class: "btn btn-sm btn-danger",
+                      type: "button",
+                      onclick: async () => {
+                        try {
+                          await api(`/receipts/${r.id}`, { method: "DELETE" });
+                          toast("Вложение удалено");
+                          await refresh();
+                          await reload();
+                        } catch (err) {
+                          error.textContent = err.message;
+                        }
+                      },
+                    },
+                    "Удалить",
+                  )
+                : null,
+            );
+          })
+        : [h("p", { class: "muted" }, "Пока ничего не прикреплено")]),
+    );
+  }
+
+  async function submit(button, task, okMessage) {
+    error.textContent = "";
+    button.disabled = true;
+    try {
+      await task();
+      toast(okMessage);
+      await refresh();
+      await reload();
+    } catch (err) {
+      error.textContent = err.message;
+    } finally {
+      button.disabled = false;
+    }
+  }
+
+  const linkForm = h("form", { class: "rc-form", novalidate: true });
+  const linkBtn = h("button", { type: "submit", class: "btn btn-primary btn-sm" }, "Добавить ссылку");
+  linkForm.append(
+    h("h3", {}, "Прикрепить ссылку"),
+    field({ label: "Адрес", name: "url", type: "url", placeholder: "https://…", autocomplete: "off" }),
+    field({ label: "Название (необязательно)", name: "title", required: false, maxlength: "200", placeholder: "Чек из банка" }),
+    linkBtn,
+  );
+  linkForm.addEventListener("submit", (event) => {
+    event.preventDefault();
+    const data = new FormData(linkForm);
+    const url = String(data.get("url")).trim();
+    if (!/^https?:\/\/\S+$/i.test(url)) {
+      error.textContent = "Ссылка: нужен адрес, начинающийся с http:// или https://";
+      return;
+    }
+    submit(linkBtn, async () => {
+      await api(`/payment-occurrences/${o.id}/receipts/link`, { method: "POST", body: { url, title: String(data.get("title")).trim() || null } });
+      linkForm.reset();
+    }, "Ссылка прикреплена");
+  });
+
+  const fileForm = h("form", { class: "rc-form", novalidate: true });
+  const fileBtn = h("button", { type: "submit", class: "btn btn-primary btn-sm" }, "Загрузить чек");
+  fileForm.append(
+    h("h3", {}, "Загрузить чек"),
+    field({ label: "Файл", name: "file", type: "file", accept: ".pdf,.png,.jpg,.jpeg,.webp,application/pdf,image/png,image/jpeg,image/webp", hint: "PDF, PNG, JPEG или WebP, до 5 МБ" }),
+    field({ label: "Название (необязательно)", name: "title", required: false, maxlength: "200" }),
+    fileBtn,
+  );
+  fileForm.addEventListener("submit", (event) => {
+    event.preventDefault();
+    const input = fileForm.querySelector("input[type=file]");
+    if (!input.files.length) {
+      error.textContent = "Файл: выберите файл";
+      return;
+    }
+    const body = new FormData();
+    body.append("file", input.files[0]);
+    const title = fileForm.querySelector("[name=title]").value.trim();
+    if (title) body.append("title", title);
+    submit(fileBtn, async () => {
+      await api(`/payment-occurrences/${o.id}/receipts/file`, { method: "POST", body });
+      fileForm.reset();
+    }, "Чек загружен");
+  });
+
+  const close = h("button", { type: "button", class: "btn", onclick: () => dialog.close() }, "Закрыть");
+  dialog.append(
+    h(
+      "div",
+      { class: "rc-dialog" },
+      h("h2", {}, "Чеки и ссылки"),
+      h("p", { class: "desc" }, `${o.name}, срок ${fmtDate(o.due_date)}`),
+      listBox,
+      o.payment_deleted ? h("p", { class: "muted" }, "Платёж прекращён: вложения можно смотреть, добавлять нельзя") : h("div", { class: "rc-forms" }, linkForm, fileForm),
+      error,
+      h("div", { class: "dialog-actions" }, close),
+    ),
+  );
+  dialog.addEventListener("close", () => dialog.remove());
+  document.body.append(dialog);
+  dialog.showModal();
+  refresh().catch((err) => { error.textContent = err.message; });
 }
 
 // ---------- раздел «Регулярные платежи» (админ) ----------
@@ -970,16 +1122,29 @@ async function calendarView(main) {
 }
 
 function dayItem(it, reload) {
-  const occurrence = { id: it.occurrence_id, name: it.name, due_date: it.due_date, amount: it.amount, currency: it.currency, paid_at: it.paid_at };
+  const occurrence = {
+    id: it.occurrence_id,
+    name: it.name,
+    due_date: it.due_date,
+    amount: it.amount,
+    currency: it.currency,
+    paid_at: it.paid_at,
+    payment_deleted: it.payment_deleted,
+    receipts_count: it.receipts_count,
+  };
   let actions = null;
-  if (it.occurrence_id && !it.payment_deleted) {
-    actions =
-      it.status === "unpaid"
-        ? [h("button", { class: "btn btn-sm btn-primary", onclick: () => payDialog(occurrence, reload, false) }, "Отметить оплату")]
-        : [
-            h("button", { class: "btn btn-sm", onclick: () => payDialog(occurrence, reload, true) }, "Изменить дату"),
-            h("button", { class: "btn btn-sm btn-danger", onclick: () => cancelDialog(occurrence, reload) }, "Отменить"),
-          ];
+  if (it.occurrence_id) {
+    actions = [receiptsButton(occurrence, reload)];
+    if (!it.payment_deleted) {
+      actions.push(
+        ...(it.status === "unpaid"
+          ? [h("button", { class: "btn btn-sm btn-primary", onclick: () => payDialog(occurrence, reload, false) }, "Отметить оплату")]
+          : [
+              h("button", { class: "btn btn-sm", onclick: () => payDialog(occurrence, reload, true) }, "Изменить дату"),
+              h("button", { class: "btn btn-sm btn-danger", onclick: () => cancelDialog(occurrence, reload) }, "Отменить"),
+            ]),
+      );
+    }
   }
   return h(
     "div",

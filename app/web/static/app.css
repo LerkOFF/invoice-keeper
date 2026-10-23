@@ -252,6 +252,23 @@ tr.row-deleted { opacity: .62; }
 .empty strong { display: block; color: var(--ink); font-size: 16px; margin-bottom: 4px; }
 .loading { padding: 40px; text-align: center; color: var(--muted); }
 
+/* ---------- чеки и ссылки ---------- */
+
+dialog:has(.rc-dialog) { width: min(560px, calc(100vw - 32px)); }
+.rc-dialog { padding: 24px; max-height: calc(100vh - 48px); overflow-y: auto; }
+.rc-list { display: grid; gap: 8px; margin-bottom: 18px; }
+.rc-item { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 10px; background: var(--surface-2); border: 1px solid var(--line); }
+.rc-kind { font-size: 11.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; padding: 2px 8px; border-radius: 6px; background: var(--gray-bg); color: var(--muted); }
+.rc-kind.file { background: var(--green-bg); color: var(--green); }
+.rc-name { font-weight: 650; color: var(--ink); text-decoration: none; overflow-wrap: anywhere; }
+.rc-name:hover { color: var(--accent-ink); text-decoration: underline; }
+.rc-forms { display: grid; gap: 14px; margin-bottom: 8px; }
+.rc-form { padding: 14px 14px 4px; border: 1px solid var(--line); border-radius: 12px; }
+.rc-form h3 { font-size: 14px; margin-bottom: 10px; }
+.rc-form .btn { margin-bottom: 10px; }
+.rc-dialog .dialog-actions { margin-top: 10px; }
+input[type=file] { padding: 7px 10px; }
+
 /* ---------- календарь и бюджет ---------- */
 
 .cal-nav { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; }

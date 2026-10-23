@@ -144,6 +144,7 @@ def payments_calendar(
             is_overdue=days_over > 0,
             overdue_days=days_over,
             payment_deleted=period.payment.deleted_at is not None,
+            receipts_count=len(occ.receipts) if occ else 0,
         )
 
     return CalendarOut(
