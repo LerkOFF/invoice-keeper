@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.core.clock import today as today_in_tz
 from app.core.config import Settings
-from app.services import audit, links
+from app.services import audit, bot_commands, links
 from app.services.max_api import MaxApi, MaxError
 from app.services.telegram import PAY_CALLBACK_PREFIX
 from app.services.telegram_bot import PayResult, fmt_date, mark_paid
@@ -85,6 +85,11 @@ class MaxPayButtonBot:
             message = update.get("message") or {}
             recipient = message.get("recipient") or {}
             text = ((message.get("body") or {}).get("text") or "").strip()
+            sender = message.get("sender") or {}
+            command = bot_commands.parse(text)
+            if command is not None and not sender.get("is_bot"):
+                self._process_command(recipient, sender, command)
+                return
             if recipient.get("chat_type") == "dialog" and text.startswith("/start"):
                 parts = text.split(maxsplit=1)
                 self._process_start(recipient.get("chat_id"), message.get("sender") or {}, parts[1] if len(parts) > 1 else None)
@@ -161,6 +166,20 @@ class MaxPayButtonBot:
                 db, self._settings, "max", str(payload), str(user.get("user_id")), str(chat_id), audit.max_actor(user).name
             )
         self._send(chat_id, result.message)
+
+    def _process_command(self, recipient: dict[str, Any], user: dict[str, Any], command: str) -> None:
+        """Списки платежей видят чат напоминаний и привязанные пользователи в своём диалоге. Чужие чаты молчат."""
+        chat_id = recipient.get("chat_id")
+        if not self._is_our_chat(recipient):
+            if recipient.get("chat_type") != "dialog":
+                return
+            link = self._linked(user)
+            if link is None or link.chat_id != str(chat_id):
+                self._send(chat_id, bot_commands.NO_ACCESS if command != "help" else bot_commands.HELP)
+                return
+        with self._session_factory() as db:
+            text = bot_commands.reply(db, command, self._today())
+        self._send(chat_id, text)
 
     def _send(self, chat_id: Any, text: str) -> None:
         try:

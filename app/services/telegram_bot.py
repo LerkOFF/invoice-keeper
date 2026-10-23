@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 from app.core.clock import today as today_in_tz
 from app.core.config import Settings
 from app.models import OccurrenceStatus, PaymentOccurrence
-from app.services import audit, links
+from app.services import audit, bot_commands, links
 from app.services.notify import NotifyError
 from app.services.occurrences import apply_update
 from app.services.telegram import PAY_CALLBACK_PREFIX, TelegramApi, TelegramError
@@ -59,11 +59,14 @@ class PayButtonBot:
         self._today = today
         self._cache_ttl = cache_ttl
         self._member_cache: dict[int, tuple[float, bool]] = {}
+        self._menu_registered = False
 
     # ---------- опрос ----------
 
     def poll_once(self, offset: int | None) -> int | None:
         """Один long-poll запрос. Возвращает offset для следующего."""
+        if not self._menu_registered:
+            self._register_menu()
         timeout = self._settings.telegram_poll_timeout
         payload: dict[str, Any] = {"timeout": timeout, "allowed_updates": ["callback_query", "message"]}
         if offset is not None:
@@ -145,11 +148,17 @@ class PayButtonBot:
             return links.actor_for(db, self._settings, link)
 
     def _process_message(self, message: dict[str, Any]) -> None:
-        """Личный чат с ботом: /start <код> привязывает аккаунт к пользователю панели."""
+        """Команды /todo, /overdue, /help и привязка: /start <код> в личном чате."""
         chat = message.get("chat") or {}
-        if chat.get("type") != "private":
-            return  # в группах команды не обрабатываем
         text = (message.get("text") or "").strip()
+        if (message.get("from") or {}).get("is_bot"):
+            return
+        command = bot_commands.parse(text)
+        if command is not None:
+            self._process_command(chat, message.get("from") or {}, command)
+            return
+        if chat.get("type") != "private":
+            return  # в группах остальное не обрабатываем
         if not text.startswith("/start"):
             return
         parts = text.split(maxsplit=1)
@@ -163,11 +172,32 @@ class PayButtonBot:
             )
         self._send(chat.get("id"), result.message)
 
+    def _process_command(self, chat: dict[str, Any], user: dict[str, Any], command: str) -> None:
+        """Списки платежей видят чат напоминаний и привязанные пользователи в своей личке. Чужие группы молчат."""
+        if not self._is_our_chat(chat):
+            if chat.get("type") != "private":
+                return
+            link = self._linked(user)
+            if link is None or link.chat_id != str(chat.get("id")):
+                self._send(chat.get("id"), bot_commands.NO_ACCESS if command != "help" else bot_commands.HELP)
+                return
+        with self._session_factory() as db:
+            text = bot_commands.reply(db, command, self._today())
+        self._send(chat.get("id"), text)
+
+    def _register_menu(self) -> None:
+        """Меню команд в Telegram. Не получилось: не страшно, команды работают и без меню."""
+        self._menu_registered = True
+        try:
+            self._api.call("setMyCommands", {"commands": bot_commands.MENU})
+        except TelegramError as error:
+            logger.warning("Меню команд Telegram не установлено: %s", error)
+
     def _send(self, chat_id: Any, text: str) -> None:
         try:
             self._api.call("sendMessage", {"chat_id": chat_id, "text": text, "disable_web_page_preview": True})
         except TelegramError as error:
-            logger.warning("Ответ в личку Telegram не ушёл: %s", error)
+            logger.warning("Ответ в Telegram не ушёл: %s", error)
 
     # ---------- авторизация ----------
 
