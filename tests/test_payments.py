@@ -1,66 +1,8 @@
-from datetime import date
+from datetime import date  # noqa: F401
 
 import pytest
-from fastapi.testclient import TestClient
-from sqlalchemy import delete
 
-from app.api.deps import current_date
-from app.core.db import SessionLocal, init_db
-from app.core.security import hash_password
-from app.main import create_app
-from app.models import AuthSession, PaymentOccurrence, RecurringPayment, User
-
-TODAY = date(2026, 10, 23)
-ADMIN = {"login": "boss", "password": "boss-pass-test"}
-USER = {"login": "ivan", "password": "ivan-pass-123"}
-B = "/api/v1"
-
-
-@pytest.fixture(autouse=True)
-def clean_db():
-    init_db()
-    with SessionLocal() as db:
-        for model in (AuthSession, PaymentOccurrence, RecurringPayment, User):
-            db.execute(delete(model))
-        db.add(User(login=USER["login"], password_hash=hash_password(USER["password"])))
-        db.commit()
-
-
-@pytest.fixture
-def app():
-    app = create_app()
-    app.dependency_overrides[current_date] = lambda: TODAY
-    return app
-
-
-def logged_in(app, creds) -> TestClient:
-    client = TestClient(app)
-    client.__enter__()
-    response = client.post(f"{B}/auth/login", json=creds)
-    assert response.status_code == 200
-    client.cookies.clear()
-    client.headers["Authorization"] = f"Bearer {response.json()['token']}"
-    return client
-
-
-@pytest.fixture
-def admin(app):
-    client = logged_in(app, ADMIN)
-    yield client
-    client.__exit__(None, None, None)
-
-
-@pytest.fixture
-def user(app):
-    client = logged_in(app, USER)
-    yield client
-    client.__exit__(None, None, None)
-
-
-@pytest.fixture
-def anon(app):
-    with TestClient(app) as client:
-        yield client
+from tests.helpers import ADMIN, B, TODAY, USER  # noqa: F401
 
 
 def create_payment(admin, name="Аренда", amount="100.50", currency="RUB", first_due="2026-10-25"):

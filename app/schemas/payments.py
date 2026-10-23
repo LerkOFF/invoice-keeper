@@ -1,10 +1,11 @@
-from datetime import date, datetime
+from datetime import date
 from decimal import Decimal
 from typing import Annotated
 
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.models import Currency, OccurrenceStatus, Period
+from app.schemas.common import UtcDateTime
 
 Money = Annotated[Decimal, Field(gt=0, max_digits=12, decimal_places=2, examples=["45000.00"])]
 
@@ -26,8 +27,8 @@ class RecurringPaymentOut(BaseModel):
     currency: Currency
     first_due_date: date
     period: Period
-    created_at: datetime
-    deleted_at: datetime | None = Field(description="Заполнено у прекращённого платежа")
+    created_at: UtcDateTime
+    deleted_at: UtcDateTime | None = Field(description="Заполнено у прекращённого платежа")
 
 
 class OccurrenceOut(BaseModel):
@@ -41,7 +42,7 @@ class OccurrenceOut(BaseModel):
     paid_at: date | None = Field(description="Фактическая дата оплаты")
     is_overdue: bool = Field(description="Не оплачен после срока либо оплачен позже срока")
     overdue_days: int = Field(description="Дней просрочки, 0 если просрочки нет")
-    reminded_at: datetime | None = Field(description="Когда ушло напоминание в Telegram")
+    reminded_at: UtcDateTime | None = Field(description="Когда ушло напоминание в Telegram")
     payment_deleted: bool = Field(description="Регулярный платёж прекращён, период остался в истории")
 
 
