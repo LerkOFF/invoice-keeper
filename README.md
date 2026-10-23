@@ -5,6 +5,8 @@
 
 # Invoice Keeper
 
+[![tests](https://github.com/LerkOFF/invoice-keeper/actions/workflows/tests.yml/badge.svg)](https://github.com/LerkOFF/invoice-keeper/actions/workflows/tests.yml)
+
 Сервис напоминаний о регулярных платежах: аренда, подписки, серверы и другие периодические расходы.
 Кейс хакатона Aeza РнД, уровень Middle.
 
@@ -231,6 +233,9 @@ python3 -m venv .venv && .venv/bin/pip install -r requirements-dev.txt
 ```
 
 Тест `tests/test_openapi.py` падает, если `openapi.yaml` разошёлся с кодом.
+
+На каждый пуш GitHub Actions ([.github/workflows/tests.yml](.github/workflows/tests.yml)) гоняет тесты, сверяет `openapi.yaml`,
+поднимает приложение по README в Docker, проходит сценарий демо и проверяет, что данные переживают перезапуск.
 
 ```
 app/
