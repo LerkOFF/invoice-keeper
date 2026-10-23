@@ -15,6 +15,8 @@ class Settings(BaseSettings):
     app_timezone: str = "Europe/Moscow"
     reminder_days: int = 3
     secret_key: str = "change-me"
+    session_ttl_hours: int = 12
+    cookie_secure: bool = False
     database_url: str = "sqlite:///./data/invoice_keeper.db"
 
     seed_demo_data: bool = True
