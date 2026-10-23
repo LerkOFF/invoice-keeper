@@ -1,14 +1,14 @@
 # Дополнение для прода на zurih. Подключается через COMPOSE_FILE в .env на сервере:
 #   COMPOSE_FILE=docker-compose.yml:deploy/docker-compose.zurih.yml
 #
-# Провайдер закрывает исходящий SMTP, поэтому письма идут через SSH-туннель
-# (deploy/smtp-relay-tunnel.sh): туннель слушает шлюз этой сети на :465,
-# а smtp.yandex.ru внутри контейнера указывает на шлюз. TLS-сертификат Яндекса
-# при этом проверяется как обычно.
+# Провайдер закрывает исходящий SMTP, поэтому письма уходят через exim на relay-хосте
+# (metrika-rebenka): SSH-туннель deploy/smtp-relay-tunnel.sh слушает шлюз этой сети на :25
+# и ведёт на 127.0.0.1:25 relay-хоста. Внутри контейнера это имя mail-relay.
+# Exim подписывает письма DKIM домена отправителя и отправляет их сам.
 services:
   app:
     extra_hosts:
-      - "smtp.yandex.ru:172.31.77.1"
+      - "mail-relay:172.31.77.1"
     stop_grace_period: 20s
 
 networks:

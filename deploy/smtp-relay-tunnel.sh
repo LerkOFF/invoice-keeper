@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
-# Проброс SMTP Яндекса через сервер, где исходящий SMTP открыт.
+# Проброс к exim relay-хоста (там исходящий SMTP открыт, есть PTR и DKIM).
 # Слушает только шлюз docker-сети Invoice Keeper, снаружи порт не виден.
-# Ключ на relay-хосте ограничен: restrict,port-forwarding,permitopen="smtp.yandex.ru:465".
+# Канал зашифрован SSH. Ключ на relay-хосте ограничен:
+#   restrict,port-forwarding,permitopen="127.0.0.1:25",command="/bin/false"
 set -euo pipefail
 
 relay="${SMTP_RELAY:-root@157.22.231.158}"
@@ -21,5 +22,5 @@ exec /usr/bin/ssh -N -T \
     -o ConnectTimeout=10 \
     -o ServerAliveInterval=15 \
     -o ServerAliveCountMax=3 \
-    -L "${gateway}:465:smtp.yandex.ru:465" \
+    -L "${gateway}:25:127.0.0.1:25" \
     "$relay"

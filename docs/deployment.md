@@ -1,6 +1,6 @@
 # Выкладка
 
-Прод: сервер zurih (Ubuntu 24.04, Docker), адрес https://zu.oai.su. Выкладка только через git.
+Прод: сервер zurih (Ubuntu 24.04, Docker), адрес https://invoice-keeper.ru (запасной https://zu.oai.su). Выкладка только через git.
 
 ## Устройство
 
@@ -20,8 +20,8 @@ COMPOSE_FILE=docker-compose.yml:deploy/docker-compose.zurih.yml
 APP_BIND=127.0.0.1
 APP_PORT=8090
 COOKIE_SECURE=true
-PUBLIC_URL=https://zu.oai.su
-SMTP_HOST=smtp.yandex.ru
+PUBLIC_URL=https://invoice-keeper.ru
+SMTP_HOST=mail-relay
 ```
 
 ## Обновление
@@ -33,12 +33,19 @@ cd /opt/invoice-keeper && git pull --ff-only && docker compose up -d --build
 
 Данные лежат в volume и не теряются. Проверка: `curl -s https://zu.oai.su/api/v1/health`.
 
-## SMTP через туннель
+## Почта
 
-- `deploy/docker-compose.zurih.yml` фиксирует подсеть `172.31.77.0/24` и направляет `smtp.yandex.ru` внутри контейнера на шлюз `172.31.77.1`.
-- `deploy/smtp-relay-tunnel.sh` пробрасывает `172.31.77.1:465` на `smtp.yandex.ru:465` через relay-хост.
-  Ключ `/root/.ssh/invoice_keeper_smtp` на relay ограничен: `restrict,port-forwarding,permitopen="smtp.yandex.ru:465"`.
-- ufw разрешает только `172.31.77.0/24 → 172.31.77.1:465`.
-- TLS не разрывается: приложение проверяет настоящий сертификат `smtp.yandex.ru`.
+Письма уходят от `noreply@invoice-keeper.ru` через exim на metrika-rebenka (`157.22.231.158`, PTR `mail.метрика-ребенка.рф`):
+у провайдера zurih исходящий SMTP закрыт, а там открыт.
 
-Если провайдер откроет SMTP, туннель можно выключить (`systemctl disable --now invoice-keeper-smtp-relay`) и убрать `extra_hosts`.
+- `deploy/docker-compose.zurih.yml` фиксирует подсеть `172.31.77.0/24`, имя `mail-relay` внутри контейнера указывает на шлюз `172.31.77.1`.
+- `deploy/smtp-relay-tunnel.sh` (служба `invoice-keeper-smtp-relay`) пробрасывает `172.31.77.1:25` на `127.0.0.1:25` relay-хоста по SSH.
+  Ключ `/root/.ssh/invoice_keeper_smtp` на relay ограничен: `restrict,port-forwarding,permitopen="127.0.0.1:25",command="/bin/false"`.
+- ufw на zurih пускает к `172.31.77.1:25` только `172.31.77.0/24`.
+- Exim подписывает письмо ключом `/etc/exim4/dkim/invoice-keeper.ru.private` (селектор `mail`, домен берётся из `From`).
+
+`.env` на сервере: `SMTP_HOST=mail-relay`, `SMTP_PORT=25`, `SMTP_SECURITY=none`, без логина,
+`SMTP_FROM=Invoice Keeper <noreply@invoice-keeper.ru>`.
+
+DNS `invoice-keeper.ru` (REG.RU): A `@` и `www` → `82.38.135.78`; TXT `@` `v=spf1 ip4:157.22.231.158 ~all`;
+TXT `mail._domainkey` с открытым ключом DKIM; TXT `_dmarc` `v=DMARC1; p=none`.

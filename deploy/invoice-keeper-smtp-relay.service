@@ -1,5 +1,5 @@
 [Unit]
-Description=Invoice Keeper: SMTP relay tunnel to smtp.yandex.ru:465
+Description=Invoice Keeper: SMTP relay tunnel to exim on metrika-rebenka
 Wants=network-online.target
 After=network-online.target docker.service
 StartLimitIntervalSec=0
