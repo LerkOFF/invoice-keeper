@@ -41,6 +41,8 @@ paths:
                 $ref: '#/components/schemas/LoginResponse'
         '401':
           description: Неверный логин или пароль
+        '429':
+          description: 'Слишком много неудачных попыток: вход временно закрыт, заголовок Retry-After'
         '422':
           description: Validation Error
           content:

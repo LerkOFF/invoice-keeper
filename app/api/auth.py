@@ -1,3 +1,4 @@
+import math
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
@@ -15,8 +16,17 @@ from app.api.deps import (
 from app.schemas.auth import CurrentUser, LoginRequest, LoginResponse, LogoutResponse
 from app.services import audit
 from app.services import auth as auth_service
+from app.services.login_guard import login_guard
 
 router = APIRouter(prefix="/auth", tags=["auth"])
+
+
+def _too_many(wait: int) -> HTTPException:
+    return HTTPException(
+        status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+        detail=f"Слишком много неудачных попыток входа. Попробуйте через {math.ceil(wait / 60)} мин.",
+        headers={"Retry-After": str(wait)},
+    )
 
 
 def _to_user(principal: auth_service.Principal) -> CurrentUser:
@@ -27,18 +37,34 @@ def _to_user(principal: auth_service.Principal) -> CurrentUser:
     "/login",
     response_model=LoginResponse,
     summary="Вход по логину и паролю",
-    responses={401: {"description": "Неверный логин или пароль"}},
+    responses={
+        401: {"description": "Неверный логин или пароль"},
+        429: {"description": "Слишком много неудачных попыток: вход временно закрыт, заголовок Retry-After"},
+    },
 )
 def login(
     payload: LoginRequest, request: Request, response: Response, db: DbDep, settings: SettingsDep
 ) -> LoginResponse:
-    principal = auth_service.authenticate(db, settings, payload.login, payload.password)
     ip = client_ip(request)
+    window = settings.login_lock_minutes * 60
+    if wait := login_guard.retry_after(ip, payload.login, settings.login_max_failures, window):
+        raise _too_many(wait)
+
+    principal = auth_service.authenticate(db, settings, payload.login, payload.password)
     if principal is None:
+        login_guard.failure(ip, payload.login, window)
+        actor = audit.Actor("anonymous", payload.login[:64])
         # пароль в журнал не попадает, только попытка входа с таким логином
-        audit.record(db, "auth.login_failed", audit.Actor("anonymous", payload.login[:64]), ip=ip)
+        audit.record(db, "auth.login_failed", actor, ip=ip)
+        wait = login_guard.retry_after(ip, payload.login, settings.login_max_failures, window)
+        if wait:
+            audit.record(db, "auth.login_locked", actor, ip=ip, details={"minutes": math.ceil(wait / 60)})
         db.commit()
+        if wait:
+            raise _too_many(wait)
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Неверный логин или пароль")
+
+    login_guard.success(ip, payload.login)
 
     token = auth_service.create_session(db, settings, principal)
     audit.record(db, "auth.login", audit.actor_of(principal), ip=ip)

@@ -53,6 +53,9 @@ class Settings(BaseSettings):
     scheduler_enabled: bool = True
     scheduler_interval_seconds: float = 60
     session_ttl_hours: int = 12
+    # Защита входа: после стольких неудачных попыток логина с одного адреса вход закрывается на login_lock_minutes
+    login_max_failures: int = 5
+    login_lock_minutes: int = 15
     cookie_secure: bool = False
     database_url: str = "sqlite:///./data/invoice_keeper.db"
 

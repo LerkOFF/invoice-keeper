@@ -20,6 +20,7 @@ SYSTEM = Actor("system", "планировщик")
 ACTION_LABELS = {
     "auth.login": "Вход",
     "auth.login_failed": "Неудачный вход",
+    "auth.login_locked": "Вход заблокирован после неудачных попыток",
     "auth.logout": "Выход",
     "payment.create": "Платёж добавлен",
     "payment.update": "Платёж изменён",

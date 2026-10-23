@@ -1365,6 +1365,7 @@ async function budgetView(main) {
 const AUDIT_LABELS = {
   "auth.login": "Вход",
   "auth.login_failed": "Неудачный вход",
+  "auth.login_locked": "Вход заблокирован",
   "auth.logout": "Выход",
   "payment.create": "Платёж добавлен",
   "payment.update": "Платёж изменён",
