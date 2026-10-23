@@ -169,18 +169,18 @@ input:disabled, select:disabled { opacity: .6; cursor: not-allowed; }
   text-transform: uppercase; letter-spacing: .04em; background: rgb(92 164 167 / .18); color: #b7dddd;
 }
 
-.tabs { max-width: 1160px; margin: 0 auto; padding: 0 20px; display: flex; gap: 4px; overflow-x: auto; }
+.tabs { max-width: 1440px; margin: 0 auto; padding: 0 24px; display: flex; gap: 6px; overflow-x: auto; }
 .tab {
   appearance: none; background: none; border: 0; cursor: pointer;
-  padding: 12px 14px; color: #bed0cc; font-weight: 600; border-bottom: 2px solid transparent; white-space: nowrap;
+  padding: 14px 16px; color: #bed0cc; font-weight: 600; border-bottom: 2px solid transparent; white-space: nowrap;
 }
 .tab:hover { color: #fff; }
 .tab[aria-selected="true"] { color: #fff; border-bottom-color: var(--accent); }
 
-main { max-width: 1160px; margin: 0 auto; padding: 24px 20px 64px; }
+main { max-width: 1440px; margin: 0 auto; padding: 30px 24px 72px; }
 
 .page-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 18px; }
-.page-head h2 { font-size: 22px; }
+.page-head h2 { font-size: 24px; }
 .page-head p { margin: 4px 0 0; color: var(--muted); }
 
 .card {
@@ -190,13 +190,13 @@ main { max-width: 1160px; margin: 0 auto; padding: 24px 20px 64px; }
 
 /* ---------- итоги ---------- */
 
-.summary { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin-bottom: 20px; }
-.sum-card { padding: 16px 18px; position: relative; overflow: hidden; background: color-mix(in srgb, var(--surface) 83%, var(--green) 17%); }
+.summary { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; margin-bottom: 24px; }
+.sum-card { padding: 20px 22px; position: relative; overflow: hidden; background: color-mix(in srgb, var(--surface) 83%, var(--green) 17%); }
 .sum-card.has-overdue { background: color-mix(in srgb, var(--surface) 84%, var(--amber) 16%); }
 .sum-card::before { content: ""; position: absolute; inset: 0 auto 0 0; width: 4px; background: var(--accent); opacity: .85; }
 .sum-card.has-overdue::before { background: var(--red); }
 .sum-head { display: flex; align-items: center; justify-content: space-between; font-size: 13px; font-weight: 700; color: var(--muted); }
-.sum-main { font-size: 26px; font-weight: 750; margin: 6px 0 2px; letter-spacing: -0.02em; }
+.sum-main { font-size: 29px; font-weight: 750; margin: 8px 0 3px; letter-spacing: -0.02em; }
 .sum-sub { font-size: 13px; color: var(--muted); }
 .sum-rows { display: grid; gap: 2px; margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--line); font-size: 13px; }
 .sum-row { display: flex; justify-content: space-between; gap: 8px; }
@@ -205,7 +205,7 @@ main { max-width: 1160px; margin: 0 auto; padding: 24px 20px 64px; }
 
 /* ---------- фильтры ---------- */
 
-.toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; margin-bottom: 14px; }
+.toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 18px; margin-bottom: 18px; }
 .seg { display: inline-flex; padding: 3px; gap: 2px; background: var(--gray-bg); border-radius: 11px; }
 .seg button {
   appearance: none; border: 0; background: none; cursor: pointer; padding: 6px 12px; border-radius: 8px;
@@ -222,10 +222,10 @@ main { max-width: 1160px; margin: 0 auto; padding: 24px 20px 64px; }
 .table-card { overflow: hidden; }
 table { width: 100%; border-collapse: collapse; }
 th {
-  text-align: left; font-size: 12px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .05em;
-  padding: 12px 16px; background: var(--surface-2); border-bottom: 1px solid var(--line);
+  text-align: left; font-size: 13px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .05em;
+  padding: 15px 20px; background: var(--surface-2); border-bottom: 1px solid var(--line);
 }
-td { padding: 14px 16px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+td { padding: 19px 20px; border-bottom: 1px solid var(--line); vertical-align: middle; font-size: 15.5px; }
 .cell-sub { white-space: nowrap; }
 tbody tr:last-child td { border-bottom: 0; }
 tbody tr:hover { background: var(--surface-2); }
@@ -348,10 +348,10 @@ tr.clickable { cursor: pointer; }
 
 /* ---------- формы в разделах ---------- */
 
-.inline-form { padding: 18px 18px 6px; margin-bottom: 20px; }
-.inline-form h3 { font-size: 15px; margin-bottom: 14px; }
+.inline-form { padding: 22px 22px 8px; margin-bottom: 24px; }
+.inline-form h3 { font-size: 16px; margin-bottom: 16px; }
 .inline-form h3 .muted { font-weight: 500; }
-.form-grid { display: grid; gap: 0 14px; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); align-items: end; }
+.form-grid { display: grid; gap: 0 16px; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); align-items: end; }
 .form-grid .btn { margin-bottom: 14px; min-height: 42px; }
 
 /* ---------- модальные окна ---------- */
@@ -384,6 +384,18 @@ dialog .desc { margin: 0 0 18px; color: var(--muted); }
 
 /* ---------- мобильная версия ---------- */
 
+@media (min-width: 861px) and (max-width: 1100px) {
+  main { padding-inline: 18px; }
+  .tabs { padding-inline: 18px; }
+  .summary { gap: 12px; }
+  .sum-card { padding: 17px 18px; }
+  .sum-main { font-size: 25px; }
+  .toolbar { gap: 8px 12px; }
+  th { padding-inline: 12px; font-size: 11.5px; }
+  td { padding: 15px 12px; font-size: 14px; }
+  .btn-sm { padding-inline: 8px; }
+}
+
 @media (max-width: 860px) {
   .summary {
     display: flex; gap: 12px; overflow-x: auto; scroll-snap-type: x mandatory;
@@ -394,7 +406,7 @@ dialog .desc { margin: 0 0 18px; color: var(--muted); }
 }
 
 @media (max-width: 720px) {
-  main { padding: 18px 14px 48px; }
+  main { padding: 20px 14px 52px; }
   .topbar-inner { padding: 12px 14px; }
   .tabs { padding: 0 8px; }
   .user-box .who { align-items: flex-start; }
