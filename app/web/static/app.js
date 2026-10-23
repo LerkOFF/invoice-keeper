@@ -10,7 +10,9 @@ const state = {
   me: null,
   asOf: null, // «сегодня» по часовому поясу сервера
   tab: "payments",
-  filters: { status: "all", currency: "", scope: "all", deleted: false },
+  filters: { status: "all", currency: "", scope: "all", deleted: false, on: "" },
+  cal: null, // { year, month, selected }
+  budgetYear: null,
 };
 
 // ---------- DOM ----------
@@ -304,7 +306,11 @@ async function logout() {
 // ---------- каркас ----------
 
 function tabsFor(me) {
-  const tabs = [{ id: "payments", label: "Платежи" }];
+  const tabs = [
+    { id: "payments", label: "Платежи" },
+    { id: "calendar", label: "Календарь" },
+    { id: "budget", label: "Бюджет" },
+  ];
   if (me.role === "admin") {
     tabs.push({ id: "recurring", label: "Регулярные платежи" }, { id: "users", label: "Пользователи" }, { id: "audit", label: "Журнал" });
   }
@@ -363,7 +369,9 @@ async function showApp() {
 async function loadTab(main) {
   main.replaceChildren(h("p", { class: "loading" }, "Загрузка…"));
   try {
-    if (state.tab === "recurring" && state.me.role === "admin") await recurringView(main);
+    if (state.tab === "calendar") await calendarView(main);
+    else if (state.tab === "budget") await budgetView(main);
+    else if (state.tab === "recurring" && state.me.role === "admin") await recurringView(main);
     else if (state.tab === "users" && state.me.role === "admin") await usersView(main);
     else if (state.tab === "audit" && state.me.role === "admin") await auditView(main);
     else await paymentsView(main);
@@ -411,12 +419,12 @@ function segmented(options, value, onChange) {
   return h("div", { class: "seg", role: "group" }, buttons);
 }
 
-function summaryCard(c) {
+function summaryCard(c, onDate = null) {
   const row = (label, value, cls = "") => h("div", { class: "sum-row" }, h("span", {}, label), h("span", { class: `num ${cls}` }, value));
   return h(
     "article",
     { class: `card sum-card ${c.count_overdue > 0 ? "has-overdue" : ""}` },
-    h("div", { class: "sum-head" }, h("span", {}, c.currency), h("span", {}, CURRENCY_NAMES[c.currency])),
+    h("div", { class: "sum-head" }, h("span", {}, c.currency), h("span", {}, onDate ? `на ${fmtDate(onDate)}` : CURRENCY_NAMES[c.currency])),
     h("div", { class: "sum-main num" }, money(c.unpaid, c.currency)),
     h("div", { class: "sum-sub" }, c.count_unpaid ? `к оплате · ${plural(c.count_unpaid, ["платёж", "платежа", "платежей"])}` : "к оплате · всё закрыто"),
     h(
@@ -447,10 +455,12 @@ async function paymentsView(main) {
           ...range,
         },
       }),
-      api("/payments/summary", { params: { include_deleted: f.deleted ? "true" : undefined, ...range } }),
+      api("/payments/summary", {
+        params: { include_deleted: f.deleted ? "true" : undefined, on: f.on || undefined, ...(f.on ? {} : range) },
+      }),
     ]);
-    state.asOf = summary.as_of;
-    summaryBox.replaceChildren(...summary.currencies.map(summaryCard));
+    if (!f.on) state.asOf = summary.as_of;
+    summaryBox.replaceChildren(...summary.currencies.map((c) => summaryCard(c, f.on ? summary.as_of : null)));
     counter.textContent = items.length ? `Показано: ${items.length}` : "";
     listBox.replaceChildren(items.length ? occurrencesTable(items, reload) : emptyPayments());
   }
@@ -489,6 +499,13 @@ async function paymentsView(main) {
       { class: "check" },
       h("input", { type: "checkbox", checked: state.filters.deleted, onchange: (e) => { state.filters.deleted = e.target.checked; reload().catch(report); } }),
       "С прекращёнными",
+    ),
+    h(
+      "label",
+      { class: "check on-date" },
+      "Итоги на дату",
+      h("input", { type: "date", value: state.filters.on, "aria-label": "Итоги на дату", onchange: (e) => { state.filters.on = e.target.value; reload().catch(report); } }),
+      state.filters.on ? h("button", { type: "button", class: "btn btn-sm btn-ghost", onclick: () => { state.filters.on = ""; loadTab(document.getElementById("view")); } }, "Сбросить") : null,
     ),
     counter,
   );
@@ -817,6 +834,239 @@ function deleteUserDialog(u, reload) {
       await reload();
     },
   });
+}
+
+// ---------- разделы «Календарь» и «Бюджет» ----------
+
+const MONTHS = Array.from({ length: 12 }, (_, i) => {
+  const name = new Intl.DateTimeFormat("ru-RU", { month: "long" }).format(new Date(Date.UTC(2026, i, 1)));
+  return name.charAt(0).toUpperCase() + name.slice(1);
+});
+const WEEKDAYS = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"];
+
+function isoDate(y, m, d) {
+  return `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+}
+
+function totalsRow(totals) {
+  const shown = totals.filter((t) => t.count_planned > 0);
+  if (!shown.length) return h("p", { class: "muted" }, "В этом месяце платежей нет");
+  return h(
+    "div",
+    { class: "month-totals" },
+    shown.map((t) =>
+      h(
+        "div",
+        { class: "card mini-card" },
+        h("div", { class: "sum-head" }, h("span", {}, t.currency), h("span", {}, plural(t.count_planned, ["платёж", "платежа", "платежей"]))),
+        h("div", { class: "sum-main num" }, money(t.planned, t.currency)),
+        h("div", { class: "sum-sub" }, `оплачено ${money(t.paid, t.currency)} · осталось ${money(t.remaining, t.currency)}`),
+        h("progress", { max: Math.max(Number(t.planned), 1), value: Number(t.paid), "aria-label": "Доля оплаченного" }),
+      ),
+    ),
+  );
+}
+
+function chipClass(item) {
+  if (item.status === "planned") return "planned";
+  if (item.status === "paid") return item.is_overdue ? "late" : "paid";
+  return item.is_overdue ? "overdue" : "unpaid";
+}
+
+function chipStatus(item) {
+  if (item.status === "planned") return "Запланирован";
+  if (item.status === "paid") return item.is_overdue ? `Оплачено позже срока (${item.overdue_days} дн.)` : "Оплачено";
+  return item.is_overdue ? `Просрочено ${item.overdue_days} дн.` : "Не оплачено";
+}
+
+async function calendarView(main) {
+  if (!state.cal) {
+    const [y, m] = state.asOf.split("-").map(Number);
+    state.cal = { year: y, month: m, selected: state.asOf };
+  }
+  const grid = h("div", { class: "cal-grid", role: "grid" });
+  const totalsBox = h("div", {});
+  const dayBox = h("div", { class: "card day-box" });
+  const title = h("h3", { class: "cal-title" });
+
+  async function reload() {
+    const { year, month } = state.cal;
+    const data = await api("/payments/calendar", { params: { year, month } });
+    state.asOf = data.today;
+    title.textContent = `${MONTHS[month - 1]} ${year}`;
+    totalsBox.replaceChildren(totalsRow(data.totals));
+
+    const byDay = new Map(data.days.map((d) => [d.day, d.items]));
+    if (!state.cal.selected || !state.cal.selected.startsWith(isoDate(year, month, 1).slice(0, 8))) {
+      const todayHere = data.today.startsWith(isoDate(year, month, 1).slice(0, 8)) ? data.today : null;
+      state.cal.selected = todayHere || (data.days[0] && data.days[0].day) || isoDate(year, month, 1);
+    }
+
+    const first = (new Date(Date.UTC(year, month - 1, 1)).getUTCDay() + 6) % 7;
+    const count = new Date(Date.UTC(year, month, 0)).getUTCDate();
+    const cells = WEEKDAYS.map((d) => h("div", { class: "cal-wd", role: "columnheader" }, d));
+    for (let i = 0; i < first; i++) cells.push(h("div", { class: "cal-cell empty", "aria-hidden": "true" }));
+    for (let d = 1; d <= count; d++) {
+      const iso = isoDate(year, month, d);
+      const items = byDay.get(iso) || [];
+      const classes = ["cal-cell", iso === data.today ? "today" : "", iso === state.cal.selected ? "selected" : "", items.length ? "has-items" : ""];
+      cells.push(
+        h(
+          "button",
+          {
+            type: "button",
+            class: classes.join(" "),
+            role: "gridcell",
+            "aria-label": `${d} ${MONTHS[month - 1]}, платежей: ${items.length}`,
+            "aria-pressed": String(iso === state.cal.selected),
+            onclick: () => { state.cal.selected = iso; reload().catch(report); },
+          },
+          h("span", { class: "cal-day" }, String(d)),
+          h(
+            "span",
+            { class: "cal-chips" },
+            items.slice(0, 3).map((it) => h("span", { class: `chip ${chipClass(it)}`, title: `${it.name}, ${money(it.amount, it.currency)}` }, it.name)),
+            items.length > 3 ? h("span", { class: "chip more" }, `+${items.length - 3}`) : null,
+          ),
+          items.length ? h("span", { class: "cal-dots", "aria-hidden": "true" }, items.slice(0, 4).map((it) => h("i", { class: `dot ${chipClass(it)}` }))) : null,
+        ),
+      );
+    }
+    grid.replaceChildren(...cells);
+
+    const items = byDay.get(state.cal.selected) || [];
+    dayBox.replaceChildren(
+      h("h3", {}, `${fmtDate(state.cal.selected)}`),
+      items.length
+        ? h("div", { class: "day-list" }, items.map((it) => dayItem(it, reload)))
+        : h("p", { class: "muted" }, "В этот день платежей нет"),
+    );
+  }
+
+  const shift = (delta) => {
+    let { year, month } = state.cal;
+    month += delta;
+    if (month < 1) { month = 12; year -= 1; }
+    if (month > 12) { month = 1; year += 1; }
+    state.cal = { year, month, selected: null };
+    reload().catch(report);
+  };
+
+  main.replaceChildren(
+    h("div", { class: "page-head" }, h("div", {}, h("h2", {}, "Календарь оплат"), h("p", {}, "Сроки на месяц вперёд и дальше: будущие периоды вычисляются по правилу повторения"))),
+    h(
+      "div",
+      { class: "cal-nav" },
+      h("button", { class: "btn btn-sm", type: "button", "aria-label": "Предыдущий месяц", onclick: () => shift(-1) }, "←"),
+      title,
+      h("button", { class: "btn btn-sm", type: "button", "aria-label": "Следующий месяц", onclick: () => shift(1) }, "→"),
+      h("button", { class: "btn btn-sm", type: "button", onclick: () => { state.cal = null; calendarView(main).catch(report); } }, "Сегодня"),
+    ),
+    totalsBox,
+    h("div", { class: "card cal-card" }, grid),
+    dayBox,
+  );
+  await reload();
+}
+
+function dayItem(it, reload) {
+  const occurrence = { id: it.occurrence_id, name: it.name, due_date: it.due_date, amount: it.amount, currency: it.currency, paid_at: it.paid_at };
+  let actions = null;
+  if (it.occurrence_id && !it.payment_deleted) {
+    actions =
+      it.status === "unpaid"
+        ? [h("button", { class: "btn btn-sm btn-primary", onclick: () => payDialog(occurrence, reload, false) }, "Отметить оплату")]
+        : [
+            h("button", { class: "btn btn-sm", onclick: () => payDialog(occurrence, reload, true) }, "Изменить дату"),
+            h("button", { class: "btn btn-sm btn-danger", onclick: () => cancelDialog(occurrence, reload) }, "Отменить"),
+          ];
+  }
+  return h(
+    "div",
+    { class: `day-item ${chipClass(it)}` },
+    h("div", {}, h("div", { class: "cell-title" }, it.name), h("div", { class: "cell-sub" }, it.paid_at ? `оплачено ${fmtDate(it.paid_at)}` : it.payment_deleted ? "платёж прекращён" : "")),
+    h("div", { class: "amount num" }, money(it.amount, it.currency)),
+    h("span", { class: `badge ${chipClass(it) === "unpaid" ? "" : chipClass(it)}` }, chipStatus(it)),
+    h("div", { class: "day-actions" }, actions),
+  );
+}
+
+async function budgetView(main) {
+  if (!state.budgetYear) state.budgetYear = Number(state.asOf.slice(0, 4));
+  const cards = h("section", { class: "summary", "aria-label": "Бюджет за год" });
+  const tableBox = h("div", { class: "card table-card" });
+  const title = h("h3", { class: "cal-title" });
+
+  async function reload() {
+    const year = state.budgetYear;
+    const data = await api("/payments/budget", { params: { year } });
+    title.textContent = `${year} год`;
+    cards.replaceChildren(
+      ...data.currencies.map((c) =>
+        h(
+          "article",
+          { class: "card sum-card" },
+          h("div", { class: "sum-head" }, h("span", {}, c.currency), h("span", {}, "план на год")),
+          h("div", { class: "sum-main num" }, money(c.planned, c.currency)),
+          h("div", { class: "sum-sub" }, c.count_planned ? plural(c.count_planned, ["платёж", "платежа", "платежей"]) : "платежей нет"),
+          h("progress", { max: Math.max(Number(c.planned), 1), value: Number(c.paid), "aria-label": "Доля оплаченного" }),
+          h("div", { class: "sum-rows" }, h("div", { class: "sum-row" }, h("span", {}, "Оплачено"), h("span", { class: "num ok" }, money(c.paid, c.currency))), h("div", { class: "sum-row" }, h("span", {}, "Осталось"), h("span", { class: "num" }, money(c.remaining, c.currency)))),
+        ),
+      ),
+    );
+
+    const active = CURRENCIES.filter((cur) => data.currencies.find((c) => c.currency === cur).count_planned > 0);
+    tableBox.replaceChildren(
+      active.length
+        ? h(
+            "table",
+            {},
+            h("thead", {}, h("tr", {}, h("th", {}, "Месяц"), active.map((cur) => h("th", { class: "right" }, cur)))),
+            h(
+              "tbody",
+              {},
+              data.months.map((m) =>
+                h(
+                  "tr",
+                  { class: "clickable", tabindex: "0", onclick: () => openMonth(year, m.month), onkeydown: (e) => { if (e.key === "Enter") openMonth(year, m.month); } },
+                  h("td", { class: "title-cell" }, h("div", { class: "cell-title" }, MONTHS[m.month - 1])),
+                  active.map((cur) => {
+                    const c = m.currencies.find((x) => x.currency === cur);
+                    return h(
+                      "td",
+                      { class: "right num", "data-label": cur },
+                      c.count_planned ? h("div", {}, h("div", { class: "amount" }, money(c.planned, cur)), h("div", { class: "cell-sub" }, c.paid === c.planned ? "оплачено" : `оплачено ${money(c.paid, cur)}`)) : h("span", { class: "muted" }, "—"),
+                    );
+                  }),
+                ),
+              ),
+            ),
+          )
+        : h("div", { class: "empty" }, h("strong", {}, "В этом году платежей нет"), "Бюджет появится, как только администратор добавит регулярные платежи."),
+    );
+  }
+
+  function openMonth(year, month) {
+    state.cal = { year, month, selected: null };
+    state.tab = "calendar";
+    showApp().catch(report);
+  }
+
+  const shift = (delta) => { state.budgetYear += delta; reload().catch(report); };
+
+  main.replaceChildren(
+    h("div", { class: "page-head" }, h("div", {}, h("h2", {}, "Бюджет"), h("p", {}, "Плановые расходы по каждой валюте отдельно, без конвертации. Нажмите на месяц, чтобы открыть его в календаре"))),
+    h(
+      "div",
+      { class: "cal-nav" },
+      h("button", { class: "btn btn-sm", type: "button", "aria-label": "Предыдущий год", onclick: () => shift(-1) }, "←"),
+      title,
+      h("button", { class: "btn btn-sm", type: "button", "aria-label": "Следующий год", onclick: () => shift(1) }, "→"),
+    ),
+    cards,
+    tableBox,
+  );
+  await reload();
 }
 
 // ---------- раздел «Журнал» (админ) ----------
