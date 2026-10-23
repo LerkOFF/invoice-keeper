@@ -13,6 +13,8 @@
 Администратор вносит платежи, бот за 3 дня до срока пишет в Telegram-чат и/или в MAX, команда отмечает оплату
 в веб-панели. В любой момент видно: что и когда оплатить, что уже оплачено и что просрочено.
 
+![Панель: итоги по валютам и периоды оплаты](docs/screenshots/payments.png)
+
 ## Быстрый старт
 
 Нужны Docker и Docker Compose v2.24 или новее (`docker compose version`). Больше ничего не требуется.
@@ -131,6 +133,25 @@ docker compose up --build
 - **Webhook**: задайте `WEBHOOK_URL`, и напоминания (`reminder.due`, повторное `reminder.overdue`) и события журнала будут уходить POST-запросом с JSON.
   С `WEBHOOK_SECRET` у запроса будет подпись `X-Invoice-Keeper-Signature: sha256=<HMAC-SHA256 тела>`.
   Поля `text` и `content` подходят для входящих webhook Slack, Mattermost и Discord: адрес такого webhook можно указать напрямую.
+
+## Скриншоты
+
+Сняты на тестовых данных из `SEED_DEMO_DATA`.
+
+<table>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/calendar.png" alt="Календарь оплат"><br>Календарь: сроки по дням, будущие месяцы по правилу повторения</td>
+    <td width="50%"><img src="docs/screenshots/budget.png" alt="Бюджет"><br>Бюджет на год и по месяцам, отдельно по каждой валюте</td>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshots/edit-payment.png" alt="Правка платежа"><br>Правка платежа: новая сумма не переписывает историю</td>
+    <td><img src="docs/screenshots/audit.png" alt="Журнал"><br>Журнал входов и действий, только для админа</td>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshots/payments-en.png" alt="English"><br>Интерфейс на английском, переключатель в боковой панели</td>
+    <td align="center"><img src="docs/screenshots/mobile.png" alt="Телефон" width="260"><br>На телефоне</td>
+  </tr>
+</table>
 
 ## Проверка за минуту
 
