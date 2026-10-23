@@ -157,9 +157,9 @@ def test_failure_does_not_hammer_other_periods(db):
     calls = []
 
     class Counting(FakeNotifier):
-        def send(self, text):
+        def send(self, text, **kwargs):
             calls.append(text)
-            super().send(text)
+            super().send(text, **kwargs)
 
     assert run(db, Counting(fail=True)) == 0
     assert len(calls) == 1
@@ -227,3 +227,10 @@ def test_parallel_runs_send_each_reminder_exactly_once():
 
     assert sorted(m.split("\n")[2] for m in notifier.messages) == ["Платёж: A", "Платёж: B"]
     assert sum(results) == 2
+
+
+def test_each_reminder_gets_a_pay_button_for_its_period(db):
+    payment = add_payment(db, TODAY + timedelta(days=1))
+    notifier = FakeNotifier()
+    run(db, notifier)
+    assert notifier.buttons == [payment.occurrences[0].id]

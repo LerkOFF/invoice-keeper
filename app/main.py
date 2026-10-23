@@ -15,6 +15,7 @@ from app.core.db import SessionLocal, init_db
 from app.scheduler import scheduler_loop, tick
 from app.seed import seed_demo_data
 from app.services.telegram import build_notifier
+from app.services.telegram_bot import bot_loop, build_bot
 from app.services.periods import ensure_all_occurrences
 
 API_PREFIX = "/api/v1"
@@ -59,12 +60,17 @@ async def lifespan(_app: FastAPI):
 
         task = asyncio.create_task(scheduler_loop(job, settings.scheduler_interval_seconds))
 
+    bot_task = None
+    if settings.telegram_buttons_enabled and notifier.configured:
+        bot_task = asyncio.create_task(bot_loop(build_bot(settings, SessionLocal)))
+
     yield
 
-    if task is not None:
-        task.cancel()
-        with contextlib.suppress(asyncio.CancelledError):
-            await task
+    for background in (task, bot_task):
+        if background is not None:
+            background.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await background
 
 
 def create_app() -> FastAPI:

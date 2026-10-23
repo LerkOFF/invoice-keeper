@@ -5,6 +5,7 @@ import tempfile
 os.environ["DATABASE_URL"] = f"sqlite:///{tempfile.mkdtemp()}/test.db"
 os.environ["SEED_DEMO_DATA"] = "false"
 os.environ["SCHEDULER_ENABLED"] = "false"
+os.environ["TELEGRAM_BUTTONS_ENABLED"] = "false"
 os.environ["TELEGRAM_BOT_TOKEN"] = ""
 os.environ["TELEGRAM_CHAT_ID"] = ""
 os.environ["ADMIN_LOGIN"] = "boss"

@@ -78,3 +78,34 @@ def test_network_failure_does_not_leak_token():
 def test_non_json_response():
     with pytest.raises(TelegramError, match="не JSON"):
         make(lambda _: httpx.Response(502, text="<html>bad gateway</html>")).send("x")
+
+
+def test_reminder_message_carries_pay_button():
+    seen = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen["body"] = json.loads(request.content)
+        return httpx.Response(200, json={"ok": True, "result": {}})
+
+    make(handler, telegram_buttons_enabled=True).send("напоминание", pay_button_for=42)
+
+    markup = seen["body"]["reply_markup"]["inline_keyboard"]
+    assert markup == [[{"text": "✅ Оплачено", "callback_data": "paid:42"}]]
+
+
+def test_no_button_without_period_or_when_disabled():
+    seen = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(json.loads(request.content))
+        return httpx.Response(200, json={"ok": True, "result": {}})
+
+    make(handler, telegram_buttons_enabled=True).send("без кнопки")
+    make(handler, telegram_buttons_enabled=False).send("кнопки выключены", pay_button_for=7)
+
+    assert all("reply_markup" not in body for body in seen)
+
+
+def test_call_returns_result_field():
+    notifier = make(lambda _: httpx.Response(200, json={"ok": True, "result": [{"update_id": 1}]}))
+    assert notifier.call("getUpdates") == [{"update_id": 1}]

@@ -12,16 +12,18 @@ class FakeNotifier:
         self.fail = fail
         self.delay = delay
         self.messages: list[str] = []
+        self.buttons: list[int | None] = []
         self._lock = threading.Lock()
 
     @property
     def configured(self) -> bool:
         return self._configured
 
-    def send(self, text: str) -> None:
+    def send(self, text: str, *, pay_button_for: int | None = None) -> None:
         if self.delay:
             time.sleep(self.delay)
         if self.fail:
             raise TelegramError("Telegram недоступен")
         with self._lock:
             self.messages.append(text)
+            self.buttons.append(pay_button_for)

@@ -75,7 +75,7 @@ def send_due_reminders(db: Session, notifier: Notifier, settings: Settings, toda
     with _run_lock:
         for occurrence in _pending(db, today, settings.reminder_days):
             try:
-                notifier.send(build_message(occurrence, today))
+                notifier.send(build_message(occurrence, today), pay_button_for=occurrence.id)
             except TelegramError as error:
                 logger.error("Напоминание по периоду %s не ушло: %s", occurrence.id, error)
                 break  # Telegram недоступен: не долбим остальные периоды, повторим в следующий проход

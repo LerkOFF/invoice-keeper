@@ -12,6 +12,11 @@ class Settings(BaseSettings):
     telegram_bot_token: str = ""
     telegram_chat_id: str = ""
     telegram_api_base: str = "https://api.telegram.org"
+    # Кнопка «Оплачено» в напоминании и приём нажатий (long polling)
+    telegram_buttons_enabled: bool = True
+    # Если задан, нажимать могут только эти Telegram id (через запятую), и то лишь будучи участниками чата
+    telegram_allowed_user_ids: str = ""
+    telegram_poll_timeout: int = 8
 
     app_timezone: str = "Europe/Moscow"
     reminder_days: int = 3
@@ -24,6 +29,10 @@ class Settings(BaseSettings):
     seed_demo_data: bool = True
     seed_user_login: str = "user"
     seed_user_password: str = "user-pass-123"
+
+    @property
+    def allowed_telegram_ids(self) -> set[int]:
+        return {int(part) for part in self.telegram_allowed_user_ids.replace(";", ",").split(",") if part.strip()}
 
 
 @lru_cache
