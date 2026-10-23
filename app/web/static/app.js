@@ -165,14 +165,52 @@ async function api(path, { method = "GET", body, params, silent = false } = {}) 
 
 // ---------- модальные окна ----------
 
+function eyeIcon(open) {
+  const ns = "http://www.w3.org/2000/svg";
+  const svg = document.createElementNS(ns, "svg");
+  svg.setAttribute("viewBox", "0 0 24 24");
+  svg.setAttribute("aria-hidden", "true");
+  const shapes = [
+    ["path", { d: "M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z" }],
+    ["circle", { cx: "12", cy: "12", r: "3" }],
+  ];
+  if (!open) shapes.push(["path", { d: "M3 3l18 18" }]);
+  for (const [tag, attrs] of shapes) {
+    const el = document.createElementNS(ns, tag);
+    for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, v);
+    svg.append(el);
+  }
+  return svg;
+}
+
+// Поле пароля с кнопкой «глаз»: показывает и снова скрывает введённое
+function passwordInput(attrs) {
+  const input = h("input", { ...attrs, type: "password" });
+  const toggle = h("button", {
+    type: "button",
+    class: "pw-toggle",
+    "aria-label": "Показать пароль",
+    "aria-pressed": "false",
+    title: "Показать пароль",
+  });
+  toggle.append(eyeIcon(true));
+  toggle.addEventListener("click", () => {
+    const show = input.type === "password";
+    input.type = show ? "text" : "password";
+    const label = show ? "Скрыть пароль" : "Показать пароль";
+    toggle.setAttribute("aria-label", label);
+    toggle.setAttribute("title", label);
+    toggle.setAttribute("aria-pressed", String(show));
+    toggle.replaceChildren(eyeIcon(!show));
+    input.focus();
+  });
+  return h("div", { class: "pw-wrap" }, input, toggle);
+}
+
 function field({ label, name, type = "text", value = "", hint, required = true, ...rest }) {
-  return h(
-    "label",
-    { class: "field" },
-    h("span", {}, label),
-    h("input", { name, type, value, required, ...rest }),
-    hint ? h("span", { class: "hint" }, hint) : null,
-  );
+  const control =
+    type === "password" ? passwordInput({ name, value, required, ...rest }) : h("input", { name, type, value, required, ...rest });
+  return h("label", { class: "field" }, h("span", {}, label), control, hint ? h("span", { class: "hint" }, hint) : null);
 }
 
 function openDialog({ title, description, fields = [], confirmLabel = "Сохранить", danger = false, onSubmit }) {

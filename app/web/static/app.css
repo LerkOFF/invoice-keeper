@@ -425,3 +425,16 @@ dialog .desc { margin: 0 0 18px; color: var(--muted); }
   tr.row-overdue td:first-child { box-shadow: none; }
   tr.row-overdue { box-shadow: inset 4px 0 0 var(--red); }
 }
+
+/* ---------- поле пароля с «глазом» ---------- */
+
+.pw-wrap { position: relative; }
+.pw-wrap input { padding-right: 46px; }
+.pw-toggle {
+  position: absolute; top: 50%; right: 6px; transform: translateY(-50%);
+  width: 34px; height: 34px; display: grid; place-items: center; padding: 0;
+  border: 0; border-radius: 8px; background: transparent; color: var(--muted); cursor: pointer;
+}
+.pw-toggle:hover { color: var(--ink); background: var(--gray-bg); }
+.pw-toggle[aria-pressed="true"] { color: var(--accent-ink); }
+.pw-toggle svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
