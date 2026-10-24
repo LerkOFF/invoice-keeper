@@ -25,6 +25,7 @@ ACTION_LABELS = {
     "auth.password_changed": "Пароль изменён самим пользователем",
     "payment.create": "Платёж добавлен",
     "payment.update": "Платёж изменён",
+    "payment.import": "Платежи импортированы из CSV",
     "payment.pause": "Платёж на паузе",
     "payment.resume": "Пауза снята",
     "payment.delete": "Платёж прекращён",
