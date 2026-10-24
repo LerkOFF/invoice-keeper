@@ -268,6 +268,20 @@ const I18N = {
     "rec.pausedUntil": "на паузе до {date}",
     "rec.pausedDone": "«{name}» на паузе",
     "rec.resumed": "«{name}» снова активен",
+    "imp.lead": "Много платежей сразу? Загрузите таблицу CSV из Excel или Google Таблиц.",
+    "imp.open": "Импорт из CSV",
+    "imp.template": "Шаблон CSV",
+    "imp.title": "Импорт из CSV",
+    "imp.desc": "Обязательные столбцы: Название, Сумма, Валюта, Первый срок. По желанию: Периодичность, Категория, Ответственный (логин), Ссылка на оплату, Реквизиты. Сначала файл проверяется, ничего не создаётся.",
+    "imp.pick": "Выберите файл: до 500 строк, разделитель «;» или «,».",
+    "imp.checking": "Проверяю файл…",
+    "imp.ready": "Всё в порядке, платежей к импорту: {n}.",
+    "imp.bad": "Ошибки в {bad} из {total} строк: исправьте файл и выберите его снова. Пока есть ошибки, ничего не создаётся.",
+    "imp.colLine": "Строка",
+    "imp.colNote": "Замечания",
+    "imp.ok": "готово",
+    "imp.confirm": "Импортировать: {n}",
+    "imp.done": "Импортировано платежей: {n}",
     "audit.until": "до {date}",
     "rec.empty": "Регулярных платежей пока нет",
     "rec.emptyText": "Добавьте аренду, подписку или оплату сервера формой выше.",
@@ -812,6 +826,20 @@ const I18N = {
     "rec.pausedUntil": "paused until {date}",
     "rec.pausedDone": "“{name}” is paused",
     "rec.resumed": "“{name}” is active again",
+    "imp.lead": "Many payments at once? Upload a CSV table from Excel or Google Sheets.",
+    "imp.open": "Import CSV",
+    "imp.template": "CSV template",
+    "imp.title": "Import from CSV",
+    "imp.desc": "Required columns: Name, Amount, Currency, First due date. Optional: Frequency, Category, Assignee (login), Payment link, Details. The file is checked first; nothing is created yet.",
+    "imp.pick": "Choose a file: up to 500 rows, separated by “;” or “,”.",
+    "imp.checking": "Checking the file…",
+    "imp.ready": "All good: {n} payments can be created.",
+    "imp.bad": "Errors in {bad} of {total} rows: fix the file and choose it again. Nothing is created while there are errors.",
+    "imp.colLine": "Row",
+    "imp.colNote": "Notes",
+    "imp.ok": "ok",
+    "imp.confirm": "Import: {n}",
+    "imp.done": "Payments imported: {n}",
     "audit.until": "until {date}",
     "rec.empty": "No recurring payments yet",
     "rec.emptyText": "Add rent, a subscription or a server bill with the form above.",
@@ -2760,8 +2788,124 @@ async function recurringView(main) {
     }
   });
 
-  main.replaceChildren(pageHead(t("tab.recurring"), t("rec.lead")), form, section(t("rec.list"), listBox));
+  const importBar = h(
+    "div",
+    { class: "import-bar" },
+    h("p", { class: "muted grow" }, t("imp.lead")),
+    h("a", { class: "btn btn-sm", href: `${API}/recurring-payments/import/template`, download: "" }, icon("download"), t("imp.template")),
+    h("button", { type: "button", class: "btn btn-sm btn-primary", onclick: () => importDialog(reload) }, t("imp.open")),
+  );
+
+  main.replaceChildren(pageHead(t("tab.recurring"), t("rec.lead")), form, importBar, section(t("rec.list"), listBox));
   await reload();
+}
+
+// Импорт из CSV: файл сначала проверяется без записи, «Импортировать» доступна, только когда ошибок нет ни в одной строке
+function importDialog(reload) {
+  const dialog = h("dialog", {});
+  const error = h("p", { class: "form-error", role: "alert" });
+  const status = h("p", { class: "imp-status muted", "aria-live": "polite" }, t("imp.pick"));
+  const preview = h("div", { class: "imp-preview" });
+  const input = h("input", { type: "file", name: "file", accept: ".csv,.txt,text/csv,text/plain" });
+  const confirm = h("button", { type: "button", class: "btn btn-primary", disabled: true }, t("imp.confirm", { n: 0 }));
+  const cancel = h("button", { type: "button", class: "btn", onclick: () => dialog.close() }, t("common.cancel"));
+
+  function upload(dryRun) {
+    const body = new FormData();
+    body.append("file", input.files[0]);
+    return api("/recurring-payments/import", { method: "POST", body, params: { dry_run: String(dryRun) } });
+  }
+
+  function render(result) {
+    const bad = result.rows.filter((r) => r.errors.length).length;
+    status.className = `imp-status ${bad ? "bad" : "ok"}`;
+    status.textContent = bad ? t("imp.bad", { bad, total: result.rows.length }) : t("imp.ready", { n: result.valid });
+    confirm.textContent = t("imp.confirm", { n: result.valid });
+    confirm.disabled = bad > 0;
+    const head = [t("imp.colLine"), t("col.payment"), t("col.amount"), t("field.first_due_date"), t("rec.colPeriod"), t("imp.colNote")];
+    preview.replaceChildren(
+      h(
+        "div",
+        { class: "table-card" },
+        h(
+          "table",
+          {},
+          h("thead", {}, h("tr", {}, head.map((title, i) => h("th", { class: i === 2 ? "right" : null }, title)))),
+          h(
+            "tbody",
+            {},
+            result.rows.map((r) =>
+              h(
+                "tr",
+                { class: r.errors.length ? "imp-bad" : null },
+                h("td", { class: "muted" }, r.line),
+                h("td", {}, h("div", { class: "cell-title" }, r.name || "—"), r.category || r.assignee_login ? h("div", { class: "cell-sub" }, [r.category, r.assignee_login && `@${r.assignee_login}`].filter(Boolean).join(" · ")) : null),
+                h("td", { class: "right" }, r.amount && r.currency ? money(r.amount, r.currency) : "—"),
+                h("td", {}, r.first_due_date ? fmtDate(r.first_due_date) : "—"),
+                h("td", {}, r.period ? periodLabel(r.period) : "—"),
+                h(
+                  "td",
+                  { class: "imp-note" },
+                  r.errors.map((e) => h("div", { class: "cell-sub bad" }, e)),
+                  r.warnings.map((w) => h("div", { class: "cell-sub warn" }, w)),
+                  r.errors.length || r.warnings.length ? null : h("span", { class: "badge paid" }, t("imp.ok")),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  input.addEventListener("change", async () => {
+    error.textContent = "";
+    preview.replaceChildren();
+    confirm.disabled = true;
+    if (!input.files.length) return;
+    status.className = "imp-status muted";
+    status.textContent = t("imp.checking");
+    try {
+      render(await upload(true));
+    } catch (err) {
+      status.textContent = t("imp.pick");
+      error.textContent = err.message;
+    }
+  });
+
+  confirm.addEventListener("click", async () => {
+    error.textContent = "";
+    setBusy(confirm, true);
+    try {
+      const result = await upload(false);
+      toast(t("imp.done", { n: result.created }));
+      dialog.close();
+      await reload();
+    } catch (err) {
+      error.textContent = err.message;
+      setBusy(confirm, false);
+    }
+  });
+
+  dialog.append(
+    h(
+      "div",
+      { class: "rc-dialog imp-dialog" },
+      h("h2", {}, t("imp.title")),
+      h("p", { class: "desc" }, t("imp.desc")),
+      h(
+        "div",
+        { class: "imp-pick" },
+        h("label", { class: "field" }, h("span", {}, t("field.file")), input),
+        h("a", { class: "btn btn-sm", href: `${API}/recurring-payments/import/template`, download: "" }, icon("download"), t("imp.template")),
+      ),
+      status,
+      preview,
+      error,
+      h("div", { class: "dialog-actions" }, cancel, confirm),
+    ),
+  );
+  presentDialog(dialog);
 }
 
 function editPaymentDialog(p, reload) {

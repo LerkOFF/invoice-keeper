@@ -165,3 +165,24 @@ class CurrencySummaryOut(BaseModel):
 class SummaryOut(BaseModel):
     as_of: date = Field(description="Дата, на которую считается просрочка")
     currencies: list[CurrencySummaryOut]
+
+
+class ImportRowOut(BaseModel):
+    line: int = Field(description="Номер строки в файле, заголовок — строка 1")
+    name: str | None = None
+    amount: Decimal | None = None
+    currency: Currency | None = None
+    first_due_date: date | None = None
+    period: Period | None = None
+    category: str | None = None
+    assignee_login: str | None = None
+    pay_url: str | None = None
+    errors: list[str] = Field(default=[], description="Почему строку нельзя импортировать")
+    warnings: list[str] = Field(default=[], description="Импортировать можно, но стоит проверить")
+
+
+class ImportResult(BaseModel):
+    dry_run: bool = Field(description="true — только проверка, ничего не создано")
+    valid: int = Field(description="Сколько строк без ошибок")
+    created: int = Field(description="Сколько платежей создано")
+    rows: list[ImportRowOut]

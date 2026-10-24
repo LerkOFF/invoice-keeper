@@ -372,6 +372,57 @@ paths:
           description: Платёж не найден или прекращён
         '422':
           description: Платёж не на паузе
+  /api/v1/recurring-payments/import/template:
+    get:
+      tags:
+      - recurring-payments
+      summary: Шаблон CSV для импорта (администратор)
+      operationId: import_template
+      responses:
+        '200':
+          description: CSV с заголовками и тремя примерами
+          content:
+            text/csv: {}
+      security:
+      - HTTPBearer: []
+  /api/v1/recurring-payments/import:
+    post:
+      tags:
+      - recurring-payments
+      summary: Импорт регулярных платежей из CSV (администратор)
+      description: 'Столбцы как в шаблоне: Название, Сумма, Валюта, Первый срок (обязательные), Периодичность,
+        Категория, Ответственный, Ссылка на оплату, Реквизиты. Разделитель «;», «,» или табуляция, суммы
+        с запятой или точкой, даты ДД.ММ.ГГГГ или ГГГГ-ММ-ДД. `dry_run=true` (по умолчанию) только проверяет
+        и показывает ошибки по строкам; `dry_run=false` создаёт платежи, только если ошибок нет ни в одной
+        строке. До 500 строк и 1 МБ.'
+      operationId: import_payments
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: dry_run
+        in: query
+        required: false
+        schema:
+          type: boolean
+          description: Только проверить, ничего не создавать
+          default: true
+          title: Dry Run
+        description: Только проверить, ничего не создавать
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Body_import_payments'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ImportResult'
+        '422':
+          description: Файл не читается или в строках есть ошибки
   /api/v1/payment-occurrences:
     get:
       tags:
@@ -1586,6 +1637,16 @@ components:
       required:
       - file
       title: Body_add_file
+    Body_import_payments:
+      properties:
+        file:
+          type: string
+          contentMediaType: application/octet-stream
+          title: File
+      type: object
+      required:
+      - file
+      title: Body_import_payments
     BudgetCategoryOut:
       properties:
         category:
@@ -1978,6 +2039,95 @@ components:
       - timezone
       title: HelpOut
       description: Всё, что странице «Помощь» нужно знать о настройках сервера.
+    ImportResult:
+      properties:
+        dry_run:
+          type: boolean
+          title: Dry Run
+          description: true — только проверка, ничего не создано
+        valid:
+          type: integer
+          title: Valid
+          description: Сколько строк без ошибок
+        created:
+          type: integer
+          title: Created
+          description: Сколько платежей создано
+        rows:
+          items:
+            $ref: '#/components/schemas/ImportRowOut'
+          type: array
+          title: Rows
+      type: object
+      required:
+      - dry_run
+      - valid
+      - created
+      - rows
+      title: ImportResult
+    ImportRowOut:
+      properties:
+        line:
+          type: integer
+          title: Line
+          description: Номер строки в файле, заголовок — строка 1
+        name:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Name
+        amount:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Amount
+        currency:
+          anyOf:
+          - $ref: '#/components/schemas/Currency'
+          - type: 'null'
+        first_due_date:
+          anyOf:
+          - type: string
+            format: date
+          - type: 'null'
+          title: First Due Date
+        period:
+          anyOf:
+          - $ref: '#/components/schemas/Period'
+          - type: 'null'
+        category:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Category
+        assignee_login:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Assignee Login
+        pay_url:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Pay Url
+        errors:
+          items:
+            type: string
+          type: array
+          title: Errors
+          description: Почему строку нельзя импортировать
+          default: []
+        warnings:
+          items:
+            type: string
+          type: array
+          title: Warnings
+          description: Импортировать можно, но стоит проверить
+          default: []
+      type: object
+      required:
+      - line
+      title: ImportRowOut
     LinkCodeOut:
       properties:
         messenger:

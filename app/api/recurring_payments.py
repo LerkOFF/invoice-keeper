@@ -1,13 +1,23 @@
 from datetime import UTC, datetime
+from decimal import Decimal
+from typing import Annotated
 
-from fastapi import APIRouter, BackgroundTasks, HTTPException, Response, status
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Query, Response, UploadFile, status
 from sqlalchemy import select
 
 from app.api.deps import AdminPrincipal, CurrentPrincipal, DbDep, NotifiersDep, SettingsDep, TodayDep
 from app.core.db import SessionLocal
 from app.services import audit
 from app.models import RecurringPayment
-from app.schemas.payments import PauseRequest, RecurringPaymentCreate, RecurringPaymentOut, RecurringPaymentUpdate
+from app.schemas.payments import (
+    ImportResult,
+    ImportRowOut,
+    PauseRequest,
+    RecurringPaymentCreate,
+    RecurringPaymentOut,
+    RecurringPaymentUpdate,
+)
+from app.services import importer
 from app.services.payments import (
     EXTRA_FIELDS,
     PaymentRuleError,
@@ -21,6 +31,7 @@ from app.services.periods import ensure_occurrences
 from app.services.reminders import run_reminders
 
 router = APIRouter(prefix="/recurring-payments", tags=["recurring-payments"])
+CENT = Decimal("0.01")
 
 
 def _get_active(db, payment_id: int) -> RecurringPaymentOut:
@@ -237,3 +248,96 @@ def resume_recurring_payment(
     # возобновлённый платёж мог сразу оказаться в окне трёх дней
     background.add_task(run_reminders, SessionLocal, notifiers, settings, today)
     return payment_out(payment, today)
+
+
+@router.get(
+    "/import/template",
+    response_class=Response,
+    summary="Шаблон CSV для импорта (администратор)",
+    responses={200: {"content": {"text/csv": {}}, "description": "CSV с заголовками и тремя примерами"}},
+)
+def import_template(_admin: AdminPrincipal) -> Response:
+    return Response(
+        content=importer.template_csv(),
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": 'attachment; filename="invoice-keeper-import.csv"'},
+    )
+
+
+@router.post(
+    "/import",
+    response_model=ImportResult,
+    summary="Импорт регулярных платежей из CSV (администратор)",
+    description=(
+        "Столбцы как в шаблоне: Название, Сумма, Валюта, Первый срок (обязательные), Периодичность, Категория, "
+        "Ответственный, Ссылка на оплату, Реквизиты. Разделитель «;», «,» или табуляция, суммы с запятой или точкой, "
+        "даты ДД.ММ.ГГГГ или ГГГГ-ММ-ДД. `dry_run=true` (по умолчанию) только проверяет и показывает ошибки по строкам; "
+        "`dry_run=false` создаёт платежи, только если ошибок нет ни в одной строке. До 500 строк и 1 МБ."
+    ),
+    responses={422: {"description": "Файл не читается или в строках есть ошибки"}},
+)
+def import_payments(
+    file: UploadFile,
+    admin: AdminPrincipal,
+    db: DbDep,
+    today: TodayDep,
+    background: BackgroundTasks,
+    notifiers: NotifiersDep,
+    settings: SettingsDep,
+    dry_run: Annotated[bool, Query(description="Только проверить, ничего не создавать")] = True,
+) -> ImportResult:
+    try:
+        rows = importer.parse(db, file.file.read(importer.MAX_BYTES + 1))
+    except importer.ImportFileError as error:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(error)) from error
+
+    out = [
+        ImportRowOut(
+            line=row.line,
+            name=row.payload.name if row.payload else row.values.get("name"),
+            amount=row.payload.amount.quantize(CENT) if row.payload else None,
+            currency=row.payload.currency if row.payload else None,
+            first_due_date=row.payload.first_due_date if row.payload else None,
+            period=row.payload.period if row.payload else None,
+            category=row.payload.category if row.payload else None,
+            assignee_login=row.assignee_login,
+            pay_url=row.payload.pay_url if row.payload else None,
+            errors=row.errors,
+            warnings=row.warnings,
+        )
+        for row in rows
+    ]
+    valid = sum(1 for row in rows if not row.errors)
+    if dry_run:
+        return ImportResult(dry_run=True, valid=valid, created=0, rows=out)
+    if valid != len(rows):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="В файле есть строки с ошибками: исправьте их и загрузите снова, ничего не создано",
+        )
+
+    for row in rows:
+        payload = row.payload
+        payment = RecurringPayment(
+            name=payload.name.strip(),
+            currency=payload.currency.value,
+            first_due_date=payload.first_due_date,
+            period=payload.period.value,
+            pay_url=payload.pay_url,
+            pay_details=payload.pay_details,
+            category=payload.category,
+            assignee_id=payload.assignee_id,
+        )
+        payment.amount = payload.amount
+        db.add(payment)
+        db.flush()
+        ensure_occurrences(db, payment, today)
+    audit.record(
+        db,
+        "payment.import",
+        audit.actor_of(admin),
+        details={"count": len(rows), "file": (file.filename or "")[:100], "names": [r.payload.name for r in rows[:20]]},
+    )
+    db.commit()
+    background.add_task(run_reminders, SessionLocal, notifiers, settings, today)
+    return ImportResult(dry_run=False, valid=valid, created=len(rows), rows=out)
