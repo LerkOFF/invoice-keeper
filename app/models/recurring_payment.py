@@ -26,6 +26,9 @@ class RecurringPayment(Base):
     period: Mapped[str] = mapped_column(String(16), default=Period.MONTHLY.value)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # Куда платить: ссылка на кабинет или счёт и реквизиты, попадают в напоминания
+    pay_url: Mapped[str | None] = mapped_column(String(500))
+    pay_details: Mapped[str | None] = mapped_column(String(1000))
 
     occurrences: Mapped[list["PaymentOccurrence"]] = relationship(
         back_populates="recurring_payment",

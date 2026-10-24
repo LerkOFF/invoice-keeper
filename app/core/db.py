@@ -65,6 +65,12 @@ def migrate(target: Engine) -> None:
             )
         )
 
+        payment_columns = {column["name"] for column in inspect(conn).get_columns("recurring_payments")}
+        if "pay_url" not in payment_columns:
+            conn.execute(text("ALTER TABLE recurring_payments ADD COLUMN pay_url VARCHAR(500)"))
+        if "pay_details" not in payment_columns:
+            conn.execute(text("ALTER TABLE recurring_payments ADD COLUMN pay_details VARCHAR(1000)"))
+
         has_receipts = inspect(conn).has_table("occurrence_receipts")
         receipt_columns = {c["name"] for c in inspect(conn).get_columns("occurrence_receipts")} if has_receipts else set()
         if has_receipts and "created_by_user_id" not in receipt_columns:

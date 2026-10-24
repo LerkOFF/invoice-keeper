@@ -36,6 +36,8 @@ def to_out(occurrence: PaymentOccurrence, today: date) -> OccurrenceOut:
         reminded_at=occurrence.reminded_at,
         payment_deleted=payment.deleted_at is not None,
         receipts_count=len(occurrence.receipts),
+        pay_url=payment.pay_url,
+        pay_details=payment.pay_details,
     )
 
 

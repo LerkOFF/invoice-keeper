@@ -1721,6 +1721,18 @@ components:
           title: Receipts Count
           description: Сколько чеков и ссылок прикреплено к этому периоду
           default: 0
+        pay_url:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Pay Url
+          description: Ссылка на оплату платежа
+        pay_details:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Pay Details
+          description: Реквизиты платежа
       type: object
       required:
       - id
@@ -1907,6 +1919,24 @@ components:
           format: date
           title: First Due Date
           description: Дата ближайшей оплаты, от неё считаются все периоды
+        pay_url:
+          anyOf:
+          - type: string
+            maxLength: 500
+          - type: 'null'
+          title: Pay Url
+          description: 'Ссылка на оплату: личный кабинет, счёт, страница оплаты'
+          examples:
+          - https://my.aeza.ru
+        pay_details:
+          anyOf:
+          - type: string
+            maxLength: 1000
+          - type: 'null'
+          title: Pay Details
+          description: Реквизиты или подсказка, как платить
+          examples:
+          - Счёт по договору 42, ИНН 7700000000
         period:
           $ref: '#/components/schemas/Period'
           description: monthly (каждый месяц), quarterly (раз в квартал), yearly (раз в год). Сроки считаются
@@ -1950,6 +1980,18 @@ components:
           - type: 'null'
           title: Deleted At
           description: Заполнено у прекращённого платежа
+        pay_url:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Pay Url
+          description: Ссылка на оплату
+        pay_details:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Pay Details
+          description: Реквизиты
       type: object
       required:
       - id
@@ -1995,6 +2037,24 @@ components:
           title: First Due Date
           description: Дата ближайшей оплаты по новому графику, не раньше сегодня. Нужна, если меняется
             график
+        pay_url:
+          anyOf:
+          - type: string
+            maxLength: 500
+          - type: 'null'
+          title: Pay Url
+          description: Новая ссылка на оплату; null или пустая строка убирают её
+          examples:
+          - https://my.aeza.ru
+        pay_details:
+          anyOf:
+          - type: string
+            maxLength: 1000
+          - type: 'null'
+          title: Pay Details
+          description: Новые реквизиты; null или пустая строка убирают их
+          examples:
+          - Счёт по договору 42, ИНН 7700000000
       additionalProperties: false
       type: object
       title: RecurringPaymentUpdate

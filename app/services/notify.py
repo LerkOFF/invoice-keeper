@@ -22,6 +22,8 @@ class Reminder:
     text: str  # готовый текст для мессенджеров
     overdue_notice: bool = False  # повторное напоминание: срок прошёл, а оплаты нет
     html: str = ""  # то же для мессенджеров с разметкой HTML (статус, жирная сумма); пусто, значит слать text
+    pay_url: str | None = None  # куда платить: кнопка «Оплатить» в мессенджерах и письме
+    pay_details: str | None = None  # реквизиты, уже вписаны в text и html
 
     @property
     def is_overdue(self) -> bool:

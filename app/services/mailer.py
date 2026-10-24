@@ -76,6 +76,10 @@ def render_text(reminder: Reminder, content: EmailContent, money: str, due: str,
         f"Сумма: {money}",
         f"Срок оплаты: {due} ({_days_phrase(reminder.days_left)})",
     ]
+    if reminder.pay_details:
+        lines.append(f"Реквизиты: {reminder.pay_details}")
+    if reminder.pay_url:
+        lines += ["", f"Оплатить: {reminder.pay_url}"]
     if panel_url:
         lines += ["", f"Открыть панель: {panel_url}"]
     lines += ["", "—", "Invoice Keeper · напоминания о регулярных платежах", "Письмо отправлено автоматически, отвечать на него не нужно."]
@@ -94,7 +98,15 @@ def render_html(reminder: Reminder, content: EmailContent, money: str, due: str,
         for label, value in (
             ("Срок оплаты", due),
             ("Просрочка" if reminder.days_left < 0 else "До срока", e(_days_phrase(reminder.days_left))),
+            *((("Реквизиты", e(reminder.pay_details)),) if reminder.pay_details else ()),
         )
+    )
+    pay_button = (
+        f'<tr><td style="padding:28px 0 0"><a class="ik-btn" href="{e(reminder.pay_url, quote=True)}" '
+        f'style="display:inline-block;background:{INK};color:#ffffff;text-decoration:none;font:600 15px/20px {FONT};'
+        f'padding:14px 26px;border-radius:12px">Оплатить</a></td></tr>'
+        if reminder.pay_url
+        else ""
     )
     logo = (
         f'<img src="cid:{LOGO_CID}" width="36" height="36" alt="" style="display:block;border:0;border-radius:10px">'
@@ -151,6 +163,7 @@ def render_html(reminder: Reminder, content: EmailContent, money: str, due: str,
         <tr><td class="ik-ink ik-amount" style="padding:0 0 4px;font:800 36px/42px {FONT};color:{INK};letter-spacing:-0.02em">{e(money)}</td></tr>
         <tr><td class="ik-text" style="padding:0 0 18px;font:15px/22px {FONT};color:{TEXT}">{e(reminder.name)}</td></tr>
         <tr><td><table role="presentation" width="100%" cellpadding="0" cellspacing="0">{rows}</table></td></tr>
+        {pay_button}
         {button}
       </table>
     </td></tr>

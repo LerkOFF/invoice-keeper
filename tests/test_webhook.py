@@ -63,6 +63,7 @@ def test_reminder_is_posted_as_json_with_chat_compatible_fields():
         "currency": "RUB",
         "due_date": (TODAY + timedelta(days=2)).isoformat(),
         "days_left": 2,
+        "pay_url": None,
         "is_overdue": False,
     }
     assert body["sent_at"].endswith("Z")

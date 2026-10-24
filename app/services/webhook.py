@@ -53,6 +53,7 @@ class WebhookNotifier:
                 "currency": reminder.currency,
                 "due_date": reminder.due_date.isoformat(),
                 "days_left": reminder.days_left,
+                "pay_url": reminder.pay_url,
                 "is_overdue": reminder.is_overdue,
             },
             reminder.text,

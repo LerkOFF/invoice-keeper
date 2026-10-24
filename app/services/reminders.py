@@ -33,7 +33,12 @@ def _money(occurrence: PaymentOccurrence) -> str:
 def build_message(occurrence: PaymentOccurrence, today: date, html: bool = False) -> str:
     """Напоминание о сроке. Обычный текст для webhook, html=True для Telegram и MAX."""
     return wording.reminder_message(
-        occurrence.recurring_payment.name, _money(occurrence), occurrence.due_date, (occurrence.due_date - today).days, html=html
+        occurrence.recurring_payment.name,
+        _money(occurrence),
+        occurrence.due_date,
+        (occurrence.due_date - today).days,
+        html=html,
+        details=occurrence.recurring_payment.pay_details,
     )
 
 
@@ -45,6 +50,7 @@ def build_overdue_message(occurrence: PaymentOccurrence, today: date, html: bool
         (occurrence.due_date - today).days,
         overdue_notice=True,
         html=html,
+        details=occurrence.recurring_payment.pay_details,
     )
 
 
@@ -137,6 +143,8 @@ def build_reminder(occurrence: PaymentOccurrence, today: date, overdue_notice: b
         text=build_overdue_message(occurrence, today) if overdue_notice else build_message(occurrence, today),
         html=build_overdue_message(occurrence, today, html=True) if overdue_notice else build_message(occurrence, today, html=True),
         overdue_notice=overdue_notice,
+        pay_url=payment.pay_url,
+        pay_details=payment.pay_details,
     )
 
 

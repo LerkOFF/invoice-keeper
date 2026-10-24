@@ -8,7 +8,7 @@ from app.core.db import SessionLocal
 from app.services import audit
 from app.models import RecurringPayment
 from app.schemas.payments import RecurringPaymentCreate, RecurringPaymentOut, RecurringPaymentUpdate
-from app.services.payments import PaymentRuleError, update_payment
+from app.services.payments import PaymentRuleError, update_payment, update_payment_link
 from app.services.periods import ensure_occurrences
 from app.services.reminders import run_reminders
 
@@ -52,6 +52,8 @@ def create_recurring_payment(
         currency=payload.currency.value,
         first_due_date=payload.first_due_date,
         period=payload.period.value,
+        pay_url=payload.pay_url,
+        pay_details=payload.pay_details,
     )
     payment.amount = payload.amount
     db.add(payment)
@@ -114,6 +116,7 @@ def update_recurring_payment(
         )
     except PaymentRuleError as error:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(error)) from error
+    changes |= update_payment_link(payment, {f: getattr(payload, f) for f in ("pay_url", "pay_details") if f in payload.model_fields_set})
     if changes:
         audit.record(
             db,

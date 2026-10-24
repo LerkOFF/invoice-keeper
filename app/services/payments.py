@@ -86,3 +86,13 @@ def update_payment(
         ensure_occurrences(db, payment, today)
 
     return changes
+
+
+def update_payment_link(payment: RecurringPayment, fields: dict) -> dict:
+    """Ссылка на оплату и реквизиты. В `fields` только переданные поля: None убирает значение."""
+    changes: dict = {}
+    for field in ("pay_url", "pay_details"):
+        if field in fields and fields[field] != getattr(payment, field):
+            changes[f"{field}_before"] = getattr(payment, field)
+            setattr(payment, field, fields[field])
+    return changes
