@@ -14,6 +14,7 @@ const state = {
   sort: { key: "due", dir: 1 },
   cal: null, // { year, month, selected }
   budgetYear: null,
+  budgetCurrency: null,
 };
 
 // ---------- язык интерфейса: русский и английский, как переключатель в кабинете aeza ----------
@@ -343,6 +344,13 @@ const I18N = {
     "budget.paidPart": "оплачено {amount}",
     "budget.empty": "В этом году платежей нет",
     "budget.emptyText": "Бюджет появится, как только администратор добавит регулярные платежи.",
+    "budget.currency": "Валюта графиков",
+    "budget.chartNote": "{currency}, без конвертации",
+    "budget.chartMonths": "Плановые расходы по месяцам {year} года, {currency}",
+    "budget.chartCategories": "Плановые расходы по категориям, {currency}",
+    "budget.tipPlan": "план",
+    "budget.lineAria": "{name}: план {plan}, оплачено {paid}, осталось {left}",
+    "budget.monthEmpty": "{month}: платежей нет",
 
     "audit.lead": "Кто и что делал: входы, оплаты (в том числе из Telegram и MAX), платежи, пользователи. Пароли сюда не попадают",
     "audit.colTime": "Время",
@@ -527,7 +535,7 @@ const I18N = {
     "help.adminOnly": "только администратор",
     "help.about.payments": "Итоги по каждой валюте и все периоды: отметить оплату, исправить дату, приложить чек, выгрузить CSV.",
     "help.about.calendar": "Сроки по дням на любой месяц. Будущие месяцы считаются по правилу повторения.",
-    "help.about.budget": "Плановые расходы на год и по месяцам, отдельно по валютам: сколько оплачено и сколько осталось.",
+    "help.about.budget": "Плановые расходы на год и по месяцам, отдельно по валютам: сколько оплачено и сколько осталось. Графики по месяцам и категориям.",
     "help.about.recurring": "Добавить, изменить или прекратить регулярный платёж.",
     "help.about.users": "Создать, переименовать или удалить обычных пользователей и сменить им пароль.",
     "help.about.audit": "Кто входил и что менял: оплаты, платежи, пользователи, отправленные напоминания.",
@@ -921,6 +929,13 @@ const I18N = {
     "budget.paidPart": "paid {amount}",
     "budget.empty": "No payments this year",
     "budget.emptyText": "The budget appears once the administrator adds recurring payments.",
+    "budget.currency": "Chart currency",
+    "budget.chartNote": "{currency}, no conversion",
+    "budget.chartMonths": "Planned spending by month in {year}, {currency}",
+    "budget.chartCategories": "Planned spending by category, {currency}",
+    "budget.tipPlan": "planned",
+    "budget.lineAria": "{name}: planned {plan}, paid {paid}, left {left}",
+    "budget.monthEmpty": "{month}: no payments",
 
     "audit.lead": "Who did what: sign-ins, payments (including from Telegram and MAX), recurring payments, users. Passwords never get here",
     "audit.colTime": "Time",
@@ -1105,7 +1120,7 @@ const I18N = {
     "help.adminOnly": "admin only",
     "help.about.payments": "Totals per currency and every period: mark as paid, fix the date, attach a receipt, download CSV.",
     "help.about.calendar": "Due dates by day for any month. Future months follow the repeat rule.",
-    "help.about.budget": "Planned spending for the year and by month, per currency: how much is paid and how much is left.",
+    "help.about.budget": "Planned spending for the year and by month, per currency: how much is paid and how much is left. Charts by month and category.",
     "help.about.recurring": "Add, edit or stop a recurring payment.",
     "help.about.users": "Create, rename or delete regular users and change their passwords.",
     "help.about.audit": "Who signed in and what changed: payments, users, sent reminders.",
@@ -3315,13 +3330,332 @@ function dayItem(it, reload) {
   );
 }
 
+// ---------- графики «Бюджета» ----------
+// SVG строится под настоящую ширину блока (ResizeObserver), поэтому подписи не сжимаются на узком экране.
+// Цвета, толщины и анимация заданы классами: CSP панели не пускает inline-стили.
+
+const CHART_GAP = 2; // зазор между отрезками столбика и полосы, в пикселях
+
+// Шкала с круглыми делениями: 1, 2, 2.5 или 5, умноженные на степень десяти
+function chartScale(max, ticks = 4) {
+  if (!(max > 0)) return { step: 1, top: ticks };
+  const raw = max / ticks;
+  const mag = 10 ** Math.floor(Math.log10(raw));
+  const norm = raw / mag;
+  const step = (norm <= 1 ? 1 : norm <= 2 ? 2 : norm <= 2.5 ? 2.5 : norm <= 5 ? 5 : 10) * mag;
+  return { step, top: Math.ceil(max / step - 1e-9) * step };
+}
+
+function compactMoney(value, currency) {
+  return new Intl.NumberFormat(locale(), { style: "currency", currency, currencyDisplay: "narrowSymbol", notation: "compact", maximumFractionDigits: 1 }).format(value);
+}
+
+// Столбик: скруглённый верх (4px), прямое основание
+function columnPath(x, y, w, hgt, round) {
+  const r = round ? Math.min(4, w / 2, hgt) : 0;
+  const arc = (ex, ey) => (r ? `A${r} ${r} 0 0 1 ${ex} ${ey}` : "");
+  return `M${x} ${y + hgt}V${y + r}${arc(x + r, y)}H${x + w - r}${arc(x + w, y + r)}V${y + hgt}Z`;
+}
+
+// Полоса: скруглённый правый конец, прямое начало
+function barPath(x, y, w, hgt, round) {
+  const r = round ? Math.min(4, hgt / 2, w) : 0;
+  const arc = (ex, ey) => (r ? `A${r} ${r} 0 0 1 ${ex} ${ey}` : "");
+  return `M${x} ${y}H${x + w - r}${arc(x + w, y + r)}V${y + hgt - r}${arc(x + w - r, y + hgt)}H${x}Z`;
+}
+
+// Блок, который перерисовывает график при смене ширины. Анимация роста только при первой отрисовке.
+// Подписи с data-fit обрезаются многоточием до заданной ширины уже после вставки в страницу.
+function responsiveChart(draw) {
+  const box = h("div", { class: "chart" });
+  let width = 0;
+  const observer = new ResizeObserver(([entry]) => {
+    if (!box.isConnected) {
+      observer.disconnect();
+      return;
+    }
+    const next = Math.floor(entry.contentRect.width);
+    if (next <= 0 || next === width) return;
+    const first = width === 0;
+    width = next;
+    box.replaceChildren(draw(width, first));
+    for (const label of box.querySelectorAll("text[data-fit]")) fitText(label, Number(label.dataset.fit));
+  });
+  observer.observe(box);
+  return box;
+}
+
+function fitText(label, limit) {
+  const full = label.textContent;
+  if (label.getComputedTextLength() <= limit) return;
+  label.append(svg("title", {}, full));
+  const node = label.firstChild;
+  let keep = full.length;
+  while (keep > 1 && label.getComputedTextLength() > limit) node.textContent = `${full.slice(0, --keep).trimEnd()}…`;
+}
+
+// Подсказка внутри SVG: значение крупно, подпись ряда мельче, ключ ряда короткой линией его цвета.
+// Не вылезает за края графика: если справа места нет, встаёт слева от отметки.
+function chartTip(root, width, height) {
+  const bg = svg("rect", { class: "chart-tip-bg", rx: 8 });
+  const body = svg("g", {});
+  const tip = svg("g", { class: "chart-tip", "aria-hidden": "true", visibility: "hidden" }, bg, body);
+  root.append(tip);
+  return {
+    show(x, y, title, rows) {
+      const lines = [svg("text", { x: 12, y: 22, class: "chart-tip-title" }, title)];
+      rows.forEach((row, i) => {
+        const ly = 44 + i * 20;
+        if (row.kind) lines.push(svg("line", { x1: 12, x2: 22, y1: ly - 4, y2: ly - 4, class: row.kind }));
+        lines.push(
+          svg(
+            "text",
+            { x: row.kind ? 30 : 12, y: ly },
+            svg("tspan", { class: "chart-tip-value" }, row.value),
+            svg("tspan", { class: "chart-tip-label", dx: 6 }, row.label),
+          ),
+        );
+      });
+      body.replaceChildren(...lines);
+      const w = Math.ceil(body.getBBox().width) + 24;
+      const hgt = 34 + rows.length * 20;
+      bg.setAttribute("width", w);
+      bg.setAttribute("height", hgt);
+      const left = x + 12 + w <= width ? x + 12 : Math.max(0, x - 12 - w);
+      const top = Math.min(Math.max(0, y - hgt / 2), Math.max(0, height - hgt));
+      tip.setAttribute("transform", `translate(${left} ${top})`);
+      tip.setAttribute("visibility", "visible");
+    },
+    hide() {
+      tip.setAttribute("visibility", "hidden");
+    },
+  };
+}
+
+function lineTipRows(line, currency) {
+  return [
+    { value: money(line.planned, currency), label: t("budget.tipPlan") },
+    { kind: "paid", value: money(line.paid, currency), label: t("sum.paid") },
+    { kind: "left", value: money(line.remaining, currency), label: t("sum.left") },
+  ];
+}
+
+// Наведение и фокус показывают подсказку и приглушают остальные отметки; Enter и пробел работают как клик
+function bindChartHit(hit, { root, mark, onShow, tip, onOpen }) {
+  const show = () => {
+    root.classList.add("dim");
+    mark.classList.add("on");
+    onShow();
+  };
+  const hide = () => {
+    root.classList.remove("dim");
+    mark.classList.remove("on");
+    tip.hide();
+  };
+  hit.addEventListener("pointerenter", show);
+  hit.addEventListener("focus", show);
+  hit.addEventListener("pointerleave", hide);
+  hit.addEventListener("blur", hide);
+  if (onOpen) {
+    hit.addEventListener("click", onOpen);
+    hit.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        onOpen();
+      }
+    });
+  }
+}
+
+function chartLegend() {
+  return h("div", { class: "chart-legend" }, h("span", { class: "key paid" }, t("sum.paid")), h("span", { class: "key left" }, t("sum.left")));
+}
+
+// Столбики по месяцам одной валюты: снизу оплачено, сверху остаток. Клик открывает месяц в календаре.
+function budgetMonthsChart({ year, months, currency, nowMonth, onOpen }) {
+  const rows = months.map((m) => ({ month: m.month, line: m.currencies.find((c) => c.currency === currency) }));
+  const { step, top } = chartScale(Math.max(...rows.map((r) => Number(r.line.planned))));
+  return responsiveChart((width, animate) => {
+    const H = 260;
+    const padL = 72;
+    const padR = 4;
+    const padT = 12;
+    const padB = 30;
+    const plotW = width - padL - padR;
+    const plotH = H - padT - padB;
+    const base = padT + plotH;
+    const scale = (v) => (v / top) * plotH;
+    const slot = plotW / rows.length;
+    const barW = Math.max(6, Math.min(24, slot * 0.56));
+    const everyOther = slot < 34;
+
+    const root = svg("svg", {
+      class: `chart-svg${animate ? " grow" : ""}`,
+      width,
+      height: H,
+      viewBox: `0 0 ${width} ${H}`,
+      role: "group",
+      "aria-label": t("budget.chartMonths", { currency, year }),
+    });
+    const grid = svg("g", { class: "chart-grid", "aria-hidden": "true" });
+    for (let v = 0; v <= top + step / 2; v += step) {
+      const gy = Math.round(base - scale(v)) + 0.5;
+      grid.append(
+        svg("line", { x1: padL, x2: width - padR, y1: gy, y2: gy, class: v === 0 ? "base" : "" }),
+        svg("text", { x: padL - 10, y: gy, class: "chart-tick", "text-anchor": "end", "dominant-baseline": "middle" }, compactMoney(v, currency)),
+      );
+    }
+    const cols = svg("g", { "aria-hidden": "true" });
+    const hits = svg("g", {});
+    root.append(grid, cols, hits);
+    const tip = chartTip(root, width, H);
+
+    rows.forEach(({ month, line }, i) => {
+      const cx = padL + slot * i + slot / 2;
+      const x = cx - barW / 2;
+      const paid = Number(line.paid);
+      const left = Number(line.remaining);
+      const paidH = scale(paid);
+      const col = svg("g", { class: "chart-col" });
+      if (paid > 0) col.append(svg("path", { class: "mark-paid", d: columnPath(x, base - paidH, barW, paidH, left <= 0) }));
+      if (left > 0) {
+        const gap = paid > 0 ? CHART_GAP : 0;
+        const leftH = Math.max(scale(left) - gap, 1);
+        col.append(svg("path", { class: "mark-left", d: columnPath(x, base - paidH - gap - leftH, barW, leftH, true) }));
+      }
+      cols.append(col);
+
+      const label = monthName(month);
+      if (!everyOther || i % 2 === 0) {
+        const short = new Intl.DateTimeFormat(locale(), { month: "short", timeZone: "UTC" }).format(new Date(Date.UTC(year, month - 1, 1))).replace(".", "");
+        cols.append(svg("text", { x: cx, y: H - 8, class: `chart-month${month === nowMonth ? " now" : ""}`, "text-anchor": "middle" }, short));
+      }
+
+      const empty = !line.count_planned;
+      const aria = empty
+        ? t("budget.monthEmpty", { month: label })
+        : t("budget.lineAria", { name: label, plan: money(line.planned, currency), paid: money(line.paid, currency), left: money(line.remaining, currency) });
+      const hit = svg("rect", { class: "chart-hit", x: padL + slot * i, y: padT, width: slot, height: plotH + padB, rx: 6, tabindex: 0, role: "button", "aria-label": aria });
+      hits.append(hit);
+      bindChartHit(hit, {
+        root,
+        mark: col,
+        tip,
+        onOpen: () => onOpen(month),
+        onShow: () =>
+          tip.show(x + barW, base - scale(Number(line.planned)) / 2 - 8, `${label} ${year}`, empty ? [{ value: t("budget.none"), label: "" }] : lineTipRows(line, currency)),
+      });
+    });
+    return root;
+  });
+}
+
+// Полосы по категориям одной валюты: от большей к меньшей, «Без категории» последней
+function budgetCategoryChart({ categories, currency }) {
+  const rows = categories
+    .map((row) => ({ name: row.category || t("payments.noCategory"), none: !row.category, line: row.currencies.find((c) => c.currency === currency) }))
+    .filter((r) => r.line.count_planned > 0)
+    .sort((a, b) => a.none - b.none || Number(b.line.planned) - Number(a.line.planned));
+  if (!rows.length) return null;
+  const max = Math.max(...rows.map((r) => Number(r.line.planned)));
+  return responsiveChart((width, animate) => {
+    // на узком экране подпись встаёт над полосой, иначе от неё остаётся пара букв
+    const stacked = width < 480;
+    const rowH = stacked ? 52 : 40;
+    const barH = 16;
+    const labelW = stacked ? 0 : Math.min(220, Math.round(width * 0.32));
+    const valueW = 120;
+    const span = Math.max(40, width - labelW - valueW);
+    const H = rows.length * rowH;
+
+    const root = svg("svg", {
+      class: `chart-svg${animate ? " grow" : ""}`,
+      width,
+      height: H,
+      viewBox: `0 0 ${width} ${H}`,
+      role: "group",
+      "aria-label": t("budget.chartCategories", { currency }),
+    });
+    const bars = svg("g", { "aria-hidden": "true" });
+    const hits = svg("g", {});
+    root.append(bars, hits);
+    const tip = chartTip(root, width, H);
+
+    rows.forEach((r, i) => {
+      const cy = stacked ? i * rowH + 34 : i * rowH + rowH / 2;
+      const labelY = stacked ? i * rowH + 12 : cy;
+      const y = cy - barH / 2;
+      const paid = Number(r.line.paid);
+      const left = Number(r.line.remaining);
+      const paidW = (paid / max) * span;
+      const total = (Number(r.line.planned) / max) * span;
+      const bar = svg("g", { class: "chart-bar" });
+      if (paid > 0) bar.append(svg("path", { class: "mark-paid", d: barPath(labelW, y, paidW, barH, left <= 0) }));
+      if (left > 0) {
+        const gap = paid > 0 ? CHART_GAP : 0;
+        bar.append(svg("path", { class: "mark-left", d: barPath(labelW + paidW + gap, y, Math.max(total - paidW - gap, 1), barH, true) }));
+      }
+      bars.append(
+        svg("text", { x: 0, y: labelY, class: "chart-label", "dominant-baseline": "middle", "data-fit": stacked ? width : labelW - 16 }, r.name),
+        bar,
+        svg("text", { x: labelW + total + 8, y: cy, class: "chart-value", "dominant-baseline": "middle" }, money(r.line.planned, currency)),
+      );
+
+      const hit = svg("rect", {
+        class: "chart-hit",
+        x: 0,
+        y: i * rowH,
+        width,
+        height: rowH,
+        rx: 6,
+        tabindex: 0,
+        "aria-label": t("budget.lineAria", { name: r.name, plan: money(r.line.planned, currency), paid: money(r.line.paid, currency), left: money(r.line.remaining, currency) }),
+      });
+      hits.append(hit);
+      bindChartHit(hit, { root, mark: bar, tip, onShow: () => tip.show(labelW + total, cy, r.name, lineTipRows(r.line, currency)) });
+    });
+    return root;
+  });
+}
+
 async function budgetView(main) {
   if (!state.budgetYear) state.budgetYear = Number(state.asOf.slice(0, 4));
   const cards = h("section", { class: "summary", "aria-label": t("tab.budget") }, skeletonTileList());
   const tableBox = h("div", { class: "table-card" }, skeletonRows());
   const categoryBox = h("div", { class: "table-card" });
-  const categorySection = section(t("budget.byCategory"), categoryBox);
+  const monthsChart = h("div", { class: "chart-card", hidden: true });
+  const categoryChart = h("div", { class: "chart-card", hidden: true });
+  const categorySection = section(t("budget.byCategory"), categoryChart, categoryBox);
+  const currencyPick = h("div", { class: "chart-currency" });
   const title = h("h3", { class: "cal-title" });
+
+  // Графики показывают одну валюту: суммы в разных валютах не складываются
+  function drawCharts(data, active) {
+    monthsChart.hidden = !active.length;
+    categoryChart.hidden = !active.length;
+    currencyPick.replaceChildren();
+    if (!active.length) return;
+    if (!active.includes(state.budgetCurrency)) state.budgetCurrency = active[0];
+    const currency = state.budgetCurrency;
+    if (active.length > 1) {
+      currencyPick.append(
+        h("span", { class: "chart-currency-label" }, t("budget.currency")),
+        segmented(active.map((cur) => ({ value: cur, label: cur })), currency, (cur) => {
+          state.budgetCurrency = cur;
+          drawCharts(data, active);
+        }),
+      );
+    }
+    const head = h("div", { class: "chart-head" }, chartLegend(), h("span", { class: "chart-note" }, t("budget.chartNote", { currency })));
+    const [nowYear, nowMonth] = state.asOf.split("-").map(Number);
+    monthsChart.replaceChildren(
+      head,
+      budgetMonthsChart({ year: data.year, months: data.months, currency, nowMonth: data.year === nowYear ? nowMonth : null, onOpen: (m) => openMonth(data.year, m) }),
+    );
+    const bars = budgetCategoryChart({ categories: data.categories || [], currency });
+    categoryChart.hidden = !bars;
+    if (bars) categoryChart.replaceChildren(head.cloneNode(true), bars);
+  }
 
   // Стрелка на плитке: вкладка «Платежи» с периодами этой валюты
   const openPayments = (currency) => {
@@ -3392,6 +3726,7 @@ async function budgetView(main) {
           )
         : h("div", { class: "empty" }, h("strong", {}, t("budget.empty")), t("budget.emptyText")),
     );
+    drawCharts(data, active);
 
     // по категориям: только если хоть у одного платежа категория задана
     const named = (data.categories || []).some((c) => c.category);
@@ -3443,10 +3778,11 @@ async function budgetView(main) {
       h("button", { class: "btn btn-sm", type: "button", "aria-label": t("budget.prev"), title: t("budget.prev"), onclick: () => shift(-1) }, icon("chevronLeft")),
       title,
       h("button", { class: "btn btn-sm", type: "button", "aria-label": t("budget.next"), title: t("budget.next"), onclick: () => shift(1) }, icon("chevronRight")),
+      currencyPick,
     ),
     cards,
+    section(t("budget.byMonth"), monthsChart, tableBox),
     categorySection,
-    section(t("budget.byMonth"), tableBox),
   );
   await reload();
 }

@@ -475,6 +475,50 @@ select option { background: var(--block); color: var(--title); }
 .share-row.overdue.has .share-sum { color: var(--red-ink); font-weight: 600; }
 .share-pct { text-align: right; font-size: 13px; color: var(--subtitle); }
 
+/* графики «Бюджета»: оплачено зелёным, остаток серым. Зелёный темнее, чем на плитках, чтобы столбик читался
+   на белом фоне и оставался различим при дальтонизме; цвета проверены по контрасту и в обеих темах */
+.chart-card {
+  --mark-paid: light-dark(#3a9a2a, #4cad24);
+  --mark-left: light-dark(#a3a3a3, #6b6b6b);
+  display: grid; gap: 16px; padding: 20px 20px 12px; border-radius: 16px; background: var(--page);
+}
+.chart-card[hidden] { display: none; }
+.chart-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; font-size: 14px; color: var(--text); }
+.chart-legend { display: flex; flex-wrap: wrap; gap: 6px 18px; }
+.chart-legend .key { display: inline-flex; align-items: center; gap: 8px; }
+.chart-legend .key::before { content: ""; flex: none; width: 10px; height: 10px; border-radius: 3px; background: var(--mark-left); }
+.chart-legend .key.paid::before { background: var(--mark-paid); }
+.chart-note { font-size: 13px; color: var(--subtitle); }
+.chart { min-width: 0; }
+.chart-svg { display: block; overflow: visible; font-family: inherit; }
+.chart-grid line { stroke: var(--line); stroke-width: 1; }
+.chart-grid line.base { stroke: var(--stroke); }
+.chart-tick, .chart-month { fill: var(--subtitle); font-size: 12px; font-variant-numeric: tabular-nums; }
+.chart-month.now { fill: var(--title); font-weight: 600; }
+.chart-label { fill: var(--text); font-size: 14px; }
+.chart-value { fill: var(--title); font-size: 13px; font-variant-numeric: tabular-nums; }
+.mark-paid { fill: var(--mark-paid); }
+.mark-left { fill: var(--mark-left); }
+.chart-col, .chart-bar { transition: opacity 0.2s ease-in-out; }
+.chart-svg.dim .chart-col:not(.on), .chart-svg.dim .chart-bar:not(.on) { opacity: 0.4; }
+.chart-hit { fill: transparent; cursor: pointer; outline: none; }
+.chart-hit:not([role]) { cursor: default; } /* полосы категорий никуда не ведут */
+.chart-hit:focus-visible { stroke: var(--focus); stroke-width: 2; }
+.chart-svg.grow .chart-col { transform-box: fill-box; transform-origin: center bottom; animation: col-grow 0.6s var(--ease-io) 0.1s both; }
+.chart-svg.grow .chart-bar { transform-box: fill-box; transform-origin: left center; animation: share-grow 0.6s var(--ease-io) 0.1s both; }
+@keyframes col-grow { from { transform: scaleY(0); } }
+.chart-tip { pointer-events: none; }
+.chart-tip-bg { fill: var(--toast-bg); stroke: var(--stroke); filter: drop-shadow(0 4px 12px rgb(0 0 0 / 0.18)); }
+.chart-tip-title { fill: var(--title); font-size: 13px; font-weight: 600; }
+.chart-tip-value { fill: var(--title); font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.chart-tip-label { fill: var(--subtitle); font-size: 13px; }
+.chart-tip line { stroke-width: 3; stroke-linecap: round; }
+.chart-tip line.paid { stroke: var(--mark-paid); }
+.chart-tip line.left { stroke: var(--mark-left); }
+.chart-currency { display: flex; align-items: center; gap: 10px; margin-left: auto; }
+.chart-currency:empty { display: none; }
+.chart-currency-label { font-size: 14px; color: var(--subtitle); }
+
 /* оранжевый стикер, как «free!» и «-40% off» на плитках услуг */
 .sticker {
   position: absolute; top: -10px; right: 16px; z-index: 2;
