@@ -932,3 +932,5 @@ td code { font-size: 13px; color: var(--title); }
 .cell-link { display: inline-block; margin-top: 2px; font-size: 14px; line-height: 20px; color: var(--orange-ink); text-decoration: none; }
 .cell-link:hover { text-decoration: underline; }
 .field-slot { display: contents; }
+.qr-box { display: flex; justify-content: center; padding: 8px 0 4px; }
+.qr { width: 208px; height: 208px; border-radius: 8px; }

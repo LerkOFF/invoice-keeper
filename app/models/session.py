@@ -25,6 +25,21 @@ class AuthSession(Base):
     key_tag: Mapped[str | None] = mapped_column(String(16))
 
 
+class AdminTwoFactor(Base):
+    """Второй фактор администратора, включённый из панели. Одна строка с id=1.
+
+    Действует, только когда в .env нет ADMIN_TOTP_SECRET: секрет из .env главнее.
+    pending_secret: выдан для настройки, но ещё не подтверждён кодом из приложения.
+    """
+
+    __tablename__ = "admin_two_factor"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    secret: Mapped[str | None] = mapped_column(String(64))
+    pending_secret: Mapped[str | None] = mapped_column(String(64))
+    enabled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
 class ApiToken(Base):
     """Токен для интеграций вместо сессии. В базе только хэш, сам токен показывается один раз при создании."""
 

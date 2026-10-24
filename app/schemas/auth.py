@@ -47,6 +47,37 @@ class PasswordChangeOut(BaseModel):
     ended_sessions: int = Field(description="Сколько других сессий закрыто")
 
 
+class TwoFactorStatus(BaseModel):
+    enabled: bool = Field(description="Вход администратора требует код из приложения-аутентификатора")
+    source: Literal["env", "panel"] | None = Field(
+        description="env: секрет задан в .env (ADMIN_TOTP_SECRET), из панели не меняется; panel: включён из панели"
+    )
+    enabled_at: UtcDateTime | None = Field(default=None, description="Когда включён из панели")
+
+
+class TwoFactorSetup(BaseModel):
+    secret: str = Field(description="Ключ для ввода вручную в приложении-аутентификаторе")
+    uri: str = Field(description="Ссылка otpauth:// с тем же ключом")
+    qr: list[str] = Field(description="QR-код со ссылкой: строки из 0 и 1, 1 означает тёмный модуль, без поля вокруг")
+
+
+class TwoFactorCode(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    code: str = Field(min_length=6, max_length=16, examples=["123456"])
+
+
+class TwoFactorDisable(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    password: str = Field(min_length=1, max_length=256, description="Пароль администратора")
+    code: str = Field(min_length=6, max_length=16, description="Текущий код из приложения", examples=["123456"])
+
+
+class TwoFactorEnabled(BaseModel):
+    ended_sessions: int = Field(description="Сколько других сессий администратора закрыто")
+
+
 class SessionOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

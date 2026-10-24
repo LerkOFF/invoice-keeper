@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 from app.core.config import Settings
 from app.core.security import hash_password, verify_password
 from app.models import ApiToken, AuthSession, Role, User
+from app.services import two_factor
 from app.services.totp import admin_otp
 
 # Хэш для выравнивания времени ответа, когда логина в базе нет
@@ -119,14 +120,15 @@ def authenticate(db: Session, settings: Settings, login: str, password: str) -> 
     return Principal(id=user.id, login=user.login, role=Role(user.role))
 
 
-def needs_otp(settings: Settings, principal: Principal) -> bool:
-    """Второй фактор нужен администратору, когда в .env задан ADMIN_TOTP_SECRET."""
-    return principal.is_admin and bool(settings.admin_totp_secret)
+def needs_otp(db: Session, settings: Settings, principal: Principal) -> bool:
+    """Второй фактор нужен администратору, когда секрет задан в .env (ADMIN_TOTP_SECRET) или включён из панели."""
+    return principal.is_admin and bool(two_factor.secret(db, settings))
 
 
-def check_otp(settings: Settings, code: str) -> bool:
+def check_otp(db: Session, settings: Settings, code: str) -> bool:
     """Код из приложения-аутентификатора. Каждый код действует один раз."""
-    return admin_otp.verify(settings.admin_totp_secret, code)
+    current = two_factor.secret(db, settings)
+    return bool(current) and admin_otp.verify(current, code)
 
 
 def create_session(

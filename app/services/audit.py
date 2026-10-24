@@ -23,6 +23,8 @@ ACTION_LABELS = {
     "auth.login_locked": "Вход заблокирован после неудачных попыток",
     "auth.logout": "Выход",
     "auth.otp_failed": "Неверный код двухфакторного входа",
+    "auth.2fa_enabled": "Двухфакторный вход включён",
+    "auth.2fa_disabled": "Двухфакторный вход выключен",
     "auth.password_changed": "Пароль изменён самим пользователем",
     "auth.password_failed": "Неверный текущий пароль при смене",
     "auth.session_ended": "Сессия завершена",

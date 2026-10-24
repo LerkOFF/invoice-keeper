@@ -23,6 +23,10 @@ ADMIN_ONLY = {
     ("PATCH", f"{B}/users/{{id}}"),
     ("DELETE", f"{B}/users/{{id}}"),
     ("GET", f"{B}/audit-log"),
+    ("GET", f"{B}/auth/2fa"),
+    ("POST", f"{B}/auth/2fa/setup"),
+    ("POST", f"{B}/auth/2fa/enable"),
+    ("POST", f"{B}/auth/2fa/disable"),
 }
 
 # Все ручки из схемы OpenAPI: новая ручка попадёт в проверку сама

@@ -104,6 +104,8 @@ const I18N = {
     "check.url": "Ссылка: нужен адрес, начинающийся с http:// или https://",
     "check.file": "Файл: выберите файл",
     "check.credentials": "Введите логин и пароль",
+    "check.otp": "Код из приложения: шесть цифр",
+    "check.enterPassword": "Введите пароль",
 
     "pw.show": "Показать пароль",
     "pw.hide": "Скрыть пароль",
@@ -380,6 +382,8 @@ const I18N = {
     "action.auth.login_locked": "Вход заблокирован",
     "action.auth.logout": "Выход",
     "action.auth.otp_failed": "Неверный код второго фактора",
+    "action.auth.2fa_enabled": "Двухфакторный вход включён",
+    "action.auth.2fa_disabled": "Двухфакторный вход выключен",
     "action.auth.password_changed": "Пароль изменён",
     "action.auth.password_failed": "Неверный текущий пароль",
     "action.auth.session_ended": "Сессия завершена",
@@ -451,7 +455,23 @@ const I18N = {
     "account.on": "включён",
     "account.off": "выключен",
     "account.twoFactorOnText": "Кроме пароля при входе нужен шестизначный код из приложения-аутентификатора. Каждый код принимается один раз.",
-    "account.twoFactorOffText": "Чтобы включить: выполните на сервере команду ниже, добавьте строку ADMIN_TOTP_SECRET в .env, откройте ссылку otpauth:// или введите секрет в приложении-аутентификаторе и перезапустите сервис. Сессии администратора закроются.",
+    "account.twoFactorOffText": "Сейчас для входа хватает пароля. Включите второй фактор: отсканируйте QR-код в Google Authenticator, Яндекс Ключе или другом приложении и подтвердите кодом.",
+    "account.twoFactorEnvText": "Секрет задан в .env на сервере (ADMIN_TOTP_SECRET), поэтому из панели его не выключить. Кроме пароля при входе нужен шестизначный код из приложения.",
+    "account.twoFactorPanelText": "Включён из панели {date}. Кроме пароля при входе нужен шестизначный код из приложения, каждый код принимается один раз.",
+    "account.twoFactorEnable": "Включить",
+    "account.twoFactorDisable": "Выключить",
+    "account.twoFactorSetupTitle": "Двухфакторный вход",
+    "account.twoFactorStep1": "1. Откройте приложение-аутентификатор (Google Authenticator, Яндекс Ключ, Aegis, 1Password) и отсканируйте QR-код.",
+    "account.twoFactorManual": "Не сканируется: выберите в приложении «Ввести ключ вручную», тип «по времени», и вставьте ключ:",
+    "account.twoFactorStep2": "2. Введите шестизначный код, который показало приложение. Пока код не подтверждён, вход не меняется. После включения остальные сессии администратора закроются.",
+    "account.twoFactorConfirm": "Подтвердить и включить",
+    "account.twoFactorOn": "Двухфакторный вход включён",
+    "account.twoFactorOnEnded": "Двухфакторный вход включён, закрыто: {sessions}",
+    "account.twoFactorDisableTitle": "Выключить двухфакторный вход?",
+    "account.twoFactorDisableDesc": "Для входа снова будет хватать пароля. Подтвердите паролем администратора и текущим кодом из приложения.",
+    "account.twoFactorOff": "Двухфакторный вход выключен",
+    "account.secretCopied": "Ключ скопирован",
+    "account.qrLabel": "QR-код для приложения-аутентификатора",
     "account.sessions": "активные сессии",
     "account.sessionsLead": "Где сейчас выполнен вход в эту учётную запись. Незнакомое устройство завершите и смените пароль.",
     "account.colDevice": "Устройство",
@@ -572,7 +592,7 @@ const I18N = {
     "help.sec.admin": "Администратор задаётся только в .env на сервере. Через панель или API его не создать, не изменить и не удалить.",
     "help.sec.passwords": "Пароли хранятся только в виде хэша argon2 и никогда не попадают в журнал.",
     "help.sec.sessions": "«Выйти» завершает сессию на сервере. Во вкладке «Аккаунт» видны все входы, любой можно завершить. После смены пароля остальные сессии закрываются.",
-    "help.sec.twofactor": "Вход администратора защищается вторым фактором: кодом из приложения-аутентификатора (TOTP). Каждый код принимается один раз.",
+    "help.sec.twofactor": "Вход администратора защищается вторым фактором: кодом из приложения-аутентификатора (TOTP). Включается во вкладке «Аккаунт» по QR-коду или секретом в .env. Каждый код принимается один раз.",
     "help.sec.tokens": "API-токены для интеграций хранятся только в виде хэша, бывают только для чтения и отзываются в один клик. Пароль, сессии и токены через них не поменять.",
     "help.sec.bruteforce": "После нескольких неудачных попыток вход с этого адреса временно блокируется.",
     "help.sec.audit.admin": "Входы, неудачные попытки и все изменения записываются во вкладку «Журнал».",
@@ -662,6 +682,8 @@ const I18N = {
     "check.url": "Link: the address must start with http:// or https://",
     "check.file": "File: choose a file",
     "check.credentials": "Enter your login and password",
+    "check.otp": "The app code is six digits",
+    "check.enterPassword": "Enter the password",
 
     "pw.show": "Show password",
     "pw.hide": "Hide password",
@@ -938,6 +960,8 @@ const I18N = {
     "action.auth.login_locked": "Sign-in locked",
     "action.auth.logout": "Signed out",
     "action.auth.otp_failed": "Wrong second-factor code",
+    "action.auth.2fa_enabled": "Two-factor sign-in turned on",
+    "action.auth.2fa_disabled": "Two-factor sign-in turned off",
     "action.auth.password_changed": "Password changed",
     "action.auth.password_failed": "Wrong current password",
     "action.auth.session_ended": "Session ended",
@@ -1009,7 +1033,23 @@ const I18N = {
     "account.on": "on",
     "account.off": "off",
     "account.twoFactorOnText": "Signing in needs a six-digit code from an authenticator app besides the password. Each code is accepted once.",
-    "account.twoFactorOffText": "To turn it on: run the command below on the server, add the ADMIN_TOTP_SECRET line to .env, open the otpauth:// link or type the secret into your authenticator app and restart the service. Administrator sessions will be closed.",
+    "account.twoFactorOffText": "A password is enough to sign in right now. Turn on the second factor: scan the QR code in Google Authenticator or another app and confirm with a code.",
+    "account.twoFactorEnvText": "The secret is set in .env on the server (ADMIN_TOTP_SECRET), so it cannot be turned off from the panel. Signing in needs a six-digit code from the app besides the password.",
+    "account.twoFactorPanelText": "Turned on from the panel on {date}. Signing in needs a six-digit code from the app besides the password; each code is accepted once.",
+    "account.twoFactorEnable": "Turn on",
+    "account.twoFactorDisable": "Turn off",
+    "account.twoFactorSetupTitle": "Two-factor sign-in",
+    "account.twoFactorStep1": "1. Open your authenticator app (Google Authenticator, Aegis, 1Password and others) and scan the QR code.",
+    "account.twoFactorManual": "Cannot scan it? Choose \"Enter a setup key\" in the app, time-based, and paste the key:",
+    "account.twoFactorStep2": "2. Enter the six-digit code the app shows. Sign-in does not change until the code is confirmed. Other administrator sessions are closed once it is on.",
+    "account.twoFactorConfirm": "Confirm and turn on",
+    "account.twoFactorOn": "Two-factor sign-in is on",
+    "account.twoFactorOnEnded": "Two-factor sign-in is on, closed: {sessions}",
+    "account.twoFactorDisableTitle": "Turn off two-factor sign-in?",
+    "account.twoFactorDisableDesc": "A password will be enough to sign in again. Confirm with the administrator password and the current code from the app.",
+    "account.twoFactorOff": "Two-factor sign-in is off",
+    "account.secretCopied": "Key copied",
+    "account.qrLabel": "QR code for the authenticator app",
     "account.sessions": "active sessions",
     "account.sessionsLead": "Where this account is signed in right now. End any device you do not recognise and change the password.",
     "account.colDevice": "Device",
@@ -1130,7 +1170,7 @@ const I18N = {
     "help.sec.admin": "The administrator is defined only in .env on the server. It cannot be created, changed or deleted through the panel or the API.",
     "help.sec.passwords": "Passwords are stored only as argon2 hashes and never get into the log.",
     "help.sec.sessions": "“Sign out” ends the session on the server. The Account tab lists every sign-in, and any of them can be ended. Changing the password closes the other sessions.",
-    "help.sec.twofactor": "The administrator sign-in is protected by a second factor: a code from an authenticator app (TOTP). Each code is accepted once.",
+    "help.sec.twofactor": "The administrator sign-in is protected by a second factor: a code from an authenticator app (TOTP). Turn it on in the Account tab with a QR code or with a secret in .env. Each code is accepted once.",
     "help.sec.tokens": "API tokens for integrations are stored only as a hash, can be read-only and are revoked in one click. They cannot change the password, sessions or tokens.",
     "help.sec.bruteforce": "After several failed attempts, signing in from that address is blocked for a while.",
     "help.sec.audit.admin": "Sign-ins, failed attempts and every change are recorded on the Activity log tab.",
@@ -1198,6 +1238,13 @@ const SERVER_EN = {
   "Токен не найден": "Token not found",
   "API-токен только для чтения": "The API token is read-only",
   "Нужен вход по паролю, API-токен здесь не подходит": "Sign in with a password: an API token does not work here",
+  "Двухфакторный вход настраивает только администратор": "Only the administrator sets up two-factor sign-in",
+  "Секрет задан в .env (ADMIN_TOTP_SECRET): меняется только там": "The secret is set in .env (ADMIN_TOTP_SECRET) and is changed only there",
+  "Двухфакторный вход уже включён": "Two-factor sign-in is already on",
+  "Двухфакторный вход и так выключен": "Two-factor sign-in is already off",
+  "Сначала начните настройку: получите новый секрет": "Start the setup first: get a new secret",
+  "Неверный код: проверьте время на телефоне и введите новый": "Wrong code: check the time on your phone and enter a new one",
+  "Неверный пароль": "Wrong password",
 };
 
 const SERVER_EN_PATTERNS = [
@@ -3454,7 +3501,10 @@ function auditSummary(e) {
     case "auth.otp_failed":
       return t("audit.otpFailed");
     case "auth.password_changed":
+    case "auth.2fa_enabled":
       return t("audit.sessionsClosed", { n: d.ended_sessions ?? 0 });
+    case "auth.2fa_disabled":
+      return "";
     case "auth.sessions_ended":
       return t("audit.sessionsClosed", { n: d.count ?? 0 });
     case "auth.session_ended":
@@ -3673,7 +3723,7 @@ async function accountView(main) {
 
   main.replaceChildren(
     pageHead(t("tab.account"), t("account.lead")),
-    isAdmin ? section(t("account.admin"), adminSignInCards()) : passwordForm(reloadSessions),
+    isAdmin ? section(t("account.admin"), adminSignInCards(reloadSessions)) : passwordForm(reloadSessions),
     section(t("account.sessions"), h("p", { class: "section-lead" }, t("account.sessionsLead")), sessionsBox, sessionsTools),
     section(t("account.tokens"), h("p", { class: "section-lead" }, t("account.tokensLead")), h("div", { class: "toolbar" }, newToken), tokensBox),
   );
@@ -3724,21 +3774,128 @@ function passwordForm(reloadSessions) {
   return form;
 }
 
-function adminSignInCards() {
-  const on = Boolean(state.me.two_factor);
-  const command = "docker compose exec app python -m app.services.totp";
+function adminSignInCards(reloadSessions) {
+  const card = h("article", { class: "tile msg-card" }, skeletonRows(1));
+
+  async function reload() {
+    const status = await api("/auth/2fa");
+    state.me.two_factor = status.enabled;
+    const text = !status.enabled
+      ? t("account.twoFactorOffText")
+      : status.source === "env"
+        ? t("account.twoFactorEnvText")
+        : t("account.twoFactorPanelText", { date: status.enabled_at ? fmtDateTime(status.enabled_at) : "—" });
+    const actions = !status.enabled
+      ? [h("button", { type: "button", class: "btn btn-primary", onclick: () => twoFactorSetupDialog(() => Promise.all([reload(), reloadSessions()])) }, t("account.twoFactorEnable"))]
+      : status.source === "panel"
+        ? [h("button", { type: "button", class: "btn btn-danger", onclick: () => twoFactorDisableDialog(reload) }, t("account.twoFactorDisable"))]
+        : [];
+    card.classList.toggle("is-linked", status.enabled);
+    card.replaceChildren(
+      h(
+        "div",
+        { class: "tile-head" },
+        h("h3", {}, t("account.twoFactor")),
+        h("span", { class: `badge ${status.enabled ? "paid" : ""}` }, t(status.enabled ? "account.on" : "account.off")),
+      ),
+      h("p", {}, text),
+      ...(actions.length ? [h("div", { class: "msg-actions" }, ...actions)] : []),
+    );
+  }
+
+  reload().catch((err) => card.replaceChildren(h("p", { class: "form-error" }, err.message)));
   return h(
     "div",
     { class: "msg-grid" },
     h("article", { class: "tile msg-card" }, h("div", { class: "tile-head" }, h("h3", {}, t("account.adminPassword"))), h("p", {}, t("account.adminPasswordText"))),
-    h(
-      "article",
-      { class: `tile msg-card ${on ? "is-linked" : ""}` },
-      h("div", { class: "tile-head" }, h("h3", {}, t("account.twoFactor")), h("span", { class: `badge ${on ? "paid" : ""}` }, t(on ? "account.on" : "account.off"))),
-      h("p", {}, t(on ? "account.twoFactorOnText" : "account.twoFactorOffText")),
-      on ? null : h("div", { class: "msg-command" }, h("code", {}, command), copyButton(command, t("account.tokenCopied"))),
-    ),
+    card,
   );
+}
+
+// QR-код рисуем сами из матрицы с сервера: без картинок и сторонних сервисов, секрет никуда не уходит
+function qrCode(rows) {
+  const quiet = 4;
+  const size = rows.length + quiet * 2;
+  let d = "";
+  rows.forEach((row, y) => {
+    for (let x = 0; x < row.length; x += 1) if (row[x] === "1") d += `M${x + quiet} ${y + quiet}h1v1h-1z`;
+  });
+  return svg(
+    "svg",
+    { class: "qr", viewBox: `0 0 ${size} ${size}`, "shape-rendering": "crispEdges", role: "img", "aria-label": t("account.qrLabel") },
+    svg("rect", { width: size, height: size, fill: "#fff" }),
+    svg("path", { d, fill: "#000" }),
+  );
+}
+
+async function twoFactorSetupDialog(reload) {
+  let setup;
+  try {
+    setup = await api("/auth/2fa/setup", { method: "POST" });
+  } catch (err) {
+    toast(err.message, "error");
+    return;
+  }
+  const error = h("p", { class: "form-error", role: "alert" });
+  const submit = h("button", { type: "submit", class: "btn btn-primary" }, t("account.twoFactorConfirm"));
+  const form = h(
+    "form",
+    { class: "rc-dialog", novalidate: true },
+    h("h2", {}, t("account.twoFactorSetupTitle")),
+    h("p", { class: "desc" }, t("account.twoFactorStep1")),
+    h("div", { class: "qr-box" }, qrCode(setup.qr)),
+    h("p", { class: "msg-alt" }, t("account.twoFactorManual")),
+    h("div", { class: "msg-command" }, h("code", {}, setup.secret), copyButton(setup.secret, t("account.secretCopied"))),
+    h("p", { class: "msg-alt" }, t("account.twoFactorStep2")),
+    field({ label: t("field.otp"), name: "code", inputmode: "numeric", autocomplete: "one-time-code", maxlength: "8", placeholder: "123456" }),
+    error,
+    h("div", { class: "dialog-actions" }, h("button", { type: "button", class: "btn", onclick: () => dialog.close() }, t("common.cancel")), submit),
+  );
+  const dialog = h("dialog", {}, form);
+
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    error.textContent = "";
+    const code = String(new FormData(form).get("code")).replace(/\s/g, "");
+    if (!/^\d{6}$/.test(code)) {
+      error.textContent = t("check.otp");
+      return;
+    }
+    setBusy(submit, true);
+    try {
+      const result = await api("/auth/2fa/enable", { method: "POST", body: { code } });
+      dialog.close();
+      toast(result.ended_sessions ? t("account.twoFactorOnEnded", { sessions: plural(result.ended_sessions, "session") }) : t("account.twoFactorOn"));
+      await reload();
+    } catch (err) {
+      error.textContent = err.message;
+      setBusy(submit, false);
+    }
+  });
+  presentDialog(dialog);
+  form.querySelector("input").focus();
+}
+
+function twoFactorDisableDialog(reload) {
+  openDialog({
+    title: t("account.twoFactorDisableTitle"),
+    description: t("account.twoFactorDisableDesc"),
+    confirmLabel: t("account.twoFactorDisable"),
+    danger: true,
+    fields: [
+      field({ label: t("field.password"), name: "password", type: "password", autocomplete: "current-password" }),
+      field({ label: t("field.otp"), name: "code", inputmode: "numeric", autocomplete: "one-time-code", maxlength: "8", placeholder: "123456" }),
+    ],
+    onSubmit: async (data) => {
+      const password = String(data.get("password"));
+      const code = String(data.get("code")).replace(/\s/g, "");
+      if (!password) throw new Error(t("check.enterPassword"));
+      if (!/^\d{6}$/.test(code)) throw new Error(t("check.otp"));
+      await api("/auth/2fa/disable", { method: "POST", body: { password, code } });
+      toast(t("account.twoFactorOff"));
+      await reload();
+    },
+  });
 }
 
 function endSessionDialog(s, reload) {

@@ -25,8 +25,8 @@ paths:
       tags:
       - auth
       summary: Вход по логину и паролю
-      description: 'Если у администратора включён двухфакторный вход (`ADMIN_TOTP_SECRET`), без поля `otp`
-        ответ 401 с заголовком `X-OTP-Required: true`: повторите запрос с кодом из приложения-аутентификатора.'
+      description: 'Если у администратора включён двухфакторный вход (`ADMIN_TOTP_SECRET` или из панели),
+        без поля `otp` ответ 401 с заголовком `X-OTP-Required: true`: повторите запрос с кодом из приложения-аутентификатора.'
       operationId: login
       requestBody:
         content:
@@ -112,6 +112,113 @@ paths:
           description: Неверный текущий пароль или новый совпадает с ним
         '403':
           description: Администратор из .env или запрос с API-токеном
+        '429':
+          description: Слишком много неудачных попыток
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - HTTPBearer: []
+  /api/v1/auth/2fa:
+    get:
+      tags:
+      - auth
+      summary: 'Двухфакторный вход администратора: состояние'
+      operationId: two_factor_status
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TwoFactorStatus'
+        '403':
+          description: Не администратор или запрос с API-токеном
+      security:
+      - HTTPBearer: []
+  /api/v1/auth/2fa/setup:
+    post:
+      tags:
+      - auth
+      summary: Начать включение двухфакторного входа
+      description: Выдаёт новый секрет, ссылку otpauth:// и QR-код для приложения-аутентификатора. Вход
+        не меняется, пока секрет не подтверждён кодом в `POST /auth/2fa/enable`. Повторный вызов выдаёт
+        новый секрет.
+      operationId: two_factor_setup
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TwoFactorSetup'
+        '403':
+          description: Не администратор или запрос с API-токеном
+        '409':
+          description: Уже включён или задан в .env
+      security:
+      - HTTPBearer: []
+  /api/v1/auth/2fa/enable:
+    post:
+      tags:
+      - auth
+      summary: Подтвердить кодом и включить двухфакторный вход
+      description: Код из приложения, куда добавлен секрет из `POST /auth/2fa/setup`. Остальные сессии
+        администратора закрываются.
+      operationId: two_factor_enable
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TwoFactorCode'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TwoFactorEnabled'
+        '403':
+          description: Не администратор или запрос с API-токеном
+        '400':
+          description: Неверный код или настройка не начата
+        '409':
+          description: Уже включён или задан в .env
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - HTTPBearer: []
+  /api/v1/auth/2fa/disable:
+    post:
+      tags:
+      - auth
+      summary: Выключить двухфакторный вход, включённый из панели
+      description: 'Нужны пароль администратора и текущий код. Неверные пароль или код считаются неудачной
+        попыткой входа. Потерян телефон: на сервере `python -m app.services.two_factor off`.'
+      operationId: two_factor_disable
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TwoFactorDisable'
+        required: true
+      responses:
+        '204':
+          description: Successful Response
+        '403':
+          description: Не администратор или запрос с API-токеном
+        '400':
+          description: Неверный пароль или код
+        '409':
+          description: Выключен или задан в .env
         '429':
           description: Слишком много неудачных попыток
         '422':
@@ -2818,6 +2925,101 @@ components:
       - as_of
       - currencies
       title: SummaryOut
+    TwoFactorCode:
+      properties:
+        code:
+          type: string
+          maxLength: 16
+          minLength: 6
+          title: Code
+          examples:
+          - '123456'
+      additionalProperties: false
+      type: object
+      required:
+      - code
+      title: TwoFactorCode
+    TwoFactorDisable:
+      properties:
+        password:
+          type: string
+          maxLength: 256
+          minLength: 1
+          title: Password
+          description: Пароль администратора
+        code:
+          type: string
+          maxLength: 16
+          minLength: 6
+          title: Code
+          description: Текущий код из приложения
+          examples:
+          - '123456'
+      additionalProperties: false
+      type: object
+      required:
+      - password
+      - code
+      title: TwoFactorDisable
+    TwoFactorEnabled:
+      properties:
+        ended_sessions:
+          type: integer
+          title: Ended Sessions
+          description: Сколько других сессий администратора закрыто
+      type: object
+      required:
+      - ended_sessions
+      title: TwoFactorEnabled
+    TwoFactorSetup:
+      properties:
+        secret:
+          type: string
+          title: Secret
+          description: Ключ для ввода вручную в приложении-аутентификаторе
+        uri:
+          type: string
+          title: Uri
+          description: Ссылка otpauth:// с тем же ключом
+        qr:
+          items:
+            type: string
+          type: array
+          title: Qr
+          description: 'QR-код со ссылкой: строки из 0 и 1, 1 означает тёмный модуль, без поля вокруг'
+      type: object
+      required:
+      - secret
+      - uri
+      - qr
+      title: TwoFactorSetup
+    TwoFactorStatus:
+      properties:
+        enabled:
+          type: boolean
+          title: Enabled
+          description: Вход администратора требует код из приложения-аутентификатора
+        source:
+          anyOf:
+          - type: string
+            enum:
+            - env
+            - panel
+          - type: 'null'
+          title: Source
+          description: 'env: секрет задан в .env (ADMIN_TOTP_SECRET), из панели не меняется; panel: включён
+            из панели'
+        enabled_at:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Enabled At
+          description: Когда включён из панели
+      type: object
+      required:
+      - enabled
+      - source
+      title: TwoFactorStatus
     UserCreate:
       properties:
         login:
