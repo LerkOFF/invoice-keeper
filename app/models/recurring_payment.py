@@ -1,7 +1,7 @@
 from datetime import date, datetime
 from decimal import Decimal
 
-from sqlalchemy import CheckConstraint, Date, DateTime, Integer, String, func
+from sqlalchemy import CheckConstraint, Date, DateTime, ForeignKey, Integer, String, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.db import Base
@@ -31,7 +31,10 @@ class RecurringPayment(Base):
     pay_details: Mapped[str | None] = mapped_column(String(1000))
     # Категория для фильтра и бюджета: «Аренда», «IT», «Подписки»
     category: Mapped[str | None] = mapped_column(String(60))
+    # Ответственный: обычный пользователь, ему лично уходят напоминания по этому платежу
+    assignee_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
 
+    assignee: Mapped["User | None"] = relationship(lazy="selectin")
     occurrences: Mapped[list["PaymentOccurrence"]] = relationship(
         back_populates="recurring_payment",
         order_by="PaymentOccurrence.due_date",
@@ -45,6 +48,10 @@ class RecurringPayment(Base):
     @amount.setter
     def amount(self, value: Decimal | int | str) -> None:
         self.amount_minor = int((Decimal(value) * 100).to_integral_value())
+
+    @property
+    def assignee_login(self) -> str | None:
+        return self.assignee.login if self.assignee is not None else None
 
     @property
     def is_active(self) -> bool:

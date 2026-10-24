@@ -8,7 +8,7 @@ from app.core.db import SessionLocal
 from app.services import audit
 from app.models import RecurringPayment
 from app.schemas.payments import RecurringPaymentCreate, RecurringPaymentOut, RecurringPaymentUpdate
-from app.services.payments import EXTRA_FIELDS, PaymentRuleError, update_payment, update_payment_extras
+from app.services.payments import EXTRA_FIELDS, PaymentRuleError, check_assignee, update_payment, update_payment_extras
 from app.services.periods import ensure_occurrences
 from app.services.reminders import run_reminders
 
@@ -47,6 +47,10 @@ def create_recurring_payment(
     notifiers: NotifiersDep,
     settings: SettingsDep,
 ) -> RecurringPayment:
+    try:
+        check_assignee(db, payload.assignee_id)
+    except PaymentRuleError as error:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(error)) from error
     payment = RecurringPayment(
         name=payload.name.strip(),
         currency=payload.currency.value,
@@ -55,6 +59,7 @@ def create_recurring_payment(
         pay_url=payload.pay_url,
         pay_details=payload.pay_details,
         category=payload.category,
+        assignee_id=payload.assignee_id,
     )
     payment.amount = payload.amount
     db.add(payment)
@@ -73,6 +78,7 @@ def create_recurring_payment(
             "first_due_date": payment.first_due_date.isoformat(),
             "period": payment.period,
             "category": payment.category,
+            "assignee": payment.assignee_login,
         },
     )
     db.commit()
@@ -107,6 +113,8 @@ def update_recurring_payment(
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="Нужно передать хотя бы одно поле")
     payment = _get_active(db, id)
     try:
+        if "assignee_id" in payload.model_fields_set:
+            check_assignee(db, payload.assignee_id)
         changes = update_payment(
             db,
             payment,

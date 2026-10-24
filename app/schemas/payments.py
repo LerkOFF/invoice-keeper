@@ -58,6 +58,7 @@ class RecurringPaymentCreate(BaseModel):
     pay_url: PayUrl = None
     pay_details: PayDetails = None
     category: Category = None
+    assignee_id: int | None = Field(default=None, description="Ответственный: id обычного пользователя")
     period: Period = Field(
         default=Period.MONTHLY,
         description="monthly (каждый месяц), quarterly (раз в квартал), yearly (раз в год). Сроки считаются от первой даты",
@@ -82,6 +83,7 @@ class RecurringPaymentUpdate(BaseModel):
     pay_url: PayUrl = Field(default=None, description="Новая ссылка на оплату; null или пустая строка убирают её")
     pay_details: PayDetails = Field(default=None, description="Новые реквизиты; null или пустая строка убирают их")
     category: Category = Field(default=None, description="Новая категория; null или пустая строка убирают её")
+    assignee_id: int | None = Field(default=None, description="Новый ответственный; null снимает его")
 
 
 class RecurringPaymentOut(BaseModel):
@@ -98,6 +100,8 @@ class RecurringPaymentOut(BaseModel):
     pay_url: str | None = Field(default=None, description="Ссылка на оплату")
     pay_details: str | None = Field(default=None, description="Реквизиты")
     category: str | None = Field(default=None, description="Категория")
+    assignee_id: int | None = Field(default=None, description="Ответственный")
+    assignee_login: str | None = Field(default=None, description="Логин ответственного")
 
 
 class OccurrenceOut(BaseModel):
@@ -117,6 +121,8 @@ class OccurrenceOut(BaseModel):
     pay_url: str | None = Field(default=None, description="Ссылка на оплату платежа")
     pay_details: str | None = Field(default=None, description="Реквизиты платежа")
     category: str | None = Field(default=None, description="Категория платежа")
+    assignee_id: int | None = Field(default=None, description="Ответственный за платёж")
+    assignee_login: str | None = Field(default=None, description="Логин ответственного")
 
 
 class OccurrenceUpdate(BaseModel):

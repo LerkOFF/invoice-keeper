@@ -51,6 +51,8 @@ class OccurrenceFilter:
     include_deleted: bool = False
     q: str | None = None  # поиск по названию платежа
     category: str | None = None  # точное совпадение; "-" значит «без категории»
+    assignee_id: int | None = None
+    no_assignee: bool = False
 
 
 def search_payment_ids(db: Session, q: str | None) -> list[int] | None:
@@ -81,6 +83,10 @@ def filtered_statement(
         stmt = stmt.where(~_overdue_clause(today))
     if flt.currency is not None:
         stmt = stmt.where(RecurringPayment.currency == flt.currency.value)
+    if flt.no_assignee:
+        stmt = stmt.where(RecurringPayment.assignee_id.is_(None))
+    elif flt.assignee_id is not None:
+        stmt = stmt.where(RecurringPayment.assignee_id == flt.assignee_id)
     if flt.category == "-":
         stmt = stmt.where(RecurringPayment.category.is_(None))
     elif flt.category:

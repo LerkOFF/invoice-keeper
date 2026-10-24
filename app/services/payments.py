@@ -3,7 +3,7 @@ from decimal import Decimal
 
 from sqlalchemy.orm import Session
 
-from app.models import OccurrenceStatus, Period, RecurringPayment
+from app.models import OccurrenceStatus, Period, RecurringPayment, Role, User
 from app.services.periods import ensure_occurrences, period_due_date
 
 _UNPAID = OccurrenceStatus.UNPAID.value
@@ -88,7 +88,16 @@ def update_payment(
     return changes
 
 
-EXTRA_FIELDS = ("pay_url", "pay_details", "category")
+EXTRA_FIELDS = ("pay_url", "pay_details", "category", "assignee_id")
+
+
+def check_assignee(db: Session, assignee_id: int | None) -> None:
+    """Ответственным может быть только обычный пользователь: админ живёт в .env и в базе его нет."""
+    if assignee_id is None:
+        return
+    user = db.get(User, assignee_id)
+    if user is None or user.role != Role.USER.value:
+        raise PaymentRuleError("Ответственный: такого пользователя нет")
 
 
 def update_payment_extras(payment: RecurringPayment, fields: dict) -> dict:

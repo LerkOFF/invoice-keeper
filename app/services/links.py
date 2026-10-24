@@ -174,6 +174,11 @@ class PersonalNotifier:
         self._settings = settings
         self._api = api
 
+    def applies_to(self, payment: Any) -> bool:
+        """Платёж с ответственным напоминает лично ему и администратору, без ответственного — всем привязанным."""
+        assignee = getattr(payment, "assignee_id", None)
+        return assignee is None or self._link.is_admin or self._link.user_id == assignee
+
     @property
     def configured(self) -> bool:
         s = self._settings

@@ -342,6 +342,18 @@ paths:
           description: Категория платежа; «-» — платежи без категории
           title: Category
         description: Категория платежа; «-» — платежи без категории
+      - name: assignee
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            maxLength: 16
+            pattern: ^(me|-|\d+)$
+          - type: 'null'
+          description: 'Ответственный: id пользователя, «me» — мои платежи, «-» — без ответственного'
+          title: Assignee
+        description: 'Ответственный: id пользователя, «me» — мои платежи, «-» — без ответственного'
       responses:
         '200':
           description: Successful Response
@@ -452,6 +464,18 @@ paths:
           description: Категория платежа; «-» — платежи без категории
           title: Category
         description: Категория платежа; «-» — платежи без категории
+      - name: assignee
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            maxLength: 16
+            pattern: ^(me|-|\d+)$
+          - type: 'null'
+          description: 'Ответственный: id пользователя, «me» — мои платежи, «-» — без ответственного'
+          title: Assignee
+        description: 'Ответственный: id пользователя, «me» — мои платежи, «-» — без ответственного'
       responses:
         '200':
           description: CSV-файл
@@ -1786,6 +1810,18 @@ components:
           - type: 'null'
           title: Category
           description: Категория платежа
+        assignee_id:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Assignee Id
+          description: Ответственный за платёж
+        assignee_login:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Assignee Login
+          description: Логин ответственного
       type: object
       required:
       - id
@@ -1999,6 +2035,12 @@ components:
           description: Категория платежа для фильтра и бюджета
           examples:
           - Аренда
+        assignee_id:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Assignee Id
+          description: 'Ответственный: id обычного пользователя'
         period:
           $ref: '#/components/schemas/Period'
           description: monthly (каждый месяц), quarterly (раз в квартал), yearly (раз в год). Сроки считаются
@@ -2060,6 +2102,18 @@ components:
           - type: 'null'
           title: Category
           description: Категория
+        assignee_id:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Assignee Id
+          description: Ответственный
+        assignee_login:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Assignee Login
+          description: Логин ответственного
       type: object
       required:
       - id
@@ -2132,6 +2186,12 @@ components:
           description: Новая категория; null или пустая строка убирают её
           examples:
           - Аренда
+        assignee_id:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Assignee Id
+          description: Новый ответственный; null снимает его
       additionalProperties: false
       type: object
       title: RecurringPaymentUpdate

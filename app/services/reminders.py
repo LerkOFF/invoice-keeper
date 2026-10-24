@@ -204,6 +204,8 @@ def _deliver(
     # свежий запрос, а не связь у периода: сессия могла пережить прошлый проход
     delivered = set(db.scalars(select(kind.delivery.channel).where(kind.delivery.occurrence_id == occurrence.id)))
     progressed = False
+    # личный канал может не касаться платежа (у платежа другой ответственный): его пропускаем и не ждём
+    channels = [c for c in channels if getattr(c, "applies_to", None) is None or c.applies_to(occurrence.recurring_payment)]
 
     for channel in channels:
         if channel.name in delivered or channel.name in down:

@@ -28,7 +28,8 @@ def test_filter_by_category_and_without_category(admin):
     assert names(category="IT") == {"Сервер"}
     assert names(category="-") == {"Разное"}
     rows = list(csv.reader(io.StringIO(admin.get(f"{B}/payment-occurrences/export", params={"category": "Аренда"}).text[1:]), delimiter=";"))
-    assert rows[0][-1] == "Категория" and rows[1][-1] == "Аренда" and len(rows) == 2
+    col = rows[0].index("Категория")
+    assert rows[1][col] == "Аренда" and len(rows) == 2
 
 
 def test_category_is_edited_and_cleared(admin):

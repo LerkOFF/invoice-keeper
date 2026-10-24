@@ -28,7 +28,7 @@ def test_export_has_header_and_excel_friendly_values(admin, user):
     assert 'filename="invoice-keeper-2026-10-23.csv"' in response.headers["content-disposition"]
     table = rows(response)
     assert table[0][:4] == ["Платёж", "Сумма", "Валюта", "Срок"]
-    assert table[1] == ["Аренда", "45000,50", "RUB", "05.09.2026", "оплачен", "07.09.2026", "2", "ежемесячно", "", "0", ""]
+    assert table[1] == ["Аренда", "45000,50", "RUB", "05.09.2026", "оплачен", "07.09.2026", "2", "ежемесячно", "", "0", "", ""]
     assert table[2][4:7] == ["не оплачен", "", "18"]
 
 
