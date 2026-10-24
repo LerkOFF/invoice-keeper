@@ -119,3 +119,32 @@ def delete_session(db: Session, settings: Settings, token: str) -> None:
     if session is not None:
         db.delete(session)
         db.commit()
+
+
+class PasswordChangeError(Exception):
+    """Сменить пароль нельзя: роутер превращает это в ответ с понятным текстом."""
+
+
+class WrongPasswordError(PasswordChangeError):
+    """Текущий пароль не подошёл: считается неудачной попыткой входа."""
+
+
+def change_own_password(
+    db: Session, settings: Settings, principal: Principal, current: str, new: str, keep_token: str | None
+) -> None:
+    """Пользователь меняет свой пароль. Остальные его сессии завершаются, текущая остаётся.
+
+    Пароль администратора живёт в .env и через API не меняется.
+    """
+    if principal.is_admin or principal.id is None:
+        raise PasswordChangeError("Пароль администратора задаётся в .env, через панель его не поменять")
+    user = db.get(User, principal.id)
+    if user is None or not verify_password(user.password_hash, current):
+        raise WrongPasswordError("Текущий пароль неверный")
+    if current == new:
+        raise PasswordChangeError("Новый пароль совпадает с текущим")
+    user.password_hash = hash_password(new)
+    keep = _hash_token(keep_token) if keep_token else None
+    for session in db.scalars(select(AuthSession).where(AuthSession.user_id == user.id)):
+        if session.token_hash != keep:
+            db.delete(session)

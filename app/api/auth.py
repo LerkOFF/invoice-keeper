@@ -13,7 +13,7 @@ from app.api.deps import (
     bearer_scheme,
     extract_token,
 )
-from app.schemas.auth import CurrentUser, LoginRequest, LoginResponse, LogoutResponse
+from app.schemas.auth import CurrentUser, LoginRequest, LoginResponse, LogoutResponse, PasswordChange
 from app.services import audit
 from app.services import auth as auth_service
 from app.services.login_guard import login_guard
@@ -111,3 +111,50 @@ def logout(
     db.commit()
     response.delete_cookie(SESSION_COOKIE)
     return LogoutResponse()
+
+
+@router.post(
+    "/password",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Смена своего пароля",
+    description=(
+        "Обычный пользователь меняет свой пароль, зная текущий. Остальные его сессии завершаются, текущая остаётся. "
+        "Пароль администратора задаётся в .env и здесь не меняется. Неверный текущий пароль считается неудачной попыткой входа."
+    ),
+    responses={
+        400: {"description": "Текущий пароль неверный или новый совпадает с ним"},
+        403: {"description": "Администратор из .env"},
+        429: {"description": "Слишком много неверных паролей подряд"},
+    },
+)
+def change_password(
+    payload: PasswordChange,
+    request: Request,
+    db: DbDep,
+    settings: SettingsDep,
+    principal: CurrentPrincipal,
+    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer_scheme)],
+) -> Response:
+    if principal.is_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Пароль администратора задаётся в .env, через панель его не поменять",
+        )
+    ip = client_ip(request)
+    window = settings.login_lock_minutes * 60
+    if wait := login_guard.retry_after(ip, principal.login, settings.login_max_failures, window):
+        raise _too_many(wait)
+    try:
+        auth_service.change_own_password(
+            db, settings, principal, payload.current_password, payload.new_password, extract_token(request, credentials)
+        )
+    except auth_service.PasswordChangeError as error:
+        if isinstance(error, auth_service.WrongPasswordError):
+            # подбор текущего пароля из открытой сессии упирается в ту же защиту, что и вход
+            login_guard.failure(ip, principal.login, window)
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(error)) from error
+    login_guard.success(ip, principal.login)
+    # пароль в журнал не попадает, только факт смены
+    audit.record(db, "auth.password_changed", audit.actor_of(principal), ip=ip)
+    db.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)

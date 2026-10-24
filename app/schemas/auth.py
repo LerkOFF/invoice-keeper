@@ -22,3 +22,8 @@ class LoginResponse(BaseModel):
 
 class LogoutResponse(BaseModel):
     ok: bool = True
+
+
+class PasswordChange(BaseModel):
+    current_password: str = Field(min_length=1, max_length=256, description="Текущий пароль")
+    new_password: str = Field(min_length=8, max_length=128, description="Новый пароль, не короче 8 символов")

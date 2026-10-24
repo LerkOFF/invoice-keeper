@@ -22,6 +22,7 @@ ACTION_LABELS = {
     "auth.login_failed": "Неудачный вход",
     "auth.login_locked": "Вход заблокирован после неудачных попыток",
     "auth.logout": "Выход",
+    "auth.password_changed": "Пароль изменён самим пользователем",
     "payment.create": "Платёж добавлен",
     "payment.update": "Платёж изменён",
     "payment.delete": "Платёж прекращён",
