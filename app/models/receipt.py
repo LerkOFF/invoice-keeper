@@ -27,3 +27,5 @@ class OccurrenceReceipt(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
     created_by: Mapped[str] = mapped_column(String(100))
     created_by_type: Mapped[str] = mapped_column(String(16))
+    # автор из базы; по нему проверяется право удалить. Удалили пользователя: пусто, даже если логин займут снова
+    created_by_user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))

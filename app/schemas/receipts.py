@@ -25,3 +25,4 @@ class ReceiptOut(BaseModel):
     created_at: UtcDateTime
     created_by: str
     created_by_type: str
+    can_delete: bool = Field(description="Может ли текущий пользователь удалить вложение: администратор или автор")

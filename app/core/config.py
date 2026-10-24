@@ -1,5 +1,6 @@
 from functools import lru_cache
 
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -55,6 +56,9 @@ class Settings(BaseSettings):
 
     app_timezone: str = "Europe/Moscow"
     reminder_days: int = 3
+    # С какого часа (по app_timezone) планировщик рассылает напоминания, чтобы они не приходили ночью.
+    # Напоминание сразу после добавления платежа уходит в любое время. 0: без ограничения
+    reminder_hour: int = Field(default=9, ge=0, le=23)
     # Повторное напоминание на следующий день после срока, если период так и не оплатили
     overdue_reminders: bool = True
     scheduler_enabled: bool = True

@@ -2,16 +2,18 @@ from datetime import date
 from decimal import Decimal
 from typing import Annotated
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 
 from app.models import Currency, OccurrenceStatus, Period
 from app.schemas.common import UtcDateTime
 
 Money = Annotated[Decimal, Field(gt=0, max_digits=12, decimal_places=2, examples=["45000.00"])]
+# пробелы по краям отрезаются до проверки длины: название из одних пробелов не пройдёт
+PaymentName = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=200)]
 
 
 class RecurringPaymentCreate(BaseModel):
-    name: str = Field(min_length=1, max_length=200, examples=["Аренда офиса"])
+    name: PaymentName = Field(examples=["Аренда офиса"])
     amount: Money
     currency: Currency
     first_due_date: date = Field(description="Дата ближайшей оплаты, от неё считаются все периоды")
@@ -26,7 +28,7 @@ class RecurringPaymentUpdate(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    name: str | None = Field(default=None, min_length=1, max_length=200)
+    name: PaymentName | None = None
     amount: Money | None = Field(
         default=None,
         description="Новая сумма для неоплаченных периодов с сегодняшнего дня и всех следующих. Прошлые и оплаченные сохраняют свою",
@@ -84,11 +86,15 @@ class CurrencySummaryOut(BaseModel):
     total: Decimal = Field(description="Все периоды выборки")
     paid: Decimal
     unpaid: Decimal
-    overdue: Decimal = Field(description="Неоплаченные периоды после срока")
+    overdue: Decimal = Field(description="Неоплаченные периоды после срока (долг)")
+    paid_late: Decimal = Field(
+        description="Оплаченные позже срока. Вместе с overdue это те же периоды, что в списке с overdue=true"
+    )
     count_total: int
     count_paid: int
     count_unpaid: int
     count_overdue: int
+    count_paid_late: int
 
 
 class SummaryOut(BaseModel):

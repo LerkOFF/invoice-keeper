@@ -140,6 +140,35 @@ def test_overdue_unpaid_is_reminded_once(db):
     assert run(db, notifier) == 0
 
 
+def test_backdated_payment_reminds_only_latest_overdue_period(db):
+    """Платёж, внесённый задним числом, не присылает по сообщению на каждый прошлый месяц."""
+    payment = add_payment(db, date(2024, 10, 1))
+    assert len([o for o in payment.occurrences if o.due_date < TODAY]) > 20
+    notifier = FakeNotifier()
+
+    assert run(db, notifier) == 1 and "01.10.2026" in notifier.messages[0]
+    assert run(db, notifier) == 0
+
+
+def test_older_overdue_period_reminds_after_latest_is_paid(db):
+    payment = add_payment(db, TODAY - timedelta(days=40))
+    older, latest = sorted((o for o in payment.occurrences if o.due_date < TODAY), key=lambda o: o.due_date)
+    notifier = FakeNotifier()
+    run(db, notifier)
+    assert notifier.reminders[0].occurrence_id == latest.id
+
+    latest.status = OccurrenceStatus.PAID.value
+    latest.paid_at = TODAY
+    db.commit()
+    assert run(db, notifier) == 1 and notifier.reminders[1].occurrence_id == older.id
+
+
+def test_overdue_and_upcoming_periods_of_one_payment_both_remind(db):
+    add_payment(db, TODAY - timedelta(days=29))  # 24.09, следующий срок 24.10
+    notifier = FakeNotifier()
+    assert run(db, notifier) == 2
+
+
 def test_failure_keeps_period_pending_and_next_run_delivers_once(db):
     add_payment(db, TODAY + timedelta(days=2))
     broken = FakeNotifier(fail=True)

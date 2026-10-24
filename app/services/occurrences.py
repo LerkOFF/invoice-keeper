@@ -147,10 +147,12 @@ class CurrencySummary:
     paid_minor: int = 0
     unpaid_minor: int = 0
     overdue_minor: int = 0
+    paid_late_minor: int = 0
     count_total: int = 0
     count_paid: int = 0
     count_unpaid: int = 0
     count_overdue: int = 0
+    count_paid_late: int = 0
 
     @staticmethod
     def money(minor: int) -> Decimal:
@@ -164,6 +166,9 @@ def summarize(
 
     `on` показывает картину на прошедшую или будущую дату: оплата, отмеченная позже `on`, ещё не учитывается,
     а просрочка считается относительно `on`.
+
+    overdue это долг: неоплаченные периоды после срока. paid_late это оплаченные позже срока.
+    Вместе они дают те же периоды, что и список с фильтром overdue=true.
     """
     ref = on or today
     rows = db.execute(
@@ -187,6 +192,9 @@ def summarize(
         if is_paid:
             item.paid_minor += amount_minor
             item.count_paid += 1
+            if occurrence.paid_at is not None and occurrence.paid_at > occurrence.due_date:
+                item.paid_late_minor += amount_minor
+                item.count_paid_late += 1
         else:
             item.unpaid_minor += amount_minor
             item.count_unpaid += 1

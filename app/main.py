@@ -9,7 +9,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.api import audit, auth, help_page, messengers, payment_occurrences, receipts, recurring_payments, summary, users
-from app.core.clock import today
+from app.core.clock import now, today
 from app.core.config import get_settings
 from app.core.db import SessionLocal, init_db
 from app.scheduler import scheduler_loop, tick
@@ -62,7 +62,7 @@ async def lifespan(_app: FastAPI):
     if settings.scheduler_enabled:
 
         def job() -> None:
-            tick(SessionLocal, notifiers, settings, today())
+            tick(SessionLocal, notifiers, settings, today(), hour=now().hour)
 
         task = asyncio.create_task(scheduler_loop(job, settings.scheduler_interval_seconds))
 

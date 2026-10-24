@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from datetime import UTC, date, datetime, timedelta
 from zoneinfo import ZoneInfo
 
-from sqlalchemy import select, update
+from sqlalchemy import func, select, update
 from sqlalchemy.orm import InstrumentedAttribute, Session, joinedload
 
 from app.core.config import Settings
@@ -92,7 +92,12 @@ def _pending_overdue(db: Session, today: date, timezone: str) -> list[PaymentOcc
 
 def _pending(db: Session, today: date, reminder_days: int) -> list[PaymentOccurrence]:
     """Неоплаченные периоды живых платежей, до срока которых осталось не больше reminder_days
-    (в том числе уже просроченные), и по которым напоминание ещё не уходило."""
+    (в том числе уже просроченные), и по которым напоминание ещё не уходило.
+
+    Из просроченных берётся только самый свежий период платежа: платёж, внесённый задним числом,
+    не должен прислать по сообщению на каждый прошлый месяц. Остальные просрочки видны в панели,
+    а следующий из них напомнит о себе, когда свежий оплатят.
+    """
     stmt = (
         select(PaymentOccurrence)
         .join(RecurringPayment, PaymentOccurrence.recurring_id == RecurringPayment.id)
@@ -105,7 +110,18 @@ def _pending(db: Session, today: date, reminder_days: int) -> list[PaymentOccurr
         )
         .order_by(PaymentOccurrence.due_date, PaymentOccurrence.id)
     )
-    return list(db.scalars(stmt).unique())
+    occurrences = list(db.scalars(stmt).unique())
+    if not any(o.due_date < today for o in occurrences):
+        return occurrences
+    # самый свежий неоплаченный просроченный период, напоминали по нему или нет
+    latest_overdue = dict(
+        db.execute(
+            select(PaymentOccurrence.recurring_id, func.max(PaymentOccurrence.due_date))
+            .where(PaymentOccurrence.status == OccurrenceStatus.UNPAID.value, PaymentOccurrence.due_date < today)
+            .group_by(PaymentOccurrence.recurring_id)
+        ).all()
+    )
+    return [o for o in occurrences if o.due_date >= today or latest_overdue.get(o.recurring_id) == o.due_date]
 
 
 def build_reminder(occurrence: PaymentOccurrence, today: date, overdue_notice: bool = False) -> Reminder:

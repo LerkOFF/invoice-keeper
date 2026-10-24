@@ -65,6 +65,23 @@ def migrate(target: Engine) -> None:
             )
         )
 
+        has_receipts = inspect(conn).has_table("occurrence_receipts")
+        receipt_columns = {c["name"] for c in inspect(conn).get_columns("occurrence_receipts")} if has_receipts else set()
+        if has_receipts and "created_by_user_id" not in receipt_columns:
+            conn.execute(
+                text(
+                    "ALTER TABLE occurrence_receipts ADD COLUMN created_by_user_id INTEGER "
+                    "REFERENCES users(id) ON DELETE SET NULL"
+                )
+            )
+            # один раз, при добавлении колонки: старые вложения пользователей находят автора по логину
+            conn.execute(
+                text(
+                    "UPDATE occurrence_receipts SET created_by_user_id = (SELECT u.id FROM users u "
+                    "WHERE u.login = occurrence_receipts.created_by) WHERE created_by_type = 'user'"
+                )
+            )
+
 
 def get_db() -> Iterator[Session]:
     db = SessionLocal()

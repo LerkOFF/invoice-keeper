@@ -210,6 +210,22 @@ def test_author_and_admin_can_delete_others_cannot(app, admin, user):
     olga.__exit__(None, None, None)
 
 
+def test_recreated_user_with_same_login_is_not_the_author(app, admin):
+    creds = {"login": "olga", "password": "olga-pass-123"}
+    first_id = admin.post(f"{B}/users", json=creds).json()["id"]
+    occ = make_occurrence(admin)
+    first = logged_in(app, creds)
+    rid = link(first, occ).json()["id"]
+    assert listing(first, occ)[0]["can_delete"] is True
+
+    assert admin.delete(f"{B}/users/{first_id}").status_code == 204
+    admin.post(f"{B}/users", json=creds)
+    again = logged_in(app, creds)
+    assert listing(again, occ)[0]["can_delete"] is False
+    assert again.delete(f"{B}/receipts/{rid}").status_code == 403
+    assert listing(admin, occ)[0]["can_delete"] is True
+
+
 def test_delete_removes_file_from_disk(admin):
     occ = make_occurrence(admin)
     body = upload(admin, occ).json()

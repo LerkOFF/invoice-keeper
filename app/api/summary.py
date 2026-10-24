@@ -67,10 +67,12 @@ def payments_summary(
                 paid=money(row.paid_minor),
                 unpaid=money(row.unpaid_minor),
                 overdue=money(row.overdue_minor),
+                paid_late=money(row.paid_late_minor),
                 count_total=row.count_total,
                 count_paid=row.count_paid,
                 count_unpaid=row.count_unpaid,
                 count_overdue=row.count_overdue,
+                count_paid_late=row.count_paid_late,
             )
             for row in rows
         ],

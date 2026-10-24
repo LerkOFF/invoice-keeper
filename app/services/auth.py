@@ -1,4 +1,5 @@
 import hashlib
+import hmac
 import secrets
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
@@ -29,6 +30,24 @@ class Principal:
 
 def _hash_token(token: str) -> str:
     return hashlib.sha256(token.encode()).hexdigest()
+
+
+def _admin_token_hash(settings: Settings, token: str) -> str:
+    """Хэш токена администратора с ключом из его логина и пароля в .env.
+
+    Сменили ADMIN_LOGIN или ADMIN_PASSWORD: хэш уже не сойдётся, и все прежние сессии администратора закрыты.
+    """
+    key = f"{settings.admin_login}\0{settings.admin_password}".encode()
+    return hmac.new(key, token.encode(), hashlib.sha256).hexdigest()
+
+
+def _find_session(db: Session, settings: Settings, token: str) -> AuthSession | None:
+    plain, admin = _hash_token(token), _admin_token_hash(settings, token)
+    for session in db.scalars(select(AuthSession).where(AuthSession.token_hash.in_((plain, admin)))):
+        # сессия администратора находится только по хэшу с текущим паролем, пользователя по обычному
+        if session.token_hash == (admin if session.is_admin else plain):
+            return session
+    return None
 
 
 def _aware(value: datetime) -> datetime:
@@ -63,7 +82,7 @@ def create_session(db: Session, settings: Settings, principal: Principal) -> str
     token = secrets.token_urlsafe(32)
     db.add(
         AuthSession(
-            token_hash=_hash_token(token),
+            token_hash=_admin_token_hash(settings, token) if principal.is_admin else _hash_token(token),
             user_id=principal.id,
             is_admin=principal.is_admin,
             expires_at=datetime.now(UTC) + timedelta(hours=settings.session_ttl_hours),
@@ -75,7 +94,7 @@ def create_session(db: Session, settings: Settings, principal: Principal) -> str
 
 def get_principal(db: Session, settings: Settings, token: str) -> Principal | None:
     """Находит владельца живой сессии. Просроченную сессию удаляет."""
-    session = db.scalar(select(AuthSession).where(AuthSession.token_hash == _hash_token(token)))
+    session = _find_session(db, settings, token)
     if session is None:
         return None
 
@@ -95,8 +114,8 @@ def get_principal(db: Session, settings: Settings, token: str) -> Principal | No
     return Principal(id=user.id, login=user.login, role=Role(user.role))
 
 
-def delete_session(db: Session, token: str) -> None:
-    session = db.scalar(select(AuthSession).where(AuthSession.token_hash == _hash_token(token)))
+def delete_session(db: Session, settings: Settings, token: str) -> None:
+    session = _find_session(db, settings, token)
     if session is not None:
         db.delete(session)
         db.commit()

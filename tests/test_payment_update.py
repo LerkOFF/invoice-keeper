@@ -55,6 +55,14 @@ def test_rename_keeps_history_and_is_logged(admin):
     assert entry["details"]["name_before"] == "Аренда" and entry["details"]["name"] == "Аренда склада"
 
 
+def test_rename_trims_spaces_and_rejects_blank_name(admin):
+    payment = create(admin, name="  Аренда  ")
+    assert payment["name"] == "Аренда"
+    url = f"{B}/recurring-payments/{payment['id']}"
+    assert admin.patch(url, json={"name": "   "}).status_code == 422
+    assert admin.patch(url, json={"name": " Склад "}).json()["name"] == "Склад"
+
+
 def test_new_schedule_drops_unpaid_future_periods_and_keeps_history(admin):
     payment = create(admin)
     by_due = {o["due_date"]: o for o in periods(admin)}
@@ -121,3 +129,27 @@ def test_migration_adds_amount_column_to_old_database(tmp_path):
     assert {"amount_minor", "overdue_reminded_at"} <= columns
     with engine.connect() as conn:
         assert conn.execute(text("SELECT amount_minor FROM payment_occurrences")).scalar() == 4500000
+
+
+def test_migration_links_old_receipts_to_their_authors_once(tmp_path):
+    engine = create_engine(f"sqlite:///{tmp_path}/old.db")
+    with engine.begin() as conn:
+        conn.execute(text("CREATE TABLE recurring_payments (id INTEGER PRIMARY KEY, amount_minor INTEGER)"))
+        conn.execute(text("CREATE TABLE payment_occurrences (id INTEGER PRIMARY KEY, recurring_id INTEGER)"))
+        conn.execute(text("CREATE TABLE users (id INTEGER PRIMARY KEY, login TEXT)"))
+        conn.execute(
+            text("CREATE TABLE occurrence_receipts (id INTEGER PRIMARY KEY, created_by TEXT, created_by_type TEXT)")
+        )
+        conn.execute(text("INSERT INTO users VALUES (7, 'ivan')"))
+        conn.execute(text("INSERT INTO occurrence_receipts VALUES (1, 'ivan', 'user'), (2, 'boss', 'admin')"))
+
+    migrate(engine)
+    with engine.begin() as conn:
+        rows = dict(conn.execute(text("SELECT id, created_by_user_id FROM occurrence_receipts")).all())
+        assert rows == {1: 7, 2: None}
+        # автора удалили, логин заняли снова: повторный запуск не отдаёт ему старые вложения
+        conn.execute(text("UPDATE occurrence_receipts SET created_by_user_id = NULL"))
+        conn.execute(text("UPDATE users SET id = 8"))
+    migrate(engine)
+    with engine.connect() as conn:
+        assert conn.execute(text("SELECT created_by_user_id FROM occurrence_receipts WHERE id = 1")).scalar() is None

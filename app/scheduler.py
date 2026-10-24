@@ -14,14 +14,24 @@ logger = logging.getLogger("invoice_keeper")
 
 
 def tick(
-    session_factory: Callable[[], Session], notifiers: Notifier | list[Notifier], settings: Settings, today: date
+    session_factory: Callable[[], Session],
+    notifiers: Notifier | list[Notifier],
+    settings: Settings,
+    today: date,
+    hour: int | None = None,
 ) -> int:
-    """Один проход: догенерировать периоды, затем разослать напоминания."""
+    """Один проход: догенерировать периоды, затем разослать напоминания.
+
+    hour это текущий час в часовом поясе приложения: раньше settings.reminder_hour напоминания ждут,
+    периоды при этом создаются. Без hour час не проверяется.
+    """
     with session_factory() as db:
         created = ensure_all_occurrences(db, today)
         db.commit()
         if created:
             logger.info("Создано новых периодов: %s", created)
+        if hour is not None and hour < settings.reminder_hour:
+            return 0
         return send_due_reminders(db, notifiers, settings, today)
 
 

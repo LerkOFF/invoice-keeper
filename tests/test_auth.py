@@ -132,6 +132,29 @@ def test_token_is_stored_hashed(client):
     assert token not in stored and len(stored) == 1 and len(stored[0]) == 64
 
 
+def test_admin_password_change_in_env_closes_admin_sessions(client):
+    from app.core.config import Settings, get_settings
+
+    admin_token, user_token = login(client, ADMIN), login(client, USER)
+    client.cookies.clear()
+    me = lambda token: client.get("/api/v1/auth/me", headers={"Authorization": f"Bearer {token}"})  # noqa: E731
+    assert me(admin_token).status_code == 200
+
+    client.app.dependency_overrides[get_settings] = lambda: Settings(admin_password="rotated-pass")
+    assert me(admin_token).status_code == 401
+    assert me(user_token).status_code == 200  # сессии пользователей не задеты
+    assert client.post("/api/v1/auth/login", json={**ADMIN, "password": "rotated-pass"}).status_code == 200
+
+
+def test_admin_logout_removes_its_session(client):
+    token = login(client, ADMIN)
+    client.cookies.clear()
+    headers = {"Authorization": f"Bearer {token}"}
+    assert client.post("/api/v1/auth/logout", headers=headers).status_code == 200
+    with SessionLocal() as db:
+        assert db.scalar(select(AuthSession)) is None
+
+
 def test_expired_session_is_rejected_and_removed(client):
     token = login(client, USER)
     with SessionLocal() as db:

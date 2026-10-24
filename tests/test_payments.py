@@ -39,6 +39,7 @@ def test_only_admin_creates_payments(admin, user, anon):
         {"amount": "abc"},
         {"currency": "GBP"},
         {"name": ""},
+        {"name": "   "},
         {"first_due_date": "not-a-date"},
         {"period": "weekly"},
     ],
@@ -276,6 +277,20 @@ def test_summary_by_currency_without_conversion(admin, user):
     )
     assert (by["USD"]["total"], by["USD"]["overdue"], by["USD"]["count_overdue"]) == ("20.00", "20.00", 1)
     assert (by["EUR"]["total"], by["EUR"]["overdue"], by["EUR"]["count_unpaid"]) == ("9.99", "0.00", 1)
+
+
+def test_summary_counts_paid_late_like_overdue_list(admin, user):
+    late = make_payment_with_due(admin, "2026-10-10", amount="50.00", currency="EUR")
+    make_payment_with_due(admin, "2026-10-12", amount="7.00", currency="EUR")  # просрочен, не оплачен
+    on_time = make_payment_with_due(admin, "2026-10-14", amount="3.00", currency="EUR")
+    user.patch(f"{B}/payment-occurrences/{late}", json={"status": "paid", "paid_at": "2026-10-15"})
+    user.patch(f"{B}/payment-occurrences/{on_time}", json={"status": "paid", "paid_at": "2026-10-14"})
+
+    eur = next(c for c in user.get(f"{B}/payments/summary").json()["currencies"] if c["currency"] == "EUR")
+    assert (eur["overdue"], eur["count_overdue"]) == ("7.00", 1)
+    assert (eur["paid_late"], eur["count_paid_late"]) == ("50.00", 1)
+    listed = user.get(f"{B}/payment-occurrences", params={"overdue": True, "currency": "EUR"}).json()
+    assert len(listed) == eur["count_overdue"] + eur["count_paid_late"]
 
 
 def test_summary_has_all_currencies_when_empty_and_hides_deleted(admin):

@@ -100,12 +100,13 @@ def logout(
     request: Request,
     response: Response,
     db: DbDep,
+    settings: SettingsDep,
     principal: CurrentPrincipal,
     credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer_scheme)],
 ) -> LogoutResponse:
     token = extract_token(request, credentials)
     if token:
-        auth_service.delete_session(db, token)
+        auth_service.delete_session(db, settings, token)
     audit.record(db, "auth.logout", audit.actor_of(principal), ip=client_ip(request))
     db.commit()
     response.delete_cookie(SESSION_COOKIE)

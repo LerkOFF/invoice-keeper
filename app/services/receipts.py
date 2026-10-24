@@ -64,7 +64,15 @@ def _ensure_room(db: Session, occurrence: PaymentOccurrence, settings: Settings)
         raise ReceiptError(f"К одному периоду можно прикрепить не больше {settings.receipts_per_period} чеков и ссылок", 409)
 
 
-def add_link(db: Session, occurrence: PaymentOccurrence, settings: Settings, url: str, title: str | None, actor: Actor) -> OccurrenceReceipt:
+def add_link(
+    db: Session,
+    occurrence: PaymentOccurrence,
+    settings: Settings,
+    url: str,
+    title: str | None,
+    actor: Actor,
+    user_id: int | None = None,
+) -> OccurrenceReceipt:
     _ensure_room(db, occurrence, settings)
     receipt = OccurrenceReceipt(
         occurrence_id=occurrence.id,
@@ -73,6 +81,7 @@ def add_link(db: Session, occurrence: PaymentOccurrence, settings: Settings, url
         title=clean_title(title),
         created_by=actor.name[:100],
         created_by_type=actor.type,
+        created_by_user_id=user_id,
     )
     db.add(receipt)
     db.flush()
@@ -87,6 +96,7 @@ def add_file(
     original_name: str | None,
     title: str | None,
     actor: Actor,
+    user_id: int | None = None,
 ) -> OccurrenceReceipt:
     _ensure_room(db, occurrence, settings)
     limit = settings.receipt_max_mb * 1024 * 1024
@@ -115,6 +125,7 @@ def add_file(
         size_bytes=len(content),
         created_by=actor.name[:100],
         created_by_type=actor.type,
+        created_by_user_id=user_id,
     )
     db.add(receipt)
     db.flush()

@@ -100,6 +100,35 @@ def test_tick_reminds_when_window_opens_and_only_once():
     assert tick(SessionLocal, notifier, settings, TODAY + timedelta(days=8)) == 0
 
 
+def test_tick_holds_reminders_until_reminder_hour_but_creates_periods():
+    with SessionLocal() as db:
+        payment = RecurringPayment(name="Аренда", currency="RUB", first_due_date=TODAY + timedelta(days=1))
+        payment.amount = Decimal("100")
+        db.add(payment)
+        db.flush()
+        db.commit()
+
+    notifier = FakeNotifier()
+    settings = Settings(reminder_hour=9)
+    assert tick(SessionLocal, notifier, settings, TODAY, hour=0) == 0
+    assert notifier.messages == []
+    with SessionLocal() as db:
+        assert db.scalar(select(func.count()).select_from(PaymentOccurrence)) == 1  # период создан ночью
+    assert tick(SessionLocal, notifier, settings, TODAY, hour=8) == 0
+    assert tick(SessionLocal, notifier, settings, TODAY, hour=9) == 1
+
+
+def test_reminder_hour_zero_sends_any_time():
+    with SessionLocal() as db:
+        payment = RecurringPayment(name="Аренда", currency="RUB", first_due_date=TODAY + timedelta(days=1))
+        payment.amount = Decimal("100")
+        db.add(payment)
+        db.flush()
+        ensure_occurrences(db, payment, TODAY)
+        db.commit()
+    assert tick(SessionLocal, FakeNotifier(), Settings(reminder_hour=0), TODAY, hour=0) == 1
+
+
 def test_tick_generates_missing_periods():
     with SessionLocal() as db:
         payment = RecurringPayment(name="Подписка", currency="EUR", first_due_date=TODAY)
@@ -151,7 +180,9 @@ def test_app_runs_scheduler_in_background_and_stops_cleanly(monkeypatch):
 
     notifier = FakeNotifier()
     monkeypatch.setattr(
-        main_module, "get_settings", lambda: Settings(scheduler_enabled=True, scheduler_interval_seconds=0.05)
+        main_module,
+        "get_settings",
+        lambda: Settings(scheduler_enabled=True, scheduler_interval_seconds=0.05, reminder_hour=0),
     )
     monkeypatch.setattr(main_module, "build_notifiers", lambda _settings: [notifier])
     monkeypatch.setattr(main_module, "today", lambda: TODAY)

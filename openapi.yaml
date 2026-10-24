@@ -1403,7 +1403,11 @@ components:
         overdue:
           type: string
           title: Overdue
-          description: Неоплаченные периоды после срока
+          description: Неоплаченные периоды после срока (долг)
+        paid_late:
+          type: string
+          title: Paid Late
+          description: Оплаченные позже срока. Вместе с overdue это те же периоды, что в списке с overdue=true
         count_total:
           type: integer
           title: Count Total
@@ -1416,6 +1420,9 @@ components:
         count_overdue:
           type: integer
           title: Count Overdue
+        count_paid_late:
+          type: integer
+          title: Count Paid Late
       type: object
       required:
       - currency
@@ -1423,10 +1430,12 @@ components:
       - paid
       - unpaid
       - overdue
+      - paid_late
       - count_total
       - count_paid
       - count_unpaid
       - count_overdue
+      - count_paid_late
       title: CurrencySummaryOut
     CurrentUser:
       properties:
@@ -1803,6 +1812,10 @@ components:
         created_by_type:
           type: string
           title: Created By Type
+        can_delete:
+          type: boolean
+          title: Can Delete
+          description: 'Может ли текущий пользователь удалить вложение: администратор или автор'
       type: object
       required:
       - id
@@ -1817,6 +1830,7 @@ components:
       - created_at
       - created_by
       - created_by_type
+      - can_delete
       title: ReceiptOut
     RecurringPaymentCreate:
       properties:

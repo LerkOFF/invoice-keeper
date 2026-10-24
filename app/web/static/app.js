@@ -2052,7 +2052,7 @@ function receiptsDialog(o, reload) {
     listBox.replaceChildren(
       ...(items.length
         ? items.map((r) => {
-            const mine = state.me.role === "admin" || (r.created_by === state.me.login && r.created_by_type === state.me.role);
+            const mine = r.can_delete; // сервер решает сам: администратор или автор по id
             const label = r.title || r.filename || r.url;
             const open = r.kind === "file" ? r.download_url : safeHref(r.url);
             return h(
