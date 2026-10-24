@@ -331,6 +331,7 @@ paths:
           description: Только проверить, ничего не создавать
           default: true
           title: Dry Run
+        description: Только проверить, ничего не создавать
       requestBody:
         required: true
         content:
