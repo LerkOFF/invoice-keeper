@@ -10,7 +10,7 @@ const state = {
   me: null,
   asOf: null, // «сегодня» по часовому поясу сервера
   tab: "payments",
-  filters: { status: "all", currency: "", scope: "all", deleted: false, on: "", q: "" },
+  filters: { status: "all", currency: "", category: "", scope: "all", deleted: false, on: "", q: "" },
   sort: { key: "due", dir: 1 },
   cal: null, // { year, month, selected }
   budgetYear: null,
@@ -57,6 +57,12 @@ const I18N = {
     "field.title": "Название",
     "field.q": "Поиск",
     "field.pay_url": "Ссылка на оплату",
+    "field.category": "Категория",
+    "rec.categoryPlaceholder": "аренда, IT, подписки",
+    "payments.allCategories": "Все категории",
+    "payments.noCategory": "Без категории",
+    "budget.byCategory": "по категориям",
+    "budget.category": "Категория",
     "field.pay_details": "Реквизиты",
     "rec.payUrlPlaceholder": "https://…",
     "rec.payDetailsPlaceholder": "договор, счёт, ИНН",
@@ -490,6 +496,12 @@ const I18N = {
     "field.title": "Title",
     "field.q": "Search",
     "field.pay_url": "Payment link",
+    "field.category": "Category",
+    "rec.categoryPlaceholder": "rent, IT, subscriptions",
+    "payments.allCategories": "All categories",
+    "payments.noCategory": "No category",
+    "budget.byCategory": "by category",
+    "budget.category": "Category",
     "field.pay_details": "Payment details",
     "rec.payUrlPlaceholder": "https://…",
     "rec.payDetailsPlaceholder": "contract, invoice, tax ID",
@@ -1305,6 +1317,15 @@ function checkLogin(login) {
   if (!/^[A-Za-z0-9._@-]{3,64}$/.test(login)) throw new Error(t("check.login"));
 }
 
+// Категории для подсказок и фильтра: из списка регулярных платежей
+function categoriesOf(payments) {
+  return [...new Set(payments.map((p) => p.category).filter(Boolean))].sort((a, b) => a.localeCompare(b, locale()));
+}
+
+function categoryField(value = "") {
+  return field({ label: t("field.category"), name: "category", required: false, maxlength: "60", value, list: "category-options", placeholder: t("rec.categoryPlaceholder") });
+}
+
 function payLinkFields(data) {
   const url = String(data.get("pay_url") || "").trim();
   if (url && !/^https?:\/\/\S+$/i.test(url)) throw new Error(t("check.payUrl"));
@@ -1905,6 +1926,7 @@ async function paymentsView(main) {
       status: f.status === "paid" || f.status === "unpaid" ? f.status : undefined,
       overdue: f.status === "overdue" ? "true" : undefined,
       currency: f.currency,
+      category: f.category || undefined,
       include_deleted: f.deleted ? "true" : undefined,
       q: f.q.trim() || undefined,
       ...range,
@@ -1948,6 +1970,18 @@ async function paymentsView(main) {
     CURRENCIES.map((c) => h("option", { value: c, selected: state.filters.currency === c }, c)),
   );
 
+  const categories = categoriesOf(await api("/recurring-payments", { params: { include_deleted: "true" } }));
+  if (state.filters.category && state.filters.category !== "-" && !categories.includes(state.filters.category)) state.filters.category = "";
+  const categorySelect = categories.length
+    ? h(
+        "select",
+        { "aria-label": t("field.category"), onchange: (e) => { state.filters.category = e.target.value; reload().catch(report); } },
+        h("option", { value: "" }, t("payments.allCategories")),
+        categories.map((c) => h("option", { value: c, selected: state.filters.category === c }, c)),
+        h("option", { value: "-", selected: state.filters.category === "-" }, t("payments.noCategory")),
+      )
+    : null;
+
   const toolbar = h(
     "div",
     { class: "toolbar" },
@@ -1971,6 +2005,7 @@ async function paymentsView(main) {
       (v) => { state.filters.scope = v; reload().catch(report); },
     ),
     currencySelect,
+    categorySelect,
     h(
       "label",
       { class: "check" },
@@ -2093,7 +2128,13 @@ function occurrenceRow(o, reload) {
   return h(
     "tr",
     { class: rowClass },
-    h("td", { class: "title-cell" }, h("div", { class: "cell-title" }, o.name), o.payment_deleted ? h("div", { class: "cell-sub" }, t("payments.stopped")) : null),
+    h(
+      "td",
+      { class: "title-cell" },
+      h("div", { class: "cell-title" }, o.name),
+      o.category ? h("div", { class: "cell-sub" }, o.category) : null,
+      o.payment_deleted ? h("div", { class: "cell-sub" }, t("payments.stopped")) : null,
+    ),
     h("td", { class: "right", "data-label": t("col.amount") }, h("span", { class: "amount num" }, money(o.amount, o.currency))),
     h("td", { "data-label": t("col.due") }, h("div", {}, h("div", { class: "num" }, fmtDate(o.due_date)), note ? h("div", { class: `cell-sub ${note.bad ? "bad" : ""}` }, note.text) : null)),
     h("td", { "data-label": t("col.status") }, h("span", { class: `badge ${status.cls}` }, status.text)),
@@ -2311,6 +2352,7 @@ function periodHint(p) {
 
 async function recurringView(main) {
   const listBox = h("div", { class: "table-card" }, skeletonRows(3));
+  const categoryOptions = h("datalist", { id: "category-options" });
 
   async function reload() {
     const [payments, unpaid] = await Promise.all([
@@ -2319,6 +2361,7 @@ async function recurringView(main) {
     ]);
     const nextDue = new Map();
     for (const o of unpaid) if (!nextDue.has(o.recurring_id)) nextDue.set(o.recurring_id, o.due_date);
+    categoryOptions.replaceChildren(...categoriesOf(payments).map((c) => h("option", { value: c })));
 
     listBox.replaceChildren(
       payments.length
@@ -2338,7 +2381,7 @@ async function recurringView(main) {
                     "td",
                     { class: "title-cell" },
                     h("div", { class: "cell-title" }, p.name),
-                    h("div", { class: "cell-sub" }, t("rec.firstDue", { date: fmtDate(p.first_due_date) })),
+                    h("div", { class: "cell-sub" }, p.category ? `${p.category} · ` : "", t("rec.firstDue", { date: fmtDate(p.first_due_date) })),
                     p.pay_url ? h("a", { class: "cell-link", href: p.pay_url, target: "_blank", rel: "noopener noreferrer", title: p.pay_details || p.pay_url }, t("rec.payLink")) : null,
                   ),
                   h("td", { class: "right", "data-label": t("col.amount") }, h("span", { class: "amount num" }, money(p.amount, p.currency))),
@@ -2372,8 +2415,10 @@ async function recurringView(main) {
       field({ label: t("field.first_due_date"), name: "first_due_date", type: "date", value: state.asOf }),
       field({ label: t("field.pay_url"), name: "pay_url", type: "url", required: false, maxlength: "500", placeholder: t("rec.payUrlPlaceholder") }),
       field({ label: t("field.pay_details"), name: "pay_details", required: false, maxlength: "1000", placeholder: t("rec.payDetailsPlaceholder") }),
+      categoryField(),
       h("button", { type: "submit", class: "btn btn-primary" }, t("rec.add")),
     ),
+    categoryOptions,
     h("p", { class: "form-error", role: "alert" }),
   );
 
@@ -2391,9 +2436,10 @@ async function recurringView(main) {
       if (!firstDue) throw new Error(t("check.firstDue"));
       setBusy(submit, true);
       const link = payLinkFields(data);
-      await api("/recurring-payments", { method: "POST", body: { name, amount, currency: data.get("currency"), period: data.get("period"), first_due_date: firstDue, ...link } });
+      const category = String(data.get("category") || "").trim() || null;
+      await api("/recurring-payments", { method: "POST", body: { name, amount, currency: data.get("currency"), period: data.get("period"), first_due_date: firstDue, category, ...link } });
       toast(t("rec.added", { name }));
-      for (const key of ["name", "amount", "pay_url", "pay_details"]) form.querySelector(`[name=${key}]`).value = "";
+      for (const key of ["name", "amount", "pay_url", "pay_details", "category"]) form.querySelector(`[name=${key}]`).value = "";
       await reload();
     } catch (err) {
       error.textContent = err.message;
@@ -2424,9 +2470,12 @@ function editPaymentDialog(p, reload) {
       }),
       field({ label: t("field.pay_url"), name: "pay_url", type: "url", required: false, maxlength: "500", value: p.pay_url || "", placeholder: t("rec.payUrlPlaceholder") }),
       field({ label: t("field.pay_details"), name: "pay_details", required: false, maxlength: "1000", value: p.pay_details || "", placeholder: t("rec.payDetailsPlaceholder") }),
+      categoryField(p.category || ""),
     ],
     onSubmit: async (data) => {
       const body = {};
+      const category = String(data.get("category") || "").trim().replace(/\s+/g, " ") || null;
+      if (category !== (p.category || null)) body.category = category;
       const link = payLinkFields(data);
       if (link.pay_url !== (p.pay_url || null)) body.pay_url = link.pay_url;
       if (link.pay_details !== (p.pay_details || null)) body.pay_details = link.pay_details;
@@ -2742,6 +2791,8 @@ async function budgetView(main) {
   if (!state.budgetYear) state.budgetYear = Number(state.asOf.slice(0, 4));
   const cards = h("section", { class: "summary", "aria-label": t("tab.budget") }, skeletonTileList());
   const tableBox = h("div", { class: "table-card" }, skeletonRows());
+  const categoryBox = h("div", { class: "table-card" });
+  const categorySection = section(t("budget.byCategory"), categoryBox);
   const title = h("h3", { class: "cal-title" });
 
   // Стрелка на плитке: вкладка «Платежи» с периодами этой валюты
@@ -2813,6 +2864,40 @@ async function budgetView(main) {
           )
         : h("div", { class: "empty" }, h("strong", {}, t("budget.empty")), t("budget.emptyText")),
     );
+
+    // по категориям: только если хоть у одного платежа категория задана
+    const named = (data.categories || []).some((c) => c.category);
+    categorySection.hidden = !named || !active.length;
+    if (named && active.length) {
+      categoryBox.replaceChildren(
+        h(
+          "table",
+          {},
+          h("thead", {}, h("tr", {}, h("th", {}, t("budget.category")), active.map((cur) => h("th", { class: "right" }, cur)))),
+          h(
+            "tbody",
+            {},
+            data.categories.map((row) =>
+              h(
+                "tr",
+                {},
+                h("td", { class: "title-cell" }, h("div", { class: "cell-title" }, row.category || t("payments.noCategory"))),
+                active.map((cur) => {
+                  const c = row.currencies.find((x) => x.currency === cur);
+                  return h(
+                    "td",
+                    { class: "right num", "data-label": cur },
+                    c.count_planned
+                      ? h("div", {}, h("div", { class: "amount" }, money(c.planned, cur)), h("div", { class: "cell-sub" }, c.paid === c.planned ? t("budget.paidAll") : t("budget.paidPart", { amount: money(c.paid, cur) })))
+                      : h("span", { class: "muted" }, "—"),
+                  );
+                }),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
   }
 
   function openMonth(year, month) {
@@ -2832,6 +2917,7 @@ async function budgetView(main) {
       h("button", { class: "btn btn-sm", type: "button", "aria-label": t("budget.next"), title: t("budget.next"), onclick: () => shift(1) }, icon("chevronRight")),
     ),
     cards,
+    categorySection,
     section(t("budget.byMonth"), tableBox),
   );
   await reload();
