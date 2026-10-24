@@ -250,6 +250,17 @@ const I18N = {
     "rec.colNextShort": "Ближайший срок",
     "rec.firstDue": "первый срок {date}",
     "rec.stop": "Прекратить",
+    "rec.pause": "Пауза",
+    "rec.resume": "Возобновить",
+    "rec.pauseTitle": "Поставить на паузу?",
+    "rec.pauseDesc": "«{name}»: пока пауза, новых периодов и напоминаний не будет. Неоплаченные сроки внутри паузы уберутся, оплаты и прошлые долги останутся.",
+    "rec.pauseUntil": "До какого дня",
+    "rec.pauseHint": "пусто — до ручного возобновления; сам этот день уже не на паузе",
+    "rec.paused": "на паузе",
+    "rec.pausedUntil": "на паузе до {date}",
+    "rec.pausedDone": "«{name}» на паузе",
+    "rec.resumed": "«{name}» снова активен",
+    "audit.until": "до {date}",
     "rec.empty": "Регулярных платежей пока нет",
     "rec.emptyText": "Добавьте аренду, подписку или оплату сервера формой выше.",
     "rec.new": "Новый регулярный платёж",
@@ -346,6 +357,8 @@ const I18N = {
     "action.payment.create": "Платёж добавлен",
     "action.payment.update": "Платёж изменён",
     "action.payment.delete": "Платёж прекращён",
+    "action.payment.pause": "Платёж на паузе",
+    "action.payment.resume": "Пауза снята",
     "action.occurrence.paid": "Оплата отмечена",
     "action.occurrence.unpaid": "Оплата отменена",
     "action.occurrence.paid_at_changed": "Дата оплаты исправлена",
@@ -694,6 +707,17 @@ const I18N = {
     "rec.colNextShort": "Next due",
     "rec.firstDue": "first due {date}",
     "rec.stop": "Stop",
+    "rec.pause": "Pause",
+    "rec.resume": "Resume",
+    "rec.pauseTitle": "Pause the payment?",
+    "rec.pauseDesc": "“{name}”: no new periods or reminders while paused. Unpaid due dates within the pause are removed; payments and past debts stay.",
+    "rec.pauseUntil": "Until",
+    "rec.pauseHint": "empty — until you resume; that day itself is no longer paused",
+    "rec.paused": "paused",
+    "rec.pausedUntil": "paused until {date}",
+    "rec.pausedDone": "“{name}” is paused",
+    "rec.resumed": "“{name}” is active again",
+    "audit.until": "until {date}",
     "rec.empty": "No recurring payments yet",
     "rec.emptyText": "Add rent, a subscription or a server bill with the form above.",
     "rec.new": "New recurring payment",
@@ -790,6 +814,8 @@ const I18N = {
     "action.payment.create": "Payment added",
     "action.payment.update": "Payment edited",
     "action.payment.delete": "Payment stopped",
+    "action.payment.pause": "Payment paused",
+    "action.payment.resume": "Payment resumed",
     "action.occurrence.paid": "Payment marked",
     "action.occurrence.unpaid": "Payment undone",
     "action.occurrence.paid_at_changed": "Payment date corrected",
@@ -2443,12 +2469,21 @@ async function recurringView(main) {
                     p.pay_url ? h("a", { class: "cell-link", href: p.pay_url, target: "_blank", rel: "noopener noreferrer", title: p.pay_details || p.pay_url }, t("rec.payLink")) : null,
                   ),
                   h("td", { class: "right", "data-label": t("col.amount") }, h("span", { class: "amount num" }, money(p.amount, p.currency))),
-                  h("td", { "data-label": t("rec.colPeriod") }, h("div", {}, periodLabel(p.period)), h("div", { class: "cell-sub" }, periodHint(p))),
+                  h(
+                    "td",
+                    { "data-label": t("rec.colPeriod") },
+                    h("div", {}, periodLabel(p.period)),
+                    h("div", { class: "cell-sub" }, periodHint(p)),
+                    p.is_paused || p.paused_from ? h("span", { class: "badge late" }, p.paused_until ? t("rec.pausedUntil", { date: fmtDate(p.paused_until) }) : t("rec.paused")) : null,
+                  ),
                   h("td", { "data-label": t("rec.colNextShort"), class: "num" }, next ? fmtDate(next) : "—"),
                   h(
                     "td",
                     { class: "actions" },
                     h("button", { class: "btn btn-sm", onclick: () => editPaymentDialog(p, reload) }, t("common.edit")),
+                    p.is_paused || p.paused_from
+                      ? h("button", { class: "btn btn-sm btn-accent", onclick: () => resumePayment(p, reload).catch(report) }, t("rec.resume"))
+                      : h("button", { class: "btn btn-sm", onclick: () => pauseDialog(p, reload) }, t("rec.pause")),
                     h("button", { class: "btn btn-sm btn-danger", onclick: () => deletePaymentDialog(p, reload) }, t("rec.stop")),
                   ),
                 );
@@ -2558,6 +2593,28 @@ function editPaymentDialog(p, reload) {
       await reload();
     },
   });
+}
+
+function pauseDialog(p, reload) {
+  const tomorrow = new Date(Date.parse(`${state.asOf}T00:00:00Z`) + 86400000).toISOString().slice(0, 10);
+  openDialog({
+    title: t("rec.pauseTitle"),
+    description: t("rec.pauseDesc", { name: p.name }),
+    confirmLabel: t("rec.pause"),
+    fields: [field({ label: t("rec.pauseUntil"), name: "until", type: "date", required: false, min: tomorrow, hint: t("rec.pauseHint") })],
+    onSubmit: async (data) => {
+      const until = String(data.get("until") || "") || null;
+      await api(`/recurring-payments/${p.id}/pause`, { method: "POST", body: { until } });
+      toast(t("rec.pausedDone", { name: p.name }));
+      await reload();
+    },
+  });
+}
+
+async function resumePayment(p, reload) {
+  await api(`/recurring-payments/${p.id}/resume`, { method: "POST" });
+  toast(t("rec.resumed", { name: p.name }));
+  await reload();
 }
 
 function deletePaymentDialog(p, reload) {
@@ -3010,6 +3067,9 @@ function auditSummary(e) {
         d.amount_before ? t("audit.amountChanged", { before: money(d.amount_before, d.currency), after: money(d.amount, d.currency) }) : "",
         d.first_due_date_before ? t("audit.scheduleChanged", { period: periodLabel(d.period).toLowerCase(), date: fmtDate(d.first_due_date) }) : "",
       ].filter(Boolean).join(", ");
+    case "payment.pause":
+      return [d.name, d.until ? t("audit.until", { date: fmtDate(d.until) }) : ""].filter(Boolean).join(", ");
+    case "payment.resume":
     case "payment.delete":
       return d.name;
     case "user.create":
