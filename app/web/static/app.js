@@ -427,6 +427,19 @@ const I18N = {
     "help.api.title": "API",
     "help.api.text": "REST API и документация Swagger.",
     "help.api.link": "Открыть документацию",
+    "help.security": "безопасность",
+    "help.sec.access": "Без входа панель и данные недоступны: каждый запрос к API проверяет сессию на сервере.",
+    "help.sec.roles": "Права проверяются на сервере: обычный пользователь не выполнит действия администратора, даже напрямую через API.",
+    "help.sec.admin": "Администратор задаётся только в .env на сервере. Через панель или API его не создать, не изменить и не удалить.",
+    "help.sec.passwords": "Пароли хранятся только в виде хэша argon2 и никогда не попадают в журнал.",
+    "help.sec.sessions": "«Выйти» завершает сессию на сервере. После смены пароля все сессии этого пользователя закрываются.",
+    "help.sec.bruteforce": "После нескольких неудачных попыток вход с этого адреса временно блокируется.",
+    "help.sec.audit.admin": "Входы, неудачные попытки и все изменения записываются во вкладку «Журнал».",
+    "help.sec.audit.user": "Входы и изменения записываются в журнал, который видит администратор.",
+    "help.sec.receipts": "Чеки принимаются только в PDF, PNG, JPEG и WebP: тип проверяется по содержимому файла, а не по имени.",
+    "help.sec.bots": "Кнопку «Оплачено» в Telegram и MAX принимают только от участников чата напоминаний и от пользователей, привязавших мессенджер. Код привязки одноразовый и действует 10 минут.",
+    "help.sec.secrets": "Пароль администратора и токены ботов хранятся только в .env на сервере и в панели не показываются.",
+    "help.sec.tip": "Не передавайте свой пароль другим и нажимайте «Выйти» на чужом устройстве.",
   },
 
   en: {
@@ -831,6 +844,19 @@ const I18N = {
     "help.api.title": "API",
     "help.api.text": "REST API and Swagger docs.",
     "help.api.link": "Open the docs",
+    "help.security": "security",
+    "help.sec.access": "Without signing in, the panel and data are unavailable: every API request checks the session on the server.",
+    "help.sec.roles": "Permissions are checked on the server: a regular user cannot perform admin actions, even directly through the API.",
+    "help.sec.admin": "The administrator is defined only in .env on the server. It cannot be created, changed or deleted through the panel or the API.",
+    "help.sec.passwords": "Passwords are stored only as argon2 hashes and never get into the log.",
+    "help.sec.sessions": "“Sign out” ends the session on the server. Changing a password closes all of that user's sessions.",
+    "help.sec.bruteforce": "After several failed attempts, signing in from that address is blocked for a while.",
+    "help.sec.audit.admin": "Sign-ins, failed attempts and every change are recorded on the Activity log tab.",
+    "help.sec.audit.user": "Sign-ins and changes are recorded in a log that the administrator can see.",
+    "help.sec.receipts": "Receipts are accepted only as PDF, PNG, JPEG and WebP: the type is checked by the file contents, not its name.",
+    "help.sec.bots": "The “Paid” button in Telegram and MAX is accepted only from members of the reminder chat and from users who linked the messenger. A link code works once and expires in 10 minutes.",
+    "help.sec.secrets": "The administrator password and bot tokens live only in .env on the server and are never shown in the panel.",
+    "help.sec.tip": "Do not share your password and sign out on devices that are not yours.",
   },
 };
 
@@ -2908,6 +2934,15 @@ async function helpView(main) {
     ),
   );
 
+  const securityKeys = ["access", "roles", "admin", "passwords", "sessions", "bruteforce", "audit", "receipts", "bots"];
+  if (isAdmin) securityKeys.push("secrets");
+  securityKeys.push("tip");
+  const security = h(
+    "ul",
+    { class: "help-rules" },
+    securityKeys.map((key) => h("li", {}, t(roleKey(`help.sec.${key}`)))),
+  );
+
   const link = (c) => h("a", { href: c.url, target: "_blank", rel: "noopener" }, c.label);
   const supportLinks = [info.contacts.telegram, info.contacts.email, info.contacts.url].filter(Boolean);
   const card = (title, text, ...links) =>
@@ -2930,6 +2965,7 @@ async function helpView(main) {
     section(t("help.overview"), overview),
     section(t("help.rules"), rules),
     section(t("help.faq"), faq),
+    section(t("help.security"), security),
     section(t("help.contacts"), contacts),
   );
 }
