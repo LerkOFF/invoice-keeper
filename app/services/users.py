@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import Settings
 from app.core.security import hash_password
-from app.models import AuthSession, Role, User
+from app.models import ApiToken, AuthSession, Role, User
 
 
 class UserConflictError(Exception):
@@ -60,5 +60,6 @@ def update_user(
 def delete_user(db: Session, user: User) -> None:
     ensure_manageable(user)
     db.execute(delete(AuthSession).where(AuthSession.user_id == user.id))
+    db.execute(delete(ApiToken).where(ApiToken.user_id == user.id))
     db.delete(user)
     db.commit()

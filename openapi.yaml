@@ -25,6 +25,8 @@ paths:
       tags:
       - auth
       summary: Вход по логину и паролю
+      description: 'Если у администратора включён двухфакторный вход (`ADMIN_TOTP_SECRET`), без поля `otp`
+        ответ 401 с заголовком `X-OTP-Required: true`: повторите запрос с кодом из приложения-аутентификатора.'
       operationId: login
       requestBody:
         content:
@@ -40,7 +42,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/LoginResponse'
         '401':
-          description: Неверный логин или пароль
+          description: Неверный логин, пароль или код; заголовок X-OTP-Required, если нужен код
         '429':
           description: 'Слишком много неудачных попыток: вход временно закрыт, заголовок Retry-After'
         '422':
@@ -81,8 +83,114 @@ paths:
                 $ref: '#/components/schemas/LogoutResponse'
         '401':
           description: Нет авторизации
+        '403':
+          description: 'Запрос с API-токеном: его отзывают в /me/tokens'
       security:
       - HTTPBearer: []
+  /api/v1/auth/password:
+    post:
+      tags:
+      - auth
+      summary: Сменить свой пароль
+      description: Нужен текущий пароль. Остальные сессии закрываются, текущая остаётся. Неверный текущий
+        пароль считается неудачной попыткой входа. Пароль администратора задаётся в `.env`, здесь не меняется.
+      operationId: change_password
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PasswordChange'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PasswordChangeOut'
+        '400':
+          description: Неверный текущий пароль или новый совпадает с ним
+        '403':
+          description: Администратор из .env или запрос с API-токеном
+        '429':
+          description: Слишком много неудачных попыток
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - HTTPBearer: []
+  /api/v1/auth/sessions:
+    get:
+      tags:
+      - auth
+      summary: Мои сессии
+      description: Все входы в эту учётную запись, которые ещё действуют. Текущая сессия первой.
+      operationId: my_sessions
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/SessionOut'
+                type: array
+                title: Response My Sessions
+        '403':
+          description: Запрос с API-токеном
+      security:
+      - HTTPBearer: []
+  /api/v1/auth/sessions/end-others:
+    post:
+      tags:
+      - auth
+      summary: Завершить все сессии, кроме текущей
+      operationId: end_other_sessions
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionsEnded'
+        '403':
+          description: Запрос с API-токеном
+      security:
+      - HTTPBearer: []
+  /api/v1/auth/sessions/{id}:
+    delete:
+      tags:
+      - auth
+      summary: Завершить сессию
+      description: Свою сессию на другом устройстве. Текущую завершает `POST /auth/logout`.
+      operationId: end_session
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          title: Id
+      responses:
+        '204':
+          description: Successful Response
+        '400':
+          description: Это текущая сессия
+        '403':
+          description: Запрос с API-токеном
+        '404':
+          description: Сессия не найдена
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
   /api/v1/recurring-payments:
     get:
       tags:
@@ -1083,6 +1191,89 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/me/tokens:
+    get:
+      tags:
+      - tokens
+      summary: Мои API-токены
+      description: Сами токены не показываются, только их начало. Управлять токенами можно только после
+        входа по паролю.
+      operationId: my_tokens
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/ApiTokenOut'
+                type: array
+                title: Response My Tokens
+        '403':
+          description: Запрос с API-токеном
+      security:
+      - HTTPBearer: []
+    post:
+      tags:
+      - tokens
+      summary: Создать API-токен
+      description: 'Токен для скриптов и интеграций: заголовок `Authorization: Bearer ik_...`. Права те
+        же, что у владельца, `read` дополнительно ограничивает до GET. Токен показывается в ответе один
+        раз.'
+      operationId: create_token
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApiTokenCreate'
+        required: true
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiTokenCreated'
+        '403':
+          description: Запрос с API-токеном
+        '409':
+          description: Слишком много токенов
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - HTTPBearer: []
+  /api/v1/me/tokens/{id}:
+    delete:
+      tags:
+      - tokens
+      summary: Отозвать API-токен
+      operationId: revoke_token
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          title: Id
+      responses:
+        '204':
+          description: Successful Response
+        '403':
+          description: Запрос с API-токеном
+        '404':
+          description: Токен не найден
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
   /api/v1/help:
     get:
       tags:
@@ -1102,6 +1293,123 @@ paths:
       - HTTPBearer: []
 components:
   schemas:
+    ApiTokenCreate:
+      properties:
+        name:
+          type: string
+          maxLength: 64
+          minLength: 1
+          title: Name
+          examples:
+          - Google Таблицы
+        scope:
+          type: string
+          enum:
+          - read
+          - write
+          title: Scope
+          description: 'read: только GET, write: чтение и изменения с правами владельца'
+        expires_in_days:
+          anyOf:
+          - type: integer
+            maximum: 3650.0
+            minimum: 1.0
+          - type: 'null'
+          title: Expires In Days
+          description: 'Пусто: бессрочно, пока не отзовут'
+      additionalProperties: false
+      type: object
+      required:
+      - name
+      - scope
+      title: ApiTokenCreate
+    ApiTokenCreated:
+      properties:
+        id:
+          type: integer
+          title: Id
+        name:
+          type: string
+          title: Name
+        scope:
+          type: string
+          enum:
+          - read
+          - write
+          title: Scope
+        prefix:
+          type: string
+          title: Prefix
+          description: Начало токена, чтобы узнать его в списке
+        created_at:
+          type: string
+          title: Created At
+        expires_at:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Expires At
+        last_used_at:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Last Used At
+        token:
+          type: string
+          title: Token
+          description: Сам токен. Показывается один раз, сохраните его сразу
+      type: object
+      required:
+      - id
+      - name
+      - scope
+      - prefix
+      - created_at
+      - expires_at
+      - last_used_at
+      - token
+      title: ApiTokenCreated
+    ApiTokenOut:
+      properties:
+        id:
+          type: integer
+          title: Id
+        name:
+          type: string
+          title: Name
+        scope:
+          type: string
+          enum:
+          - read
+          - write
+          title: Scope
+        prefix:
+          type: string
+          title: Prefix
+          description: Начало токена, чтобы узнать его в списке
+        created_at:
+          type: string
+          title: Created At
+        expires_at:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Expires At
+        last_used_at:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Last Used At
+      type: object
+      required:
+      - id
+      - name
+      - scope
+      - prefix
+      - created_at
+      - expires_at
+      - last_used_at
+      title: ApiTokenOut
     AuditEntryOut:
       properties:
         id:
@@ -1450,6 +1758,16 @@ components:
           title: Login
         role:
           $ref: '#/components/schemas/Role'
+        two_factor:
+          type: boolean
+          title: Two Factor
+          description: Вход защищён вторым фактором (TOTP)
+          default: false
+        via_token:
+          type: boolean
+          title: Via Token
+          description: Запрос пришёл с API-токеном, а не по сессии
+          default: false
       type: object
       required:
       - id
@@ -1568,6 +1886,16 @@ components:
           maxLength: 256
           minLength: 1
           title: Password
+        otp:
+          anyOf:
+          - type: string
+            maxLength: 16
+          - type: 'null'
+          title: Otp
+          description: Код из приложения-аутентификатора, если у администратора включён двухфакторный
+            вход
+          examples:
+          - '123456'
       type: object
       required:
       - login
@@ -1728,6 +2056,34 @@ components:
       type: object
       title: OccurrenceUpdate
       description: Подтверждение или отмена оплаты и правка фактической даты.
+    PasswordChange:
+      properties:
+        current_password:
+          type: string
+          maxLength: 256
+          minLength: 1
+          title: Current Password
+        new_password:
+          type: string
+          maxLength: 128
+          minLength: 8
+          title: New Password
+      additionalProperties: false
+      type: object
+      required:
+      - current_password
+      - new_password
+      title: PasswordChange
+    PasswordChangeOut:
+      properties:
+        ended_sessions:
+          type: integer
+          title: Ended Sessions
+          description: Сколько других сессий закрыто
+      type: object
+      required:
+      - ended_sessions
+      title: PasswordChangeOut
     Period:
       type: string
       enum:
@@ -1955,6 +2311,55 @@ components:
       - admin
       - user
       title: Role
+    SessionOut:
+      properties:
+        id:
+          type: integer
+          title: Id
+        current:
+          type: boolean
+          title: Current
+          description: Сессия, с которой пришёл этот запрос
+        created_at:
+          type: string
+          title: Created At
+        expires_at:
+          type: string
+          title: Expires At
+        last_seen_at:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Last Seen At
+        ip:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Ip
+        user_agent:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: User Agent
+      type: object
+      required:
+      - id
+      - current
+      - created_at
+      - expires_at
+      - last_seen_at
+      - ip
+      - user_agent
+      title: SessionOut
+    SessionsEnded:
+      properties:
+        ended:
+          type: integer
+          title: Ended
+      type: object
+      required:
+      - ended
+      title: SessionsEnded
     SummaryOut:
       properties:
         as_of:
@@ -2071,7 +2476,7 @@ components:
   securitySchemes:
     HTTPBearer:
       type: http
-      description: Токен из POST /auth/login
+      description: Токен из POST /auth/login или API-токен из POST /me/tokens
       scheme: bearer
 tags:
 - name: auth

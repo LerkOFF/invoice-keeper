@@ -1,7 +1,9 @@
 from functools import lru_cache
 
-from pydantic import Field
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+from app.services.totp import normalize_secret
 
 
 class Settings(BaseSettings):
@@ -9,6 +11,8 @@ class Settings(BaseSettings):
 
     admin_login: str = "admin"
     admin_password: str = "change-me"
+    # Двухфакторный вход администратора: секрет TOTP в Base32, пусто — выключен (python -m app.services.totp)
+    admin_totp_secret: str = ""
 
     telegram_bot_token: str = ""
     telegram_chat_id: str = ""
@@ -73,6 +77,12 @@ class Settings(BaseSettings):
     seed_demo_data: bool = True
     seed_user_login: str = "user"
     seed_user_password: str = "user-pass-123"
+
+    @field_validator("admin_totp_secret")
+    @classmethod
+    def _check_totp_secret(cls, value: str) -> str:
+        # опечатка в секрете должна остановить запуск, а не молча выключить 2FA
+        return normalize_secret(value)
 
     @property
     def smtp_recipients(self) -> list[str]:

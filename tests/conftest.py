@@ -48,9 +48,10 @@ from app.api.deps import current_date  # noqa: E402
 from app.core.db import SessionLocal, init_db  # noqa: E402
 from app.core.security import hash_password  # noqa: E402
 from app.main import create_app  # noqa: E402
-from app.models import AuditEntry, AuthSession, MessengerLink, MessengerLinkCode, PaymentOccurrence, RecurringPayment, User  # noqa: E402
+from app.models import ApiToken, AuditEntry, AuthSession, MessengerLink, MessengerLinkCode, PaymentOccurrence, RecurringPayment, User  # noqa: E402
 from tests.helpers import ADMIN, B, TODAY, USER  # noqa: E402
 from app.services.login_guard import login_guard  # noqa: E402
+from app.services.totp import admin_otp  # noqa: E402
 
 
 @pytest.fixture(autouse=True)
@@ -58,8 +59,9 @@ def clean_db():
     """Чистая база и один обычный пользователь `ivan` перед каждым тестом."""
     init_db()
     login_guard.reset()
+    admin_otp.reset()
     with SessionLocal() as db:
-        for model in (MessengerLinkCode, MessengerLink, AuditEntry, AuthSession, PaymentOccurrence, RecurringPayment, User):
+        for model in (MessengerLinkCode, MessengerLink, AuditEntry, ApiToken, AuthSession, PaymentOccurrence, RecurringPayment, User):
             db.execute(delete(model))
         db.add(User(login=USER["login"], password_hash=hash_password(USER["password"])))
         db.commit()

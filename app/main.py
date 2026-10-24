@@ -8,7 +8,7 @@ from fastapi import APIRouter, FastAPI, Request
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-from app.api import audit, auth, help_page, messengers, payment_occurrences, receipts, recurring_payments, summary, users
+from app.api import audit, auth, help_page, messengers, payment_occurrences, receipts, recurring_payments, summary, tokens, users
 from app.core.clock import now, today
 from app.core.config import get_settings
 from app.core.db import SessionLocal, init_db
@@ -122,6 +122,7 @@ def create_app() -> FastAPI:
     api.include_router(audit.router)
     api.include_router(receipts.router)
     api.include_router(messengers.router)
+    api.include_router(tokens.router)
     api.include_router(help_page.router)
 
     app.include_router(api)

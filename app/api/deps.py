@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from app.core.clock import today as today_in_tz
 from app.core.config import Settings, get_settings
 from app.core.db import get_db
+from app.services.api_tokens import READ_METHODS
 from app.services.auth import Principal, get_principal
 from app.services.notify import Notifier
 from app.services.telegram import build_notifiers
@@ -15,7 +16,7 @@ from app.services.telegram import build_notifiers
 SESSION_COOKIE = "session"
 
 # auto_error=False: токен может прийти и cookie панели, а не только заголовком
-bearer_scheme = HTTPBearer(auto_error=False, description="Токен из POST /auth/login")
+bearer_scheme = HTTPBearer(auto_error=False, description="Токен из POST /auth/login или API-токен из POST /me/tokens")
 
 DbDep = Annotated[Session, Depends(get_db)]
 SettingsDep = Annotated[Settings, Depends(get_settings)]
@@ -62,10 +63,22 @@ def get_current_principal(
             detail="Требуется авторизация",
             headers={"WWW-Authenticate": "Bearer"},
         )
+    if principal.token_scope == "read" and request.method not in READ_METHODS:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="API-токен только для чтения")
     return principal
 
 
 CurrentPrincipal = Annotated[Principal, Depends(get_current_principal)]
+
+
+def require_session(principal: CurrentPrincipal) -> Principal:
+    """Пароль, сессии и токены меняются только после входа по паролю, API-токеном нельзя."""
+    if principal.via_token:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Нужен вход по паролю, API-токен здесь не подходит")
+    return principal
+
+
+SessionPrincipal = Annotated[Principal, Depends(require_session)]
 
 
 def require_admin(principal: CurrentPrincipal) -> Principal:

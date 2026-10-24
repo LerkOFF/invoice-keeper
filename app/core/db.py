@@ -65,6 +65,12 @@ def migrate(target: Engine) -> None:
             )
         )
 
+        has_sessions = inspect(conn).has_table("sessions")
+        session_columns = {c["name"] for c in inspect(conn).get_columns("sessions")} if has_sessions else set()
+        for name, kind in (("ip", "VARCHAR(45)"), ("user_agent", "VARCHAR(256)"), ("last_seen_at", "DATETIME"), ("key_tag", "VARCHAR(16)")):
+            if has_sessions and name not in session_columns:
+                conn.execute(text(f"ALTER TABLE sessions ADD COLUMN {name} {kind}"))
+
         has_receipts = inspect(conn).has_table("occurrence_receipts")
         receipt_columns = {c["name"] for c in inspect(conn).get_columns("occurrence_receipts")} if has_receipts else set()
         if has_receipts and "created_by_user_id" not in receipt_columns:

@@ -51,7 +51,7 @@ def login(client, creds) -> str:
 
 def test_admin_login_and_me(client):
     body = client.post("/api/v1/auth/login", json=ADMIN).json()
-    assert body["user"] == {"id": None, "login": "boss", "role": "admin"}
+    assert body["user"] == {"id": None, "login": "boss", "role": "admin", "two_factor": False, "via_token": False}
 
     me = client.get("/api/v1/auth/me")  # cookie проставлен логином
     assert me.status_code == 200

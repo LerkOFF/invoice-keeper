@@ -3,7 +3,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 
 # Ключи с секретами: в примере они обязаны быть пустыми
-SECRET_KEYS = {"TELEGRAM_BOT_TOKEN", "MAX_BOT_TOKEN", "SMTP_PASSWORD", "WEBHOOK_URL", "WEBHOOK_SECRET"}
+SECRET_KEYS = {"ADMIN_TOTP_SECRET", "TELEGRAM_BOT_TOKEN", "MAX_BOT_TOKEN", "SMTP_PASSWORD", "WEBHOOK_URL", "WEBHOOK_SECRET"}
 # Пароли-заглушки для первого запуска: известные значения, которые README просит сменить
 PLACEHOLDERS = {"ADMIN_PASSWORD": "change-me", "SEED_USER_PASSWORD": "user-pass-123"}
 

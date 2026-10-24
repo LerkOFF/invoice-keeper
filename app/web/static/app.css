@@ -789,6 +789,14 @@ dialog:has(.rc-dialog) { width: min(580px, calc(100vw - 32px)); }
 }
 .msg-wait.done::before { display: none; }
 
+/* ---------- аккаунт ---------- */
+
+.field[hidden] { display: none; }
+.section-lead { max-width: 820px; margin-top: -12px; font-size: 14px; line-height: 20px; color: var(--subtitle); }
+.inline-form .section-lead { margin: -8px 0 16px; }
+.title-cell .badge { margin-top: 4px; font-size: 13px; }
+td code { font-size: 13px; color: var(--title); }
+
 /* ---------- средние экраны ---------- */
 
 @media (max-width: 1439px) {

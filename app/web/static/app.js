@@ -56,6 +56,11 @@ const I18N = {
     "field.file": "Файл",
     "field.title": "Название",
     "field.q": "Поиск",
+    "field.otp": "Код из приложения",
+    "field.current_password": "Текущий пароль",
+    "field.new_password": "Новый пароль",
+    "field.scope": "Доступ",
+    "field.expires_in_days": "Срок действия",
 
     "valid.string_too_short": "слишком короткое значение",
     "valid.string_too_long": "слишком длинное значение",
@@ -90,6 +95,8 @@ const I18N = {
     "auth.submit": "Войти",
     "auth.invalid": "Неверный логин или пароль",
     "auth.expired": "Сессия закончилась, войдите снова",
+    "auth.otpNeeded": "Введите шестизначный код из приложения-аутентификатора",
+    "auth.otpHint": "Google Authenticator, Яндекс Ключ, Aegis или другое приложение с кодами TOTP",
     "auth.promoTitle": "платежи под контролем",
     "auth.point1": "Напоминание за 3 дня до срока в Telegram, MAX и на почту",
     "auth.point2": "Просрочка считается сама, история оплат не теряется",
@@ -116,6 +123,7 @@ const I18N = {
     "tab.users": "Пользователи",
     "tab.audit": "Журнал",
     "tab.messengers": "Мессенджеры",
+    "tab.account": "Аккаунт",
 
     "currency.RUB": "Российский рубль",
     "currency.USD": "Доллар США",
@@ -301,6 +309,9 @@ const I18N = {
     "audit.channel": "{name}, {due}, канал: {channel}",
     "audit.failed": "попытка входа с этим логином",
     "audit.locked": "вход закрыт на {minutes} мин.",
+    "audit.otpFailed": "неверный или повторный код второго фактора",
+    "audit.sessionsClosed": "закрыто сессий: {n}",
+    "audit.token": "«{name}», {scope}",
     "audit.f.all": "Всё",
     "audit.f.auth": "Вход",
     "audit.f.occurrence": "Оплаты",
@@ -308,6 +319,7 @@ const I18N = {
     "audit.f.user": "Пользователи",
     "audit.f.reminder": "Напоминания",
     "audit.f.messenger": "Мессенджеры",
+    "audit.f.token": "API-токены",
     "audit.p.all": "Всё время",
     "audit.p.1": "Сегодня",
     "audit.p.7": "7 дней",
@@ -316,6 +328,13 @@ const I18N = {
     "action.auth.login_failed": "Неудачный вход",
     "action.auth.login_locked": "Вход заблокирован",
     "action.auth.logout": "Выход",
+    "action.auth.otp_failed": "Неверный код второго фактора",
+    "action.auth.password_changed": "Пароль изменён",
+    "action.auth.password_failed": "Неверный текущий пароль",
+    "action.auth.session_ended": "Сессия завершена",
+    "action.auth.sessions_ended": "Остальные сессии завершены",
+    "action.token.create": "API-токен создан",
+    "action.token.revoke": "API-токен отозван",
     "action.payment.create": "Платёж добавлен",
     "action.payment.update": "Платёж изменён",
     "action.payment.delete": "Платёж прекращён",
@@ -363,6 +382,71 @@ const I18N = {
     "msg.expired": "Ссылка устарела. Закройте окно и получите новую.",
     "msg.done": "{title} привязан: {account}",
 
+    "account.lead": "Пароль, входы с других устройств и API-токены для интеграций",
+    "account.password": "смена пароля",
+    "account.passwordLead": "После смены остальные сессии закроются, эта останется.",
+    "account.repeat": "Новый пароль ещё раз",
+    "account.mismatch": "Новые пароли не совпадают",
+    "account.samePassword": "Новый пароль совпадает с текущим",
+    "account.changePassword": "Сменить пароль",
+    "account.passwordChanged": "Пароль изменён",
+    "account.passwordChangedEnded": "Пароль изменён, закрыто: {sessions}",
+    "account.admin": "вход администратора",
+    "account.adminPassword": "Пароль администратора",
+    "account.adminPasswordText": "Задаётся в .env на сервере (ADMIN_PASSWORD), в панели его не поменять. После смены пароля в .env все сессии администратора закрываются.",
+    "account.twoFactor": "Двухфакторный вход",
+    "account.on": "включён",
+    "account.off": "выключен",
+    "account.twoFactorOnText": "Кроме пароля при входе нужен шестизначный код из приложения-аутентификатора. Каждый код принимается один раз.",
+    "account.twoFactorOffText": "Чтобы включить: выполните на сервере команду ниже, добавьте строку ADMIN_TOTP_SECRET в .env, откройте ссылку otpauth:// или введите секрет в приложении-аутентификаторе и перезапустите сервис. Сессии администратора закроются.",
+    "account.sessions": "активные сессии",
+    "account.sessionsLead": "Где сейчас выполнен вход в эту учётную запись. Незнакомое устройство завершите и смените пароль.",
+    "account.colDevice": "Устройство",
+    "account.colCreated": "Вход",
+    "account.colSeen": "Активность",
+    "account.colExpires": "Действует до",
+    "account.current": "эта сессия",
+    "account.unknownDevice": "Неизвестное устройство",
+    "account.end": "Завершить",
+    "account.endOthers": "Завершить все остальные",
+    "account.endTitle": "Завершить сессию?",
+    "account.endDesc": "«{device}» сразу потеряет доступ, там придётся войти снова.",
+    "account.endOthersTitle": "Завершить остальные сессии?",
+    "account.endOthersDesc": "Закроются все входы, кроме этого. Пригодится, если вы забыли выйти на чужом устройстве.",
+    "account.ended": "Сессия завершена",
+    "account.endedOthers": "Закрыто: {sessions}",
+    "account.tokens": "API-токены",
+    "account.tokensLead": "Для скриптов и интеграций вместо пароля, заголовок Authorization: Bearer ik_… Токен действует с вашими правами, «только чтение» ничего не меняет. Пароль, сессии и токены через токен не поменять.",
+    "account.colName": "Название",
+    "account.colScope": "Доступ",
+    "account.colToken": "Токен",
+    "account.colIssued": "Создан",
+    "account.colUsed": "Использован",
+    "account.neverUsed": "ещё нет",
+    "account.forever": "бессрочно",
+    "account.expired": "истёк",
+    "account.scope.read": "только чтение",
+    "account.scope.write": "чтение и запись",
+    "account.newToken": "Создать токен",
+    "account.tokenNamePlaceholder": "Выгрузка в 1С",
+    "account.tokenNameHint": "Чтобы потом понять, где он используется",
+    "account.ttl.30": "30 дней",
+    "account.ttl.90": "90 дней",
+    "account.ttl.365": "1 год",
+    "account.ttl.never": "Бессрочно",
+    "account.create": "Создать",
+    "account.tokenTitle": "Токен «{name}» создан",
+    "account.tokenOnce": "Скопируйте токен сейчас: он показывается один раз, на сервере хранится только его хэш.",
+    "account.tokenExample": "Пример запроса:",
+    "account.tokenCopied": "Скопировано",
+    "account.revoke": "Отозвать",
+    "account.revokeTitle": "Отозвать токен?",
+    "account.revokeDesc": "Всё, что работает с токеном «{name}», сразу потеряет доступ.",
+    "account.revoked": "Токен «{name}» отозван",
+    "account.tokensEmpty": "Токенов пока нет",
+    "account.tokensEmptyText": "Создайте токен, если к API нужен доступ из скрипта или другой системы.",
+    "check.tokenName": "Название: укажите, для чего токен",
+
     "tab.help": "Помощь",
     "help.lead": "Как устроена панель, ответы на частые вопросы и куда писать, если что-то не так",
     "help.overview": "разделы панели",
@@ -375,6 +459,8 @@ const I18N = {
     "help.about.users": "Создать, переименовать или удалить обычных пользователей и сменить им пароль.",
     "help.about.audit": "Кто входил и что менял: оплаты, платежи, пользователи, отправленные напоминания.",
     "help.about.messengers": "Привяжите Telegram или MAX, и напоминания будут приходить вам лично.",
+    "help.about.account": "Сменить пароль, завершить входы на других устройствах, выпустить API-токен для интеграций.",
+    "help.about.account.admin": "Двухфакторный вход, входы на других устройствах и API-токены для интеграций.",
     "help.rules": "как считаются сроки",
     "help.rule.reminder": "Напоминание приходит за {days} до срока, по одному разу на каждый период.",
     "help.rule.overdueNotice": "Если оплату так и не отметили, на следующий день после срока придёт одно повторное напоминание.",
@@ -412,7 +498,7 @@ const I18N = {
     "help.a.csv": "Во вкладке «Платежи» нажмите «Скачать CSV». В файл попадут периоды с текущими фильтрами и поиском, Excel откроет его без настройки.",
     "help.q.password": "Забыли пароль",
     "help.a.password.admin": "Пароль администратора задаётся в файле .env на сервере (ADMIN_PASSWORD), через панель его не поменять.",
-    "help.a.password.user": "Пароль меняет администратор во вкладке «Пользователи». Напишите ему.",
+    "help.a.password.user": "Если помните текущий пароль, смените его во вкладке «Аккаунт». Если забыли, напишите администратору: он задаст новый во вкладке «Пользователи».",
     "help.q.api": "Можно ли работать через API?",
     "help.a.api": "Да, всё, что умеет панель, доступно через REST API. Документация открывается по ссылке «API и Swagger» в боковой панели.",
     "help.contacts": "связаться",
@@ -432,7 +518,9 @@ const I18N = {
     "help.sec.roles": "Права проверяются на сервере: обычный пользователь не выполнит действия администратора, даже напрямую через API.",
     "help.sec.admin": "Администратор задаётся только в .env на сервере. Через панель или API его не создать, не изменить и не удалить.",
     "help.sec.passwords": "Пароли хранятся только в виде хэша argon2 и никогда не попадают в журнал.",
-    "help.sec.sessions": "«Выйти» завершает сессию на сервере. После смены пароля все сессии этого пользователя закрываются.",
+    "help.sec.sessions": "«Выйти» завершает сессию на сервере. Во вкладке «Аккаунт» видны все входы, любой можно завершить. После смены пароля остальные сессии закрываются.",
+    "help.sec.twofactor": "Вход администратора защищается вторым фактором: кодом из приложения-аутентификатора (TOTP). Каждый код принимается один раз.",
+    "help.sec.tokens": "API-токены для интеграций хранятся только в виде хэша, бывают только для чтения и отзываются в один клик. Пароль, сессии и токены через них не поменять.",
     "help.sec.bruteforce": "После нескольких неудачных попыток вход с этого адреса временно блокируется.",
     "help.sec.audit.admin": "Входы, неудачные попытки и все изменения записываются во вкладку «Журнал».",
     "help.sec.audit.user": "Входы и изменения записываются в журнал, который видит администратор.",
@@ -473,6 +561,11 @@ const I18N = {
     "field.file": "File",
     "field.title": "Title",
     "field.q": "Search",
+    "field.otp": "Authenticator code",
+    "field.current_password": "Current password",
+    "field.new_password": "New password",
+    "field.scope": "Access",
+    "field.expires_in_days": "Lifetime",
 
     "valid.string_too_short": "too short",
     "valid.string_too_long": "too long",
@@ -507,6 +600,8 @@ const I18N = {
     "auth.submit": "Sign in",
     "auth.invalid": "Wrong login or password",
     "auth.expired": "Your session has ended, please sign in again",
+    "auth.otpNeeded": "Enter the six-digit code from your authenticator app",
+    "auth.otpHint": "Google Authenticator, Aegis or any other TOTP app",
     "auth.promoTitle": "payments under control",
     "auth.point1": "A reminder 3 days before the due date in Telegram, MAX and by email",
     "auth.point2": "Overdue is calculated automatically, payment history is never lost",
@@ -533,6 +628,7 @@ const I18N = {
     "tab.users": "Users",
     "tab.audit": "Activity log",
     "tab.messengers": "Messengers",
+    "tab.account": "Account",
 
     "currency.RUB": "Russian ruble",
     "currency.USD": "US dollar",
@@ -718,6 +814,9 @@ const I18N = {
     "audit.channel": "{name}, {due}, channel: {channel}",
     "audit.failed": "sign-in attempt with this login",
     "audit.locked": "sign-in locked for {minutes} min",
+    "audit.otpFailed": "wrong or reused second-factor code",
+    "audit.sessionsClosed": "sessions closed: {n}",
+    "audit.token": "“{name}”, {scope}",
     "audit.f.all": "All",
     "audit.f.auth": "Sign-ins",
     "audit.f.occurrence": "Payments made",
@@ -725,6 +824,7 @@ const I18N = {
     "audit.f.user": "Users",
     "audit.f.reminder": "Reminders",
     "audit.f.messenger": "Messengers",
+    "audit.f.token": "API tokens",
     "audit.p.all": "All time",
     "audit.p.1": "Today",
     "audit.p.7": "7 days",
@@ -733,6 +833,13 @@ const I18N = {
     "action.auth.login_failed": "Failed sign-in",
     "action.auth.login_locked": "Sign-in locked",
     "action.auth.logout": "Signed out",
+    "action.auth.otp_failed": "Wrong second-factor code",
+    "action.auth.password_changed": "Password changed",
+    "action.auth.password_failed": "Wrong current password",
+    "action.auth.session_ended": "Session ended",
+    "action.auth.sessions_ended": "Other sessions ended",
+    "action.token.create": "API token created",
+    "action.token.revoke": "API token revoked",
     "action.payment.create": "Payment added",
     "action.payment.update": "Payment edited",
     "action.payment.delete": "Payment stopped",
@@ -780,6 +887,71 @@ const I18N = {
     "msg.expired": "The link has expired. Close this window and get a new one.",
     "msg.done": "{title} linked: {account}",
 
+    "account.lead": "Your password, sign-ins on other devices and API tokens for integrations",
+    "account.password": "change password",
+    "account.passwordLead": "Other sessions are closed after the change, this one stays.",
+    "account.repeat": "New password again",
+    "account.mismatch": "The new passwords do not match",
+    "account.samePassword": "The new password is the same as the current one",
+    "account.changePassword": "Change password",
+    "account.passwordChanged": "Password changed",
+    "account.passwordChangedEnded": "Password changed, closed: {sessions}",
+    "account.admin": "administrator sign-in",
+    "account.adminPassword": "Administrator password",
+    "account.adminPasswordText": "Set in .env on the server (ADMIN_PASSWORD) and cannot be changed in the panel. Changing it in .env closes every administrator session.",
+    "account.twoFactor": "Two-factor sign-in",
+    "account.on": "on",
+    "account.off": "off",
+    "account.twoFactorOnText": "Signing in needs a six-digit code from an authenticator app besides the password. Each code is accepted once.",
+    "account.twoFactorOffText": "To turn it on: run the command below on the server, add the ADMIN_TOTP_SECRET line to .env, open the otpauth:// link or type the secret into your authenticator app and restart the service. Administrator sessions will be closed.",
+    "account.sessions": "active sessions",
+    "account.sessionsLead": "Where this account is signed in right now. End any device you do not recognise and change the password.",
+    "account.colDevice": "Device",
+    "account.colCreated": "Signed in",
+    "account.colSeen": "Last active",
+    "account.colExpires": "Valid until",
+    "account.current": "this session",
+    "account.unknownDevice": "Unknown device",
+    "account.end": "End",
+    "account.endOthers": "End all other sessions",
+    "account.endTitle": "End the session?",
+    "account.endDesc": "“{device}” loses access right away and will have to sign in again.",
+    "account.endOthersTitle": "End the other sessions?",
+    "account.endOthersDesc": "Every sign-in except this one is closed. Handy if you forgot to sign out on someone else's device.",
+    "account.ended": "Session ended",
+    "account.endedOthers": "Closed: {sessions}",
+    "account.tokens": "API tokens",
+    "account.tokensLead": "For scripts and integrations instead of a password, header Authorization: Bearer ik_… A token acts with your rights, a read-only one changes nothing. A token cannot change the password, sessions or tokens.",
+    "account.colName": "Name",
+    "account.colScope": "Access",
+    "account.colToken": "Token",
+    "account.colIssued": "Created",
+    "account.colUsed": "Last used",
+    "account.neverUsed": "not yet",
+    "account.forever": "no expiry",
+    "account.expired": "expired",
+    "account.scope.read": "read only",
+    "account.scope.write": "read and write",
+    "account.newToken": "Create token",
+    "account.tokenNamePlaceholder": "Accounting export",
+    "account.tokenNameHint": "So you know later where it is used",
+    "account.ttl.30": "30 days",
+    "account.ttl.90": "90 days",
+    "account.ttl.365": "1 year",
+    "account.ttl.never": "No expiry",
+    "account.create": "Create",
+    "account.tokenTitle": "Token “{name}” created",
+    "account.tokenOnce": "Copy the token now: it is shown only once, the server keeps just its hash.",
+    "account.tokenExample": "Example request:",
+    "account.tokenCopied": "Copied",
+    "account.revoke": "Revoke",
+    "account.revokeTitle": "Revoke the token?",
+    "account.revokeDesc": "Everything that uses the token “{name}” loses access right away.",
+    "account.revoked": "Token “{name}” revoked",
+    "account.tokensEmpty": "No tokens yet",
+    "account.tokensEmptyText": "Create a token when a script or another system needs access to the API.",
+    "check.tokenName": "Name: say what the token is for",
+
     "tab.help": "Help",
     "help.lead": "How the panel works, answers to common questions and whom to contact if something is wrong",
     "help.overview": "panel sections",
@@ -792,6 +964,8 @@ const I18N = {
     "help.about.users": "Create, rename or delete regular users and change their passwords.",
     "help.about.audit": "Who signed in and what changed: payments, users, sent reminders.",
     "help.about.messengers": "Link Telegram or MAX to get reminders personally.",
+    "help.about.account": "Change your password, end sign-ins on other devices, issue an API token for integrations.",
+    "help.about.account.admin": "Two-factor sign-in, sign-ins on other devices and API tokens for integrations.",
     "help.rules": "how due dates work",
     "help.rule.reminder": "A reminder comes {days} before the due date, once per period.",
     "help.rule.overdueNotice": "If the payment is still not marked, one more reminder comes the day after the due date.",
@@ -829,7 +1003,7 @@ const I18N = {
     "help.a.csv": "On the Payments tab, click “Download CSV”. The file contains the periods matching the current filters and search, and Excel opens it as is.",
     "help.q.password": "I forgot my password",
     "help.a.password.admin": "The administrator password is set in the .env file on the server (ADMIN_PASSWORD); it cannot be changed in the panel.",
-    "help.a.password.user": "The administrator changes passwords on the Users tab. Ask them.",
+    "help.a.password.user": "If you remember the current password, change it on the Account tab. If you forgot it, ask the administrator to set a new one on the Users tab.",
     "help.q.api": "Is there an API?",
     "help.a.api": "Yes, everything the panel does is available via the REST API. The docs open from “API & Swagger” in the sidebar.",
     "help.contacts": "contacts",
@@ -849,7 +1023,9 @@ const I18N = {
     "help.sec.roles": "Permissions are checked on the server: a regular user cannot perform admin actions, even directly through the API.",
     "help.sec.admin": "The administrator is defined only in .env on the server. It cannot be created, changed or deleted through the panel or the API.",
     "help.sec.passwords": "Passwords are stored only as argon2 hashes and never get into the log.",
-    "help.sec.sessions": "“Sign out” ends the session on the server. Changing a password closes all of that user's sessions.",
+    "help.sec.sessions": "“Sign out” ends the session on the server. The Account tab lists every sign-in, and any of them can be ended. Changing the password closes the other sessions.",
+    "help.sec.twofactor": "The administrator sign-in is protected by a second factor: a code from an authenticator app (TOTP). Each code is accepted once.",
+    "help.sec.tokens": "API tokens for integrations are stored only as a hash, can be read-only and are revoked in one click. They cannot change the password, sessions or tokens.",
     "help.sec.bruteforce": "After several failed attempts, signing in from that address is blocked for a while.",
     "help.sec.audit.admin": "Sign-ins, failed attempts and every change are recorded on the Activity log tab.",
     "help.sec.audit.user": "Sign-ins and changes are recorded in a log that the administrator can see.",
@@ -865,10 +1041,12 @@ const PLURALS = {
   ru: {
     day: { one: "день", few: "дня", many: "дней", other: "дня" },
     payment: { one: "платёж", few: "платежа", many: "платежей", other: "платежа" },
+    session: { one: "сессия", few: "сессии", many: "сессий", other: "сессии" },
   },
   en: {
     day: { one: "day", other: "days" },
     payment: { one: "payment", other: "payments" },
+    session: { one: "session", other: "sessions" },
   },
 };
 
@@ -901,9 +1079,20 @@ const SERVER_EN = {
   "Период не оплачен: сначала отметьте оплату (status=paid)": "The period is unpaid: mark it as paid first (status=paid)",
   "Для неоплаченного периода дата оплаты не указывается": "An unpaid period has no payment date",
   "Нельзя очистить дату оплаты у оплаченного периода: отмените оплату": "The payment date of a paid period cannot be cleared: undo the payment",
+  "Введите код из приложения-аутентификатора": "Enter the code from your authenticator app",
+  "Неверный или уже использованный код": "The code is wrong or has already been used",
+  "Неверный текущий пароль": "The current password is wrong",
+  "Новый пароль совпадает с текущим": "The new password is the same as the current one",
+  "Пароль администратора задаётся в .env (ADMIN_PASSWORD)": "The administrator password is set in .env (ADMIN_PASSWORD)",
+  "Это текущая сессия: чтобы её завершить, выйдите из панели": "This is the current session: sign out to end it",
+  "Сессия не найдена": "Session not found",
+  "Токен не найден": "Token not found",
+  "API-токен только для чтения": "The API token is read-only",
+  "Нужен вход по паролю, API-токен здесь не подходит": "Sign in with a password: an API token does not work here",
 };
 
 const SERVER_EN_PATTERNS = [
+  [/^Не больше (\d+) токенов: отзовите ненужные$/, "At most $1 tokens: revoke the ones you do not need"],
   [/^Слишком много неудачных попыток входа\. Попробуйте через (\d+) мин\.$/, "Too many failed sign-in attempts. Try again in $1 min."],
   [/^Файл больше (\d+) МБ$/, "The file is larger than $1 MB"],
   [/^К одному периоду можно прикрепить не больше (\d+) чеков и ссылок$/, "A period can have at most $1 receipts and links"],
@@ -1003,6 +1192,7 @@ const ICONS = {
   moon: ["M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"],
   monitor: [{ rect: [2, 3, 20, 14, 2] }, "M8 21h8", "M12 17v4"],
   help: [{ circle: [12, 12, 10] }, "M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3", "M12 17h.01"],
+  account: ["M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z", "m9 12 2 2 4-4"],
 };
 
 function icon(name, extra = "") {
@@ -1114,9 +1304,10 @@ function monthRange(iso) {
 // ---------- API ----------
 
 class ApiError extends Error {
-  constructor(status, message) {
+  constructor(status, message, otpRequired = false) {
     super(message);
     this.status = status;
+    this.otpRequired = otpRequired; // сервер ждёт код двухфакторного входа
   }
 }
 
@@ -1165,7 +1356,7 @@ async function api(path, { method = "GET", body, params, silent = false } = {}) 
 
   if (!response.ok) {
     if (response.status === 401 && !silent) sessionExpired();
-    throw new ApiError(response.status, explain(data, response.status));
+    throw new ApiError(response.status, explain(data, response.status), response.headers.get("X-OTP-Required") === "true");
   }
   return data;
 }
@@ -1443,11 +1634,23 @@ function showLogin(notice = "") {
   setTitle();
   const error = h("p", { class: "form-error", role: "alert" }, notice);
   const submit = h("button", { type: "submit", class: "btn btn-block" }, t("auth.submit"));
+  // Поле кода появляется, только когда сервер ответил, что для этого входа нужен второй фактор
+  const otpField = field({
+    label: t("field.otp"),
+    name: "otp",
+    inputmode: "numeric",
+    autocomplete: "one-time-code",
+    maxlength: "8",
+    hint: t("auth.otpHint"),
+    required: false,
+  });
+  otpField.hidden = true;
   const form = h(
     "form",
     { novalidate: true },
     field({ label: t("field.login"), name: "login", autocomplete: "username", autocapitalize: "none", spellcheck: "false" }),
     field({ label: t("field.password"), name: "password", type: "password", autocomplete: "current-password" }),
+    otpField,
     error,
     submit,
   );
@@ -1457,20 +1660,35 @@ function showLogin(notice = "") {
     const data = new FormData(form);
     const login = String(data.get("login")).trim();
     const password = String(data.get("password"));
+    const otp = String(data.get("otp") || "").replace(/\s/g, "");
     if (!login || !password) {
       error.textContent = t("check.credentials");
+      return;
+    }
+    if (!otpField.hidden && !otp) {
+      error.textContent = t("auth.otpNeeded");
+      otpField.querySelector("input").focus();
       return;
     }
     error.textContent = "";
     setBusy(submit, true);
     try {
-      const result = await api("/auth/login", { method: "POST", body: { login, password }, silent: true });
+      const body = otpField.hidden ? { login, password } : { login, password, otp };
+      const result = await api("/auth/login", { method: "POST", body, silent: true });
       state.me = result.user;
       state.tab = "payments";
       await showApp();
     } catch (err) {
-      error.textContent = err.status === 401 ? t("auth.invalid") : err.message;
       setBusy(submit, false);
+      if (err.otpRequired) {
+        const input = otpField.querySelector("input");
+        error.textContent = otpField.hidden ? t("auth.otpNeeded") : err.message;
+        otpField.hidden = false;
+        input.value = "";
+        input.focus();
+        return;
+      }
+      error.textContent = err.status === 401 ? t("auth.invalid") : err.message;
     }
   });
 
@@ -1535,7 +1753,7 @@ function tabsFor(me) {
   if (me.role === "admin") {
     tabs.push({ id: "recurring", icon: "recurring" }, { id: "users", icon: "users" }, { id: "audit", icon: "audit" });
   }
-  tabs.push({ id: "messengers", icon: "messengers" }, { id: "help", icon: "help" });
+  tabs.push({ id: "messengers", icon: "messengers" }, { id: "account", icon: "account" }, { id: "help", icon: "help" });
   return tabs;
 }
 
@@ -1684,6 +1902,7 @@ async function loadTab(main) {
     else if (state.tab === "users" && state.me.role === "admin") await usersView(main);
     else if (state.tab === "audit" && state.me.role === "admin") await auditView(main);
     else if (state.tab === "messengers") await messengersView(main);
+    else if (state.tab === "account") await accountView(main);
     else if (state.tab === "help") await helpView(main);
     else await paymentsView(main);
   } catch (err) {
@@ -2794,12 +3013,26 @@ function auditSummary(e) {
       return t("audit.failed");
     case "auth.login_locked":
       return d.minutes ? t("audit.locked", { minutes: d.minutes }) : "";
+    case "auth.otp_failed":
+      return t("audit.otpFailed");
+    case "auth.password_changed":
+      return t("audit.sessionsClosed", { n: d.ended_sessions ?? 0 });
+    case "auth.sessions_ended":
+      return t("audit.sessionsClosed", { n: d.count ?? 0 });
+    case "auth.session_ended":
+    case "auth.password_failed":
+      return "";
+    case "token.create":
+      return t("audit.token", { name: d.name, scope: t(`account.scope.${d.scope}`) });
+    case "token.revoke":
+      return d.name || "";
     default:
       return d && Object.keys(d).length ? JSON.stringify(d) : "";
   }
 }
 
-const AUDIT_GROUPS = ["", "auth.", "occurrence.", "payment.", "user.", "reminder.", "messenger."];
+const AUDIT_GROUPS = ["", "auth.", "occurrence.", "payment.", "user.", "reminder.", "messenger.", "token."];
+const AUDIT_BAD = new Set(["auth.login_failed", "auth.login_locked", "auth.otp_failed", "auth.password_failed"]);
 const AUDIT_PERIODS = ["", "1", "7", "30"];
 
 const auditState = { group: "", period: "" };
@@ -2835,7 +3068,7 @@ async function auditView(main) {
                   {},
                   h("td", { class: "title-cell num", "data-label": t("audit.colTime") }, fmtDateTime(e.at)),
                   h("td", { "data-label": t("audit.colWho") }, h("span", { class: `actor ${e.actor_type}` }, e.actor), " ", h("span", { class: "cell-sub" }, has(`actor.${e.actor_type}`) ? t(`actor.${e.actor_type}`) : e.actor_type)),
-                  h("td", { "data-label": t("audit.colAction") }, h("span", { class: `act ${e.action === "auth.login_failed" || e.action === "auth.login_locked" ? "bad" : ""}` }, has(`action.${e.action}`) ? t(`action.${e.action}`) : e.action)),
+                  h("td", { "data-label": t("audit.colAction") }, h("span", { class: `act ${AUDIT_BAD.has(e.action) ? "bad" : ""}` }, has(`action.${e.action}`) ? t(`action.${e.action}`) : e.action)),
                   h("td", { "data-label": t("audit.colDetails"), class: "details-cell" }, auditSummary(e)),
                   h("td", { "data-label": t("audit.colIp"), class: "num muted" }, e.ip || "—"),
                 ),
@@ -2881,6 +3114,285 @@ async function auditView(main) {
   await load(true);
 }
 
+// ---------- раздел «Аккаунт» ----------
+
+const TOKEN_TTLS = ["30", "90", "365", ""];
+
+// Короткое имя устройства из User-Agent: браузер и система без версий
+function deviceLabel(ua) {
+  if (!ua) return t("account.unknownDevice");
+  const pick = (marks) => (marks.find(([mark]) => ua.includes(mark)) || [])[1];
+  const browser = pick([["Edg/", "Edge"], ["OPR/", "Opera"], ["YaBrowser/", "Yandex Browser"], ["Firefox/", "Firefox"], ["Chrome/", "Chrome"], ["Safari/", "Safari"], ["curl/", "curl"]]);
+  const os = pick([["Windows", "Windows"], ["Android", "Android"], ["iPhone", "iOS"], ["iPad", "iPadOS"], ["Mac OS X", "macOS"], ["Linux", "Linux"]]);
+  const parts = [browser, os].filter(Boolean);
+  return parts.length ? parts.join(", ") : ua.slice(0, 60);
+}
+
+function copyButton(text, done) {
+  return h(
+    "button",
+    {
+      class: "btn btn-sm",
+      type: "button",
+      onclick: async () => {
+        try {
+          await navigator.clipboard.writeText(text);
+          toast(done);
+        } catch {
+          toast(t("msg.copyFailed"), "error");
+        }
+      },
+    },
+    t("msg.copy"),
+  );
+}
+
+async function accountView(main) {
+  const isAdmin = state.me.role === "admin";
+  const sessionsBox = h("div", { class: "table-card" }, skeletonRows(2));
+  const sessionsTools = h("div", { class: "toolbar" });
+  const tokensBox = h("div", { class: "table-card" }, skeletonRows(2));
+
+  async function reloadSessions() {
+    const sessions = await api("/auth/sessions");
+    sessionsTools.replaceChildren(
+      ...(sessions.length > 1
+        ? [h("button", { type: "button", class: "btn btn-danger", onclick: () => endOthersDialog(reloadSessions) }, t("account.endOthers"))]
+        : []),
+    );
+    const cols = ["colCreated", "colSeen", "colExpires"].map((key) => t(`account.${key}`));
+    sessionsBox.replaceChildren(
+      h(
+        "table",
+        {},
+        h("thead", {}, h("tr", {}, h("th", {}, t("account.colDevice")), cols.map((c) => h("th", {}, c)), h("th", {}, ""))),
+        h(
+          "tbody",
+          {},
+          sessions.map((s) =>
+            h(
+              "tr",
+              {},
+              h(
+                "td",
+                { class: "title-cell" },
+                h("div", { class: "cell-title" }, deviceLabel(s.user_agent)),
+                h("div", { class: "cell-sub" }, s.ip || "—"),
+                s.current ? h("span", { class: "badge paid" }, t("account.current")) : null,
+              ),
+              h("td", { "data-label": cols[0], class: "num" }, fmtDateTime(s.created_at)),
+              h("td", { "data-label": cols[1], class: "num" }, s.last_seen_at ? fmtDateTime(s.last_seen_at) : "—"),
+              h("td", { "data-label": cols[2], class: "num" }, fmtDateTime(s.expires_at)),
+              h(
+                "td",
+                { class: "actions" },
+                s.current ? null : h("button", { class: "btn btn-sm btn-danger", onclick: () => endSessionDialog(s, reloadSessions) }, t("account.end")),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  async function reloadTokens() {
+    const tokens = await api("/me/tokens");
+    const cols = ["colScope", "colToken", "colIssued", "colUsed", "colExpires"].map((key) => t(`account.${key}`));
+    const expires = (tk) => {
+      if (!tk.expires_at) return h("span", { class: "muted" }, t("account.forever"));
+      if (new Date(tk.expires_at) <= new Date()) return h("span", { class: "badge overdue" }, t("account.expired"));
+      return fmtDateTime(tk.expires_at);
+    };
+    tokensBox.replaceChildren(
+      tokens.length
+        ? h(
+            "table",
+            {},
+            h("thead", {}, h("tr", {}, h("th", {}, t("account.colName")), cols.map((c) => h("th", {}, c)), h("th", {}, ""))),
+            h(
+              "tbody",
+              {},
+              tokens.map((tk) =>
+                h(
+                  "tr",
+                  {},
+                  h("td", { class: "title-cell" }, h("div", { class: "cell-title" }, tk.name)),
+                  h("td", { "data-label": cols[0] }, h("span", { class: `badge ${tk.scope === "write" ? "soon" : ""}` }, t(`account.scope.${tk.scope}`))),
+                  h("td", { "data-label": cols[1], class: "num" }, h("code", {}, `${tk.prefix}…`)),
+                  h("td", { "data-label": cols[2], class: "num" }, fmtDateTime(tk.created_at)),
+                  h("td", { "data-label": cols[3], class: "num" }, tk.last_used_at ? fmtDateTime(tk.last_used_at) : h("span", { class: "muted" }, t("account.neverUsed"))),
+                  h("td", { "data-label": cols[4], class: "num" }, expires(tk)),
+                  h("td", { class: "actions" }, h("button", { class: "btn btn-sm btn-danger", onclick: () => revokeTokenDialog(tk, reloadTokens) }, t("account.revoke"))),
+                ),
+              ),
+            ),
+          )
+        : h("div", { class: "empty" }, h("strong", {}, t("account.tokensEmpty")), t("account.tokensEmptyText")),
+    );
+  }
+
+  const newToken = h("button", { type: "button", class: "btn btn-primary", onclick: () => createTokenDialog(reloadTokens) }, icon("plus"), t("account.newToken"));
+
+  main.replaceChildren(
+    pageHead(t("tab.account"), t("account.lead")),
+    isAdmin ? section(t("account.admin"), adminSignInCards()) : passwordForm(reloadSessions),
+    section(t("account.sessions"), h("p", { class: "section-lead" }, t("account.sessionsLead")), sessionsBox, sessionsTools),
+    section(t("account.tokens"), h("p", { class: "section-lead" }, t("account.tokensLead")), h("div", { class: "toolbar" }, newToken), tokensBox),
+  );
+  await Promise.all([reloadSessions(), reloadTokens()]);
+}
+
+function passwordForm(reloadSessions) {
+  const form = h(
+    "form",
+    { class: "inline-form", novalidate: true },
+    h("h3", {}, t("account.password")),
+    h("p", { class: "section-lead" }, t("account.passwordLead")),
+    h(
+      "div",
+      { class: "form-grid" },
+      field({ label: t("field.current_password"), name: "current_password", type: "password", autocomplete: "current-password" }),
+      field({ label: t("field.new_password"), name: "new_password", type: "password", autocomplete: "new-password", placeholder: t("users.passwordPlaceholder") }),
+      field({ label: t("account.repeat"), name: "repeat", type: "password", autocomplete: "new-password" }),
+      h("button", { type: "submit", class: "btn btn-primary" }, t("account.changePassword")),
+    ),
+    h("p", { class: "form-error", role: "alert" }),
+  );
+
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const error = form.querySelector(".form-error");
+    const submit = form.querySelector("button[type=submit]");
+    const data = new FormData(form);
+    const current = String(data.get("current_password"));
+    const next = String(data.get("new_password"));
+    error.textContent = "";
+    try {
+      if (!current) throw new Error(t("check.credentials"));
+      checkPassword(next);
+      if (next !== String(data.get("repeat"))) throw new Error(t("account.mismatch"));
+      if (next === current) throw new Error(t("account.samePassword"));
+      setBusy(submit, true);
+      const result = await api("/auth/password", { method: "POST", body: { current_password: current, new_password: next } });
+      toast(result.ended_sessions ? t("account.passwordChangedEnded", { sessions: plural(result.ended_sessions, "session") }) : t("account.passwordChanged"));
+      form.reset();
+      await reloadSessions();
+    } catch (err) {
+      error.textContent = err.message;
+    } finally {
+      setBusy(submit, false);
+    }
+  });
+  return form;
+}
+
+function adminSignInCards() {
+  const on = Boolean(state.me.two_factor);
+  const command = "docker compose exec app python -m app.services.totp";
+  return h(
+    "div",
+    { class: "msg-grid" },
+    h("article", { class: "tile msg-card" }, h("div", { class: "tile-head" }, h("h3", {}, t("account.adminPassword"))), h("p", {}, t("account.adminPasswordText"))),
+    h(
+      "article",
+      { class: `tile msg-card ${on ? "is-linked" : ""}` },
+      h("div", { class: "tile-head" }, h("h3", {}, t("account.twoFactor")), h("span", { class: `badge ${on ? "paid" : ""}` }, t(on ? "account.on" : "account.off"))),
+      h("p", {}, t(on ? "account.twoFactorOnText" : "account.twoFactorOffText")),
+      on ? null : h("div", { class: "msg-command" }, h("code", {}, command), copyButton(command, t("account.tokenCopied"))),
+    ),
+  );
+}
+
+function endSessionDialog(s, reload) {
+  openDialog({
+    title: t("account.endTitle"),
+    description: t("account.endDesc", { device: deviceLabel(s.user_agent) }),
+    confirmLabel: t("account.end"),
+    danger: true,
+    onSubmit: async () => {
+      await api(`/auth/sessions/${s.id}`, { method: "DELETE" });
+      toast(t("account.ended"));
+      await reload();
+    },
+  });
+}
+
+function endOthersDialog(reload) {
+  openDialog({
+    title: t("account.endOthersTitle"),
+    description: t("account.endOthersDesc"),
+    confirmLabel: t("account.endOthers"),
+    danger: true,
+    onSubmit: async () => {
+      const result = await api("/auth/sessions/end-others", { method: "POST" });
+      toast(t("account.endedOthers", { sessions: plural(result.ended, "session") }));
+      await reload();
+    },
+  });
+}
+
+function createTokenDialog(reload) {
+  const option = (value, label, selected = false) => h("option", { value, selected }, label);
+  openDialog({
+    title: t("account.newToken"),
+    confirmLabel: t("account.create"),
+    fields: [
+      field({ label: t("account.colName"), name: "name", maxlength: "64", placeholder: t("account.tokenNamePlaceholder"), hint: t("account.tokenNameHint") }),
+      selectField(t("field.scope"), "scope", [option("read", t("account.scope.read"), true), option("write", t("account.scope.write"))]),
+      selectField(
+        t("field.expires_in_days"),
+        "expires_in_days",
+        TOKEN_TTLS.map((days) => option(days, t(`account.ttl.${days || "never"}`), days === "90")),
+      ),
+    ],
+    onSubmit: async (data) => {
+      const name = String(data.get("name")).trim();
+      if (!name) throw new Error(t("check.tokenName"));
+      const days = String(data.get("expires_in_days"));
+      const created = await api("/me/tokens", {
+        method: "POST",
+        body: { name, scope: String(data.get("scope")), expires_in_days: days ? Number(days) : null },
+      });
+      await reload();
+      showTokenDialog(created);
+    },
+  });
+}
+
+// Сам токен виден только здесь: сервер хранит лишь хэш и повторно его не отдаёт
+function showTokenDialog(created) {
+  const example = `curl -H "Authorization: Bearer ${created.token}" ${location.origin}${API}/payments/summary`;
+  const dialog = h(
+    "dialog",
+    {},
+    h(
+      "div",
+      { class: "rc-dialog" },
+      h("h2", {}, t("account.tokenTitle", { name: created.name })),
+      h("p", { class: "desc" }, t("account.tokenOnce")),
+      h("div", { class: "msg-command" }, h("code", {}, created.token), copyButton(created.token, t("account.tokenCopied"))),
+      h("p", { class: "msg-alt" }, t("account.tokenExample")),
+      h("div", { class: "msg-command" }, h("code", {}, example), copyButton(example, t("account.tokenCopied"))),
+      h("div", { class: "dialog-actions" }, h("button", { class: "btn", type: "button", onclick: () => dialog.close() }, t("common.close"))),
+    ),
+  );
+  presentDialog(dialog);
+}
+
+function revokeTokenDialog(tk, reload) {
+  openDialog({
+    title: t("account.revokeTitle"),
+    description: t("account.revokeDesc", { name: tk.name }),
+    confirmLabel: t("account.revoke"),
+    danger: true,
+    onSubmit: async () => {
+      await api(`/me/tokens/${tk.id}`, { method: "DELETE" });
+      toast(t("account.revoked", { name: tk.name }));
+      await reload();
+    },
+  });
+}
+
 // ---------- раздел «Помощь» ----------
 
 const ADMIN_TABS = new Set(["recurring", "users", "audit"]);
@@ -2902,7 +3414,7 @@ async function helpView(main) {
           "article",
           { class: "tile help-card" },
           h("h3", {}, icon(tab.icon), t(`tab.${tab.id}`)),
-          h("p", {}, t(`help.about.${tab.id}`), ADMIN_TABS.has(tab.id) ? h("span", { class: "help-note" }, ` · ${t("help.adminOnly")}`) : null),
+          h("p", {}, t(roleKey(`help.about.${tab.id}`)), ADMIN_TABS.has(tab.id) ? h("span", { class: "help-note" }, ` · ${t("help.adminOnly")}`) : null),
           h("button", { type: "button", class: "btn btn-sm", onclick: () => navigate(tab.id).catch(report) }, t("help.open")),
         ),
       ),
@@ -2934,7 +3446,7 @@ async function helpView(main) {
     ),
   );
 
-  const securityKeys = ["access", "roles", "admin", "passwords", "sessions", "bruteforce", "audit", "receipts", "bots"];
+  const securityKeys = ["access", "roles", "admin", "passwords", "sessions", "twofactor", "tokens", "bruteforce", "audit", "receipts", "bots"];
   if (isAdmin) securityKeys.push("secrets");
   securityKeys.push("tip");
   const security = h(
