@@ -96,6 +96,14 @@ const I18N = {
     "auth.point3": "RUB, USD и EUR, итоги по каждой валюте отдельно",
 
     "shell.logout": "Выйти",
+    "shell.password": "Сменить пароль",
+    "pass.title": "Смена пароля",
+    "pass.desc": "После смены остальные ваши сессии завершатся, эта останется открытой.",
+    "pass.current": "Текущий пароль",
+    "pass.new": "Новый пароль",
+    "pass.repeat": "Новый пароль ещё раз",
+    "pass.mismatch": "Новые пароли не совпадают",
+    "pass.done": "Пароль изменён",
     "shell.today": "сегодня",
     "shell.addPayment": "Добавить платёж",
     "shell.api": "API и Swagger",
@@ -316,6 +324,7 @@ const I18N = {
     "action.auth.login_failed": "Неудачный вход",
     "action.auth.login_locked": "Вход заблокирован",
     "action.auth.logout": "Выход",
+    "action.auth.password_changed": "Пароль изменён",
     "action.payment.create": "Платёж добавлен",
     "action.payment.update": "Платёж изменён",
     "action.payment.delete": "Платёж прекращён",
@@ -513,6 +522,14 @@ const I18N = {
     "auth.point3": "RUB, USD and EUR with separate totals for each currency",
 
     "shell.logout": "Sign out",
+    "shell.password": "Change password",
+    "pass.title": "Change password",
+    "pass.desc": "Your other sessions will be signed out, this one stays open.",
+    "pass.current": "Current password",
+    "pass.new": "New password",
+    "pass.repeat": "Repeat the new password",
+    "pass.mismatch": "The new passwords do not match",
+    "pass.done": "Password changed",
     "shell.today": "today",
     "shell.addPayment": "Add payment",
     "shell.api": "API & Swagger",
@@ -733,6 +750,7 @@ const I18N = {
     "action.auth.login_failed": "Failed sign-in",
     "action.auth.login_locked": "Sign-in locked",
     "action.auth.logout": "Signed out",
+    "action.auth.password_changed": "Password changed",
     "action.payment.create": "Payment added",
     "action.payment.update": "Payment edited",
     "action.payment.delete": "Payment stopped",
@@ -875,6 +893,9 @@ const PLURALS = {
 // Сервер отвечает по-русски; в английском интерфейсе переводим известные ответы, остальное показываем как есть
 const SERVER_EN = {
   "Аккаунт не привязан": "The account is not linked",
+  "Текущий пароль неверный": "The current password is incorrect",
+  "Новый пароль совпадает с текущим": "The new password is the same as the current one",
+  "Пароль администратора задаётся в .env, через панель его не поменять": "The administrator password is set in .env and cannot be changed here",
   "Бот этого мессенджера не настроен на сервере": "This messenger's bot is not configured on the server",
   "Не найдено": "Not found",
   "Неверный логин или пароль": "Wrong login or password",
@@ -1002,6 +1023,7 @@ const ICONS = {
   sun: [{ circle: [12, 12, 4] }, "M12 2v2", "M12 20v2", "m4.93 4.93 1.41 1.41", "m17.66 17.66 1.41 1.41", "M2 12h2", "M20 12h2", "m6.34 17.66-1.41 1.41", "m19.07 4.93-1.41 1.41"],
   moon: ["M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"],
   monitor: [{ rect: [2, 3, 20, 14, 2] }, "M8 21h8", "M12 17v4"],
+  key: [{ circle: [7.5, 15.5, 5.5] }, "m21 2-9.6 9.6", "m15.5 7.5 3 3L22 7l-3-3"],
   help: [{ circle: [12, 12, 10] }, "M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3", "M12 17h.01"],
 };
 
@@ -1572,7 +1594,15 @@ function userPanel() {
       "div",
       { class: "user-row" },
       h("span", { class: "user-login", title: state.me.login }, `@${state.me.login}`),
-      h("button", { type: "button", class: "icon-btn", "aria-label": t("shell.logout"), title: t("shell.logout"), onclick: logout }, icon("logout")),
+      h(
+        "div",
+        { class: "user-actions" },
+        // пароль администратора живёт в .env, сменить его может только пользователь
+        state.me.role === "admin"
+          ? null
+          : h("button", { type: "button", class: "icon-btn", "aria-label": t("shell.password"), title: t("shell.password"), onclick: passwordDialog }, icon("key")),
+        h("button", { type: "button", class: "icon-btn", "aria-label": t("shell.logout"), title: t("shell.logout"), onclick: logout }, icon("logout")),
+      ),
     ),
     h(
       "div",
@@ -1581,6 +1611,27 @@ function userPanel() {
       h("span", { class: "skew-badge" }, t(state.me.role === "admin" ? "role.admin" : "role.user")),
     ),
   );
+}
+
+function passwordDialog() {
+  openDialog({
+    title: t("pass.title"),
+    description: t("pass.desc"),
+    confirmLabel: t("common.save"),
+    fields: [
+      field({ label: t("pass.current"), name: "current", type: "password", autocomplete: "current-password" }),
+      field({ label: t("pass.new"), name: "next", type: "password", autocomplete: "new-password", placeholder: t("users.passwordPlaceholder") }),
+      field({ label: t("pass.repeat"), name: "repeat", type: "password", autocomplete: "new-password" }),
+    ],
+    onSubmit: async (data) => {
+      const current = String(data.get("current"));
+      const next = String(data.get("next"));
+      checkPassword(next);
+      if (next !== String(data.get("repeat"))) throw new Error(t("pass.mismatch"));
+      await api("/auth/password", { method: "POST", body: { current_password: current, new_password: next } });
+      toast(t("pass.done"));
+    },
+  });
 }
 
 async function showApp() {
