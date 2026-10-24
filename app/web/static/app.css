@@ -678,7 +678,7 @@ dialog:has(.rc-dialog) { width: min(580px, calc(100vw - 32px)); }
 /* импорт из CSV */
 .import-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 16px 24px; background: var(--block); border-radius: 16px; }
 .import-bar p { margin: 0; min-width: 220px; }
-dialog:has(.imp-dialog) { width: min(860px, calc(100vw - 32px)); }
+dialog:has(.imp-dialog) { width: min(960px, calc(100vw - 32px)); }
 .imp-pick { display: flex; flex-wrap: wrap; align-items: end; gap: 0 12px; }
 .imp-pick .field { flex: 1 1 260px; }
 .imp-pick .btn { margin-bottom: 16px; }
@@ -689,7 +689,7 @@ dialog:has(.imp-dialog) { width: min(860px, calc(100vw - 32px)); }
 .imp-preview .table-card { background: var(--block); max-height: 46vh; overflow-y: auto; }
 .imp-preview td { padding: 10px 12px; }
 .imp-preview th { padding: 8px 12px; }
-.imp-note { min-width: 220px; }
+.imp-note { min-width: 200px; }
 .imp-note .cell-sub { white-space: normal; }
 .cell-sub.warn { color: var(--hold-ink); }
 tr.imp-bad td:first-child { box-shadow: inset 3px 0 0 var(--red); }

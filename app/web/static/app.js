@@ -257,7 +257,7 @@ const I18N = {
     "rec.lead": "Платёж повторяется каждый месяц, раз в квартал или раз в год, напоминание приходит за 3 дня до срока",
     "rec.list": "все платежи",
     "rec.colPeriod": "Периодичность",
-    "rec.colNext": "Ближайший неоплаченный срок",
+    "rec.colNext": "Ближайший срок",
     "rec.colNextShort": "Ближайший срок",
     "rec.firstDue": "первый срок {date}",
     "rec.stop": "Прекратить",
@@ -281,6 +281,7 @@ const I18N = {
     "imp.ready": "Всё в порядке, платежей к импорту: {n}.",
     "imp.bad": "Ошибки в {bad} из {total} строк: исправьте файл и выберите его снова. Пока есть ошибки, ничего не создаётся.",
     "imp.colLine": "Строка",
+    "imp.colDue": "Первый срок",
     "imp.colNote": "Замечания",
     "imp.ok": "готово",
     "imp.confirm": "Импортировать: {n}",
@@ -842,7 +843,7 @@ const I18N = {
     "rec.lead": "A payment repeats monthly, quarterly or yearly; a reminder arrives 3 days before the due date",
     "rec.list": "all payments",
     "rec.colPeriod": "Frequency",
-    "rec.colNext": "Next unpaid due date",
+    "rec.colNext": "Next due date",
     "rec.colNextShort": "Next due",
     "rec.firstDue": "first due {date}",
     "rec.stop": "Stop",
@@ -866,6 +867,7 @@ const I18N = {
     "imp.ready": "All good: {n} payments can be created.",
     "imp.bad": "Errors in {bad} of {total} rows: fix the file and choose it again. Nothing is created while there are errors.",
     "imp.colLine": "Row",
+    "imp.colDue": "First due date",
     "imp.colNote": "Notes",
     "imp.ok": "ok",
     "imp.confirm": "Import: {n}",
@@ -2884,7 +2886,7 @@ function importDialog(reload) {
     status.textContent = bad ? t("imp.bad", { bad, total: result.rows.length }) : t("imp.ready", { n: result.valid });
     confirm.textContent = t("imp.confirm", { n: result.valid });
     confirm.disabled = bad > 0;
-    const head = [t("imp.colLine"), t("col.payment"), t("col.amount"), t("field.first_due_date"), t("rec.colPeriod"), t("imp.colNote")];
+    const head = [t("imp.colLine"), t("col.payment"), t("col.amount"), t("imp.colDue"), t("rec.colPeriod"), t("imp.colNote")];
     preview.replaceChildren(
       h(
         "div",
