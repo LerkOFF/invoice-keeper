@@ -171,6 +171,7 @@ const I18N = {
     "sum.due": "Ждёт оплаты",
     "sum.left": "Осталось",
     "sum.sticker": "просрочка!",
+    "sum.open": "Показать периоды в {currency}",
 
     "pay.title": "Отметить оплату",
     "pay.titleEdit": "Изменить дату оплаты",
@@ -574,6 +575,7 @@ const I18N = {
     "sum.due": "Awaiting",
     "sum.left": "Left",
     "sum.sticker": "overdue!",
+    "sum.open": "Show {currency} periods",
 
     "pay.title": "Mark as paid",
     "pay.titleEdit": "Change payment date",
@@ -1758,7 +1760,13 @@ function shareBar(parts, currency) {
   );
 }
 
-function summaryCard(c, onDate = null) {
+// Стрелка на плитке валюты: кнопка, открывает периоды оплаты в этой валюте
+function tileArrow(currency, onOpen) {
+  const label = t("sum.open", { currency });
+  return h("button", { class: "tile-arrow", type: "button", "aria-label": label, title: label, onclick: () => onOpen(currency) }, icon("chevronRight"));
+}
+
+function summaryCard(c, onDate = null, onOpen = null) {
   const due = (toMinor(c.unpaid) - toMinor(c.overdue)) / 100;
   return h(
     "article",
@@ -1768,7 +1776,7 @@ function summaryCard(c, onDate = null) {
       "div",
       { class: "tile-head" },
       h("span", {}, `${c.currency} · `, h("span", { class: "muted" }, onDate ? t("sum.onDate", { date: fmtDate(onDate) }) : t(`currency.${c.currency}`))),
-      h("span", { class: "tile-arrow", "aria-hidden": "true" }, icon("chevronRight")),
+      onOpen ? tileArrow(c.currency, onOpen) : null,
     ),
     h(
       "div",
@@ -1814,7 +1822,7 @@ async function paymentsView(main) {
       }),
     ]);
     if (!f.on) state.asOf = summary.as_of;
-    summaryBox.replaceChildren(...summary.currencies.map((c) => summaryCard(c, f.on ? summary.as_of : null)));
+    summaryBox.replaceChildren(...summary.currencies.map((c) => summaryCard(c, f.on ? summary.as_of : null, openCurrency)));
     counter.textContent = items.length ? t("payments.shown", { n: items.length }) : "";
     lastItems = items;
     renderList();
@@ -1883,7 +1891,17 @@ async function paymentsView(main) {
     csvLink,
   );
 
-  main.replaceChildren(pageHead(t("tab.payments"), t("payments.lead")), summaryBox, section(t("payments.list"), toolbar, listBox));
+  const listSection = section(t("payments.list"), toolbar, listBox);
+
+  // Стрелка на плитке: таблица ниже только по этой валюте
+  async function openCurrency(currency) {
+    state.filters.currency = currency;
+    currencySelect.value = currency;
+    await reload().catch(report);
+    listSection.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  main.replaceChildren(pageHead(t("tab.payments"), t("payments.lead")), summaryBox, listSection);
   await reload();
 }
 
@@ -2613,6 +2631,12 @@ async function budgetView(main) {
   const tableBox = h("div", { class: "table-card" }, skeletonRows());
   const title = h("h3", { class: "cal-title" });
 
+  // Стрелка на плитке: вкладка «Платежи» с периодами этой валюты
+  const openPayments = (currency) => {
+    state.filters.currency = currency;
+    navigate("payments").catch(report);
+  };
+
   async function reload() {
     const year = state.budgetYear;
     const data = await api("/payments/budget", { params: { year } });
@@ -2626,7 +2650,7 @@ async function budgetView(main) {
             "div",
             { class: "tile-head" },
             h("span", {}, `${c.currency} · `, h("span", { class: "muted" }, t("budget.plan"))),
-            h("span", { class: "tile-arrow", "aria-hidden": "true" }, icon("chevronRight")),
+            tileArrow(c.currency, openPayments),
           ),
           h(
             "div",

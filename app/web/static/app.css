@@ -435,6 +435,7 @@ select option { background: var(--block); color: var(--title); }
 .tile-arrow {
   display: inline-flex; padding: 4px; border: 1px solid var(--arrow-line); border-radius: 50%;
   background: var(--arrow-bg); color: var(--title); transition: transform 0.3s ease-in-out;
+  font: inherit; cursor: pointer;
 }
 .tile-arrow .ic { width: 14px; height: 14px; stroke-width: 2; }
 .tile:hover .tile-arrow { transform: translateX(4px); }
