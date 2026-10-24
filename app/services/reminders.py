@@ -93,7 +93,11 @@ def _pending_overdue(db: Session, today: date, timezone: str) -> list[PaymentOcc
         )
         .order_by(PaymentOccurrence.due_date, PaymentOccurrence.id)
     )
-    return [o for o in db.scalars(stmt).unique() if _local_date(o.reminded_at, timezone) <= o.due_date]
+    return [
+        o
+        for o in db.scalars(stmt).unique()
+        if _local_date(o.reminded_at, timezone) <= o.due_date and not o.recurring_payment.is_paused_on(o.due_date)
+    ]
 
 
 def _pending(db: Session, today: date, reminder_days: int) -> list[PaymentOccurrence]:
@@ -116,7 +120,7 @@ def _pending(db: Session, today: date, reminder_days: int) -> list[PaymentOccurr
         )
         .order_by(PaymentOccurrence.due_date, PaymentOccurrence.id)
     )
-    occurrences = list(db.scalars(stmt).unique())
+    occurrences = [o for o in db.scalars(stmt).unique() if not o.recurring_payment.is_paused_on(o.due_date)]
     if not any(o.due_date < today for o in occurrences):
         return occurrences
     # самый свежий неоплаченный просроченный период, напоминали по нему или нет

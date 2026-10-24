@@ -3,7 +3,7 @@ from decimal import Decimal
 
 from sqlalchemy.orm import Session
 
-from app.models import OccurrenceStatus, Period, RecurringPayment, Role, User
+from app.models import OccurrenceStatus, PaymentPause, Period, RecurringPayment, Role, User
 from app.services.periods import ensure_occurrences, period_due_date
 
 _UNPAID = OccurrenceStatus.UNPAID.value
@@ -108,3 +108,35 @@ def update_payment_extras(payment: RecurringPayment, fields: dict) -> dict:
             changes[f"{field}_before"] = getattr(payment, field)
             setattr(payment, field, fields[field])
     return changes
+
+
+def pause_payment(db: Session, payment: RecurringPayment, today: date, until: date | None) -> PaymentPause:
+    """Пауза с сегодняшнего дня до `until` (не включая) или до ручного возобновления.
+
+    Неоплаченные периоды внутри паузы без чеков убираются; оплаченные, прошлые долги и история остаются.
+    Уже открытую паузу продлевает или сокращает. Коммит остаётся за вызывающим.
+    """
+    if until is not None and until <= today:
+        raise PaymentRuleError("Пауза: дата окончания должна быть позже сегодняшней")
+    pause = payment.open_pause(today)
+    if pause is None:
+        pause = PaymentPause(paused_from=today, paused_until=until)
+        payment.pauses.append(pause)
+    else:
+        pause.paused_until = until
+    for occurrence in list(payment.occurrences):
+        if occurrence.status == _UNPAID and pause.covers(occurrence.due_date) and not occurrence.receipts:
+            payment.occurrences.remove(occurrence)
+    db.flush()
+    ensure_occurrences(db, payment, today)
+    return pause
+
+
+def resume_payment(db: Session, payment: RecurringPayment, today: date) -> None:
+    """Снимает паузу с сегодняшнего дня: сроки с сегодня снова создаются и напоминают."""
+    pause = payment.open_pause(today)
+    if pause is None:
+        raise PaymentRuleError("Платёж не на паузе")
+    pause.paused_until = max(today, pause.paused_from)
+    db.flush()
+    ensure_occurrences(db, payment, today)

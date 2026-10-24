@@ -35,6 +35,9 @@ class RecurringPayment(Base):
     assignee_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
 
     assignee: Mapped["User | None"] = relationship(lazy="selectin")
+    pauses: Mapped[list["PaymentPause"]] = relationship(
+        order_by="PaymentPause.paused_from", lazy="selectin", cascade="all, delete-orphan", passive_deletes=True
+    )
     occurrences: Mapped[list["PaymentOccurrence"]] = relationship(
         back_populates="recurring_payment",
         order_by="PaymentOccurrence.due_date",
@@ -48,6 +51,14 @@ class RecurringPayment(Base):
     @amount.setter
     def amount(self, value: Decimal | int | str) -> None:
         self.amount_minor = int((Decimal(value) * 100).to_integral_value())
+
+    def is_paused_on(self, day: date) -> bool:
+        """Срок попадает в паузу: такой период не создаётся и не напоминает."""
+        return any(pause.covers(day) for pause in self.pauses)
+
+    def open_pause(self, today: date) -> "PaymentPause | None":
+        """Действующая сейчас или бессрочная пауза, которую можно продлить или снять."""
+        return next((p for p in self.pauses if p.paused_until is None or p.paused_until > today), None)
 
     @property
     def assignee_login(self) -> str | None:

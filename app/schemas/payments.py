@@ -102,6 +102,15 @@ class RecurringPaymentOut(BaseModel):
     category: str | None = Field(default=None, description="Категория")
     assignee_id: int | None = Field(default=None, description="Ответственный")
     assignee_login: str | None = Field(default=None, description="Логин ответственного")
+    is_paused: bool = Field(default=False, description="Платёж сейчас на паузе")
+    paused_from: date | None = Field(default=None, description="С какого дня действует пауза")
+    paused_until: date | None = Field(default=None, description="До какого дня пауза (не включая); пусто — до возобновления")
+
+
+class PauseRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    until: date | None = Field(default=None, description="Последний день паузы не включается; пусто — до ручного возобновления")
 
 
 class OccurrenceOut(BaseModel):

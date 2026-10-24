@@ -58,7 +58,11 @@ def load_periods(db: Session, start: date, end: date, include_deleted: bool = Fa
     result: list[PlannedPeriod] = []
     for payment in db.scalars(select(RecurringPayment).order_by(RecurringPayment.id)):
         if payment.deleted_at is None:
-            projected = set(projected_due_dates(payment.first_due_date, start, end, payment.period))
+            projected = {
+                due
+                for due in projected_due_dates(payment.first_due_date, start, end, payment.period)
+                if not payment.is_paused_on(due)
+            }
             # периоды из базы показываем всегда: после смены графика прошлые сроки уже не совпадают с правилом
             projected |= {due for (rid, due) in existing if rid == payment.id}
             result.extend(PlannedPeriod(payment, due, existing.get((payment.id, due))) for due in projected)

@@ -233,6 +233,69 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/recurring-payments/{id}/pause:
+    post:
+      tags:
+      - recurring-payments
+      summary: Пауза платежа (администратор)
+      description: 'С сегодняшнего дня до `until` (не включая) или до возобновления: новые периоды не
+        создаются, напоминаний нет. Неоплаченные периоды внутри паузы без чеков убираются, оплаченные
+        и прошлые долги остаются. Повторный вызов меняет дату окончания действующей паузы.'
+      operationId: pause_recurring_payment
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          title: Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PauseRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecurringPaymentOut'
+        '404':
+          description: Платёж не найден или прекращён
+        '422':
+          description: Дата окончания не позже сегодня
+  /api/v1/recurring-payments/{id}/resume:
+    post:
+      tags:
+      - recurring-payments
+      summary: Снятие паузы (администратор)
+      description: Сроки с сегодняшнего дня снова создаются и напоминают. Пропущенные на паузе месяцы
+        просрочкой не становятся.
+      operationId: resume_recurring_payment
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          title: Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecurringPaymentOut'
+        '404':
+          description: Платёж не найден или прекращён
+        '422':
+          description: Платёж не на паузе
   /api/v1/payment-occurrences:
     get:
       tags:
@@ -1880,6 +1943,18 @@ components:
       - current_password
       - new_password
       title: PasswordChange
+    PauseRequest:
+      properties:
+        until:
+          anyOf:
+          - type: string
+            format: date
+          - type: 'null'
+          title: Until
+          description: Последний день паузы не включается; пусто — до ручного возобновления
+      additionalProperties: false
+      type: object
+      title: PauseRequest
     Period:
       type: string
       enum:
@@ -2114,6 +2189,25 @@ components:
           - type: 'null'
           title: Assignee Login
           description: Логин ответственного
+        is_paused:
+          type: boolean
+          title: Is Paused
+          description: Платёж сейчас на паузе
+          default: false
+        paused_from:
+          anyOf:
+          - type: string
+            format: date
+          - type: 'null'
+          title: Paused From
+          description: С какого дня действует пауза
+        paused_until:
+          anyOf:
+          - type: string
+            format: date
+          - type: 'null'
+          title: Paused Until
+          description: До какого дня пауза (не включая); пусто — до возобновления
       type: object
       required:
       - id

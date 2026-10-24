@@ -14,6 +14,8 @@ ADMIN_ONLY = {
     ("POST", f"{B}/recurring-payments"),
     ("PATCH", f"{B}/recurring-payments/{{id}}"),
     ("DELETE", f"{B}/recurring-payments/{{id}}"),
+    ("POST", f"{B}/recurring-payments/{{id}}/pause"),
+    ("POST", f"{B}/recurring-payments/{{id}}/resume"),
     ("GET", f"{B}/users"),
     ("POST", f"{B}/users"),
     ("PATCH", f"{B}/users/{{id}}"),

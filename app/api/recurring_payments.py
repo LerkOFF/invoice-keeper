@@ -7,29 +7,50 @@ from app.api.deps import AdminPrincipal, CurrentPrincipal, DbDep, NotifiersDep, 
 from app.core.db import SessionLocal
 from app.services import audit
 from app.models import RecurringPayment
-from app.schemas.payments import RecurringPaymentCreate, RecurringPaymentOut, RecurringPaymentUpdate
-from app.services.payments import EXTRA_FIELDS, PaymentRuleError, check_assignee, update_payment, update_payment_extras
+from app.schemas.payments import PauseRequest, RecurringPaymentCreate, RecurringPaymentOut, RecurringPaymentUpdate
+from app.services.payments import (
+    EXTRA_FIELDS,
+    PaymentRuleError,
+    check_assignee,
+    pause_payment,
+    resume_payment,
+    update_payment,
+    update_payment_extras,
+)
 from app.services.periods import ensure_occurrences
 from app.services.reminders import run_reminders
 
 router = APIRouter(prefix="/recurring-payments", tags=["recurring-payments"])
 
 
-def _get_active(db, payment_id: int) -> RecurringPayment:
+def _get_active(db, payment_id: int) -> RecurringPaymentOut:
     payment = db.get(RecurringPayment, payment_id)
     if payment is None or payment.deleted_at is not None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Регулярный платёж не найден")
     return payment
 
 
+def payment_out(payment: RecurringPayment, today) -> RecurringPaymentOut:  # noqa: ANN001
+    """Платёж для ответа: состояние паузы зависит от «сегодня», поэтому собирается здесь, а не в модели."""
+    out = RecurringPaymentOut.model_validate(payment)
+    pause = payment.open_pause(today) if payment.deleted_at is None else None
+    return out.model_copy(
+        update={
+            "is_paused": payment.deleted_at is None and payment.is_paused_on(today),
+            "paused_from": pause.paused_from if pause else None,
+            "paused_until": pause.paused_until if pause else None,
+        }
+    )
+
+
 @router.get("", response_model=list[RecurringPaymentOut], summary="Список регулярных платежей")
 def list_recurring_payments(
-    _principal: CurrentPrincipal, db: DbDep, include_deleted: bool = False
-) -> list[RecurringPayment]:
+    _principal: CurrentPrincipal, db: DbDep, today: TodayDep, include_deleted: bool = False
+) -> list[RecurringPaymentOut]:
     stmt = select(RecurringPayment).order_by(RecurringPayment.id)
     if not include_deleted:
         stmt = stmt.where(RecurringPayment.deleted_at.is_(None))
-    return list(db.scalars(stmt))
+    return [payment_out(payment, today) for payment in db.scalars(stmt)]
 
 
 @router.post(
@@ -46,7 +67,7 @@ def create_recurring_payment(
     background: BackgroundTasks,
     notifiers: NotifiersDep,
     settings: SettingsDep,
-) -> RecurringPayment:
+) -> RecurringPaymentOut:
     try:
         check_assignee(db, payload.assignee_id)
     except PaymentRuleError as error:
@@ -84,7 +105,7 @@ def create_recurring_payment(
     db.commit()
     # Платёж добавлен меньше чем за 3 дня до срока: напоминание уходит сразу, не дожидаясь планировщика
     background.add_task(run_reminders, SessionLocal, notifiers, settings, today)
-    return payment
+    return payment_out(payment, today)
 
 
 @router.patch(
@@ -108,7 +129,7 @@ def update_recurring_payment(
     background: BackgroundTasks,
     notifiers: NotifiersDep,
     settings: SettingsDep,
-) -> RecurringPayment:
+) -> RecurringPaymentOut:
     if not payload.model_fields_set:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="Нужно передать хотя бы одно поле")
     payment = _get_active(db, id)
@@ -146,7 +167,7 @@ def update_recurring_payment(
     db.commit()
     # новый график мог поставить срок ближе чем через 3 дня: напоминание сразу, как при создании
     background.add_task(run_reminders, SessionLocal, notifiers, settings, today)
-    return payment
+    return payment_out(payment, today)
 
 
 @router.delete(
@@ -161,3 +182,58 @@ def delete_recurring_payment(id: int, admin: AdminPrincipal, db: DbDep) -> Respo
     audit.record(db, "payment.delete", audit.actor_of(admin), "payment", payment.id, {"name": payment.name})
     db.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.post(
+    "/{id}/pause",
+    response_model=RecurringPaymentOut,
+    summary="Пауза платежа (администратор)",
+    description=(
+        "С сегодняшнего дня до `until` (не включая) или до возобновления: новые периоды не создаются, напоминаний нет. "
+        "Неоплаченные периоды внутри паузы без чеков убираются, оплаченные и прошлые долги остаются. "
+        "Повторный вызов меняет дату окончания действующей паузы."
+    ),
+    responses={404: {"description": "Платёж не найден или прекращён"}, 422: {"description": "Дата окончания не позже сегодня"}},
+)
+def pause_recurring_payment(
+    id: int, payload: PauseRequest, admin: AdminPrincipal, db: DbDep, today: TodayDep  # noqa: A002
+) -> RecurringPaymentOut:
+    payment = _get_active(db, id)
+    try:
+        pause_payment(db, payment, today, payload.until)
+    except PaymentRuleError as error:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(error)) from error
+    audit.record(
+        db, "payment.pause", audit.actor_of(admin), "payment", payment.id,
+        {"name": payment.name, "until": payload.until.isoformat() if payload.until else None},
+    )
+    db.commit()
+    return payment_out(payment, today)
+
+
+@router.post(
+    "/{id}/resume",
+    response_model=RecurringPaymentOut,
+    summary="Снятие паузы (администратор)",
+    description="Сроки с сегодняшнего дня снова создаются и напоминают. Пропущенные на паузе месяцы просрочкой не становятся.",
+    responses={404: {"description": "Платёж не найден или прекращён"}, 422: {"description": "Платёж не на паузе"}},
+)
+def resume_recurring_payment(
+    id: int,  # noqa: A002
+    admin: AdminPrincipal,
+    db: DbDep,
+    today: TodayDep,
+    background: BackgroundTasks,
+    notifiers: NotifiersDep,
+    settings: SettingsDep,
+) -> RecurringPaymentOut:
+    payment = _get_active(db, id)
+    try:
+        resume_payment(db, payment, today)
+    except PaymentRuleError as error:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(error)) from error
+    audit.record(db, "payment.resume", audit.actor_of(admin), "payment", payment.id, {"name": payment.name})
+    db.commit()
+    # возобновлённый платёж мог сразу оказаться в окне трёх дней
+    background.add_task(run_reminders, SessionLocal, notifiers, settings, today)
+    return payment_out(payment, today)

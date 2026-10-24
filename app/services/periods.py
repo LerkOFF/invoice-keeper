@@ -47,13 +47,15 @@ def ensure_occurrences(db: Session, payment: RecurringPayment, today: date) -> l
     upcoming_seen = False
     while True:
         due = period_due_date(payment.first_due_date, payment.period, index)
-        if due > horizon and upcoming_seen:
+        paused = payment.is_paused_on(due)
+        # за горизонтом пауза тоже останавливает поиск: бессрочная пауза иначе крутила бы цикл вечно
+        if due > horizon and (upcoming_seen or paused):
             break
-        if due not in existing:
+        if not paused and due not in existing:
             occurrence = PaymentOccurrence(recurring_payment=payment, due_date=due, amount_minor=payment.amount_minor)
             db.add(occurrence)
             created.append(occurrence)
-        upcoming_seen = upcoming_seen or due >= today
+        upcoming_seen = upcoming_seen or (due >= today and not paused)
         index += 1
     return created
 
