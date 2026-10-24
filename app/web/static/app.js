@@ -10,7 +10,7 @@ const state = {
   me: null,
   asOf: null, // «сегодня» по часовому поясу сервера
   tab: "payments",
-  filters: { status: "all", currency: "", scope: "all", deleted: false, on: "", q: "" },
+  filters: { status: "all", currency: "", category: "", assignee: "", scope: "all", deleted: false, on: "", q: "" },
   sort: { key: "due", dir: 1 },
   cal: null, // { year, month, selected }
   budgetYear: null,
@@ -61,6 +61,24 @@ const I18N = {
     "field.new_password": "Новый пароль",
     "field.scope": "Доступ",
     "field.expires_in_days": "Срок действия",
+    "field.pay_url": "Ссылка на оплату",
+    "field.category": "Категория",
+    "rec.categoryPlaceholder": "аренда, IT, подписки",
+    "payments.allCategories": "Все категории",
+    "payments.noCategory": "Без категории",
+    "field.assignee_id": "Ответственный",
+    "rec.noAssignee": "— не назначен —",
+    "payments.mine": "Только мои",
+    "payments.allAssignees": "Все ответственные",
+    "payments.noAssignee": "Без ответственного",
+    "budget.byCategory": "по категориям",
+    "budget.category": "Категория",
+    "field.pay_details": "Реквизиты",
+    "rec.payUrlPlaceholder": "https://…",
+    "rec.payDetailsPlaceholder": "договор, счёт, ИНН",
+    "rec.payLink": "ссылка на оплату ↗",
+    "act.pay": "Оплатить",
+    "check.payUrl": "Ссылка на оплату: начните с http:// или https://",
 
     "valid.string_too_short": "слишком короткое значение",
     "valid.string_too_long": "слишком длинное значение",
@@ -103,6 +121,14 @@ const I18N = {
     "auth.point3": "RUB, USD и EUR, итоги по каждой валюте отдельно",
 
     "shell.logout": "Выйти",
+    "shell.password": "Сменить пароль",
+    "pass.title": "Смена пароля",
+    "pass.desc": "После смены остальные ваши сессии завершатся, эта останется открытой.",
+    "pass.current": "Текущий пароль",
+    "pass.new": "Новый пароль",
+    "pass.repeat": "Новый пароль ещё раз",
+    "pass.mismatch": "Новые пароли не совпадают",
+    "pass.done": "Пароль изменён",
     "shell.today": "сегодня",
     "shell.addPayment": "Добавить платёж",
     "shell.api": "API и Swagger",
@@ -232,6 +258,17 @@ const I18N = {
     "rec.colNextShort": "Ближайший срок",
     "rec.firstDue": "первый срок {date}",
     "rec.stop": "Прекратить",
+    "rec.pause": "Пауза",
+    "rec.resume": "Возобновить",
+    "rec.pauseTitle": "Поставить на паузу?",
+    "rec.pauseDesc": "«{name}»: пока пауза, новых периодов и напоминаний не будет. Неоплаченные сроки внутри паузы уберутся, оплаты и прошлые долги останутся.",
+    "rec.pauseUntil": "До какого дня",
+    "rec.pauseHint": "пусто — до ручного возобновления; сам этот день уже не на паузе",
+    "rec.paused": "на паузе",
+    "rec.pausedUntil": "на паузе до {date}",
+    "rec.pausedDone": "«{name}» на паузе",
+    "rec.resumed": "«{name}» снова активен",
+    "audit.until": "до {date}",
     "rec.empty": "Регулярных платежей пока нет",
     "rec.emptyText": "Добавьте аренду, подписку или оплату сервера формой выше.",
     "rec.new": "Новый регулярный платёж",
@@ -338,6 +375,8 @@ const I18N = {
     "action.payment.create": "Платёж добавлен",
     "action.payment.update": "Платёж изменён",
     "action.payment.delete": "Платёж прекращён",
+    "action.payment.pause": "Платёж на паузе",
+    "action.payment.resume": "Пауза снята",
     "action.occurrence.paid": "Оплата отмечена",
     "action.occurrence.unpaid": "Оплата отменена",
     "action.occurrence.paid_at_changed": "Дата оплаты исправлена",
@@ -566,6 +605,24 @@ const I18N = {
     "field.new_password": "New password",
     "field.scope": "Access",
     "field.expires_in_days": "Lifetime",
+    "field.pay_url": "Payment link",
+    "field.category": "Category",
+    "rec.categoryPlaceholder": "rent, IT, subscriptions",
+    "payments.allCategories": "All categories",
+    "payments.noCategory": "No category",
+    "field.assignee_id": "Responsible",
+    "rec.noAssignee": "— not assigned —",
+    "payments.mine": "Only mine",
+    "payments.allAssignees": "Anyone responsible",
+    "payments.noAssignee": "No one responsible",
+    "budget.byCategory": "by category",
+    "budget.category": "Category",
+    "field.pay_details": "Payment details",
+    "rec.payUrlPlaceholder": "https://…",
+    "rec.payDetailsPlaceholder": "contract, invoice, tax ID",
+    "rec.payLink": "payment link ↗",
+    "act.pay": "Pay",
+    "check.payUrl": "Payment link: start with http:// or https://",
 
     "valid.string_too_short": "too short",
     "valid.string_too_long": "too long",
@@ -608,6 +665,14 @@ const I18N = {
     "auth.point3": "RUB, USD and EUR with separate totals for each currency",
 
     "shell.logout": "Sign out",
+    "shell.password": "Change password",
+    "pass.title": "Change password",
+    "pass.desc": "Your other sessions will be signed out, this one stays open.",
+    "pass.current": "Current password",
+    "pass.new": "New password",
+    "pass.repeat": "Repeat the new password",
+    "pass.mismatch": "The new passwords do not match",
+    "pass.done": "Password changed",
     "shell.today": "today",
     "shell.addPayment": "Add payment",
     "shell.api": "API & Swagger",
@@ -737,6 +802,17 @@ const I18N = {
     "rec.colNextShort": "Next due",
     "rec.firstDue": "first due {date}",
     "rec.stop": "Stop",
+    "rec.pause": "Pause",
+    "rec.resume": "Resume",
+    "rec.pauseTitle": "Pause the payment?",
+    "rec.pauseDesc": "“{name}”: no new periods or reminders while paused. Unpaid due dates within the pause are removed; payments and past debts stay.",
+    "rec.pauseUntil": "Until",
+    "rec.pauseHint": "empty — until you resume; that day itself is no longer paused",
+    "rec.paused": "paused",
+    "rec.pausedUntil": "paused until {date}",
+    "rec.pausedDone": "“{name}” is paused",
+    "rec.resumed": "“{name}” is active again",
+    "audit.until": "until {date}",
     "rec.empty": "No recurring payments yet",
     "rec.emptyText": "Add rent, a subscription or a server bill with the form above.",
     "rec.new": "New recurring payment",
@@ -843,6 +919,8 @@ const I18N = {
     "action.payment.create": "Payment added",
     "action.payment.update": "Payment edited",
     "action.payment.delete": "Payment stopped",
+    "action.payment.pause": "Payment paused",
+    "action.payment.resume": "Payment resumed",
     "action.occurrence.paid": "Payment marked",
     "action.occurrence.unpaid": "Payment undone",
     "action.occurrence.paid_at_changed": "Payment date corrected",
@@ -1053,6 +1131,9 @@ const PLURALS = {
 // Сервер отвечает по-русски; в английском интерфейсе переводим известные ответы, остальное показываем как есть
 const SERVER_EN = {
   "Аккаунт не привязан": "The account is not linked",
+  "Текущий пароль неверный": "The current password is incorrect",
+  "Новый пароль совпадает с текущим": "The new password is the same as the current one",
+  "Пароль администратора задаётся в .env, через панель его не поменять": "The administrator password is set in .env and cannot be changed here",
   "Бот этого мессенджера не настроен на сервере": "This messenger's bot is not configured on the server",
   "Не найдено": "Not found",
   "Неверный логин или пароль": "Wrong login or password",
@@ -1191,6 +1272,7 @@ const ICONS = {
   sun: [{ circle: [12, 12, 4] }, "M12 2v2", "M12 20v2", "m4.93 4.93 1.41 1.41", "m17.66 17.66 1.41 1.41", "M2 12h2", "M20 12h2", "m6.34 17.66-1.41 1.41", "m19.07 4.93-1.41 1.41"],
   moon: ["M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"],
   monitor: [{ rect: [2, 3, 20, 14, 2] }, "M8 21h8", "M12 17v4"],
+  key: [{ circle: [7.5, 15.5, 5.5] }, "m21 2-9.6 9.6", "m15.5 7.5 3 3L22 7l-3-3"],
   help: [{ circle: [12, 12, 10] }, "M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3", "M12 17h.01"],
   account: ["M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z", "m9 12 2 2 4-4"],
 };
@@ -1458,6 +1540,39 @@ function parseAmount(raw) {
 
 function checkLogin(login) {
   if (!/^[A-Za-z0-9._@-]{3,64}$/.test(login)) throw new Error(t("check.login"));
+}
+
+// Категории для подсказок и фильтра: из списка регулярных платежей
+function categoriesOf(payments) {
+  return [...new Set(payments.map((p) => p.category).filter(Boolean))].sort((a, b) => a.localeCompare(b, locale()));
+}
+
+function assigneeField(users, value = null) {
+  return selectField(
+    t("field.assignee_id"),
+    "assignee_id",
+    [h("option", { value: "" }, t("rec.noAssignee")), ...users.map((u) => h("option", { value: String(u.id), selected: u.id === value }, `@${u.login}`))],
+  );
+}
+
+function assigneeValue(data) {
+  const raw = String(data.get("assignee_id") || "");
+  return raw ? Number(raw) : null;
+}
+
+// Подпись под названием: категория и ответственный
+function paymentMeta(p) {
+  return [p.category, p.assignee_login ? `@${p.assignee_login}` : null].filter(Boolean).join(" · ");
+}
+
+function categoryField(value = "") {
+  return field({ label: t("field.category"), name: "category", required: false, maxlength: "60", value, list: "category-options", placeholder: t("rec.categoryPlaceholder") });
+}
+
+function payLinkFields(data) {
+  const url = String(data.get("pay_url") || "").trim();
+  if (url && !/^https?:\/\/\S+$/i.test(url)) throw new Error(t("check.payUrl"));
+  return { pay_url: url || null, pay_details: String(data.get("pay_details") || "").trim() || null };
 }
 
 function checkPassword(password) {
@@ -1790,7 +1905,15 @@ function userPanel() {
       "div",
       { class: "user-row" },
       h("span", { class: "user-login", title: state.me.login }, `@${state.me.login}`),
-      h("button", { type: "button", class: "icon-btn", "aria-label": t("shell.logout"), title: t("shell.logout"), onclick: logout }, icon("logout")),
+      h(
+        "div",
+        { class: "user-actions" },
+        // пароль администратора живёт в .env, сменить его может только пользователь
+        state.me.role === "admin"
+          ? null
+          : h("button", { type: "button", class: "icon-btn", "aria-label": t("shell.password"), title: t("shell.password"), onclick: passwordDialog }, icon("key")),
+        h("button", { type: "button", class: "icon-btn", "aria-label": t("shell.logout"), title: t("shell.logout"), onclick: logout }, icon("logout")),
+      ),
     ),
     h(
       "div",
@@ -1799,6 +1922,27 @@ function userPanel() {
       h("span", { class: "skew-badge" }, t(state.me.role === "admin" ? "role.admin" : "role.user")),
     ),
   );
+}
+
+function passwordDialog() {
+  openDialog({
+    title: t("pass.title"),
+    description: t("pass.desc"),
+    confirmLabel: t("common.save"),
+    fields: [
+      field({ label: t("pass.current"), name: "current", type: "password", autocomplete: "current-password" }),
+      field({ label: t("pass.new"), name: "next", type: "password", autocomplete: "new-password", placeholder: t("users.passwordPlaceholder") }),
+      field({ label: t("pass.repeat"), name: "repeat", type: "password", autocomplete: "new-password" }),
+    ],
+    onSubmit: async (data) => {
+      const current = String(data.get("current"));
+      const next = String(data.get("next"));
+      checkPassword(next);
+      if (next !== String(data.get("repeat"))) throw new Error(t("pass.mismatch"));
+      await api("/auth/password", { method: "POST", body: { current_password: current, new_password: next } });
+      toast(t("pass.done"));
+    },
+  });
 }
 
 async function showApp() {
@@ -2053,6 +2197,8 @@ async function paymentsView(main) {
       status: f.status === "paid" || f.status === "unpaid" ? f.status : undefined,
       overdue: f.status === "overdue" ? "true" : undefined,
       currency: f.currency,
+      category: f.category || undefined,
+      assignee: f.assignee || undefined,
       include_deleted: f.deleted ? "true" : undefined,
       q: f.q.trim() || undefined,
       ...range,
@@ -2096,6 +2242,42 @@ async function paymentsView(main) {
     CURRENCIES.map((c) => h("option", { value: c, selected: state.filters.currency === c }, c)),
   );
 
+  const categories = categoriesOf(await api("/recurring-payments", { params: { include_deleted: "true" } }));
+  if (state.filters.category && state.filters.category !== "-" && !categories.includes(state.filters.category)) state.filters.category = "";
+  const categorySelect = categories.length
+    ? h(
+        "select",
+        { "aria-label": t("field.category"), onchange: (e) => { state.filters.category = e.target.value; reload().catch(report); } },
+        h("option", { value: "" }, t("payments.allCategories")),
+        categories.map((c) => h("option", { value: c, selected: state.filters.category === c }, c)),
+        h("option", { value: "-", selected: state.filters.category === "-" }, t("payments.noCategory")),
+      )
+    : null;
+
+  // ответственный: у пользователя переключатель «Только мои», у админа выбор пользователя
+  let assigneeControl;
+  if (state.me.role === "admin") {
+    const users = await api("/users");
+    if (state.filters.assignee && !["-", ...users.map((u) => String(u.id))].includes(state.filters.assignee)) state.filters.assignee = "";
+    assigneeControl = users.length
+      ? h(
+          "select",
+          { "aria-label": t("field.assignee_id"), onchange: (e) => { state.filters.assignee = e.target.value; reload().catch(report); } },
+          h("option", { value: "" }, t("payments.allAssignees")),
+          users.map((u) => h("option", { value: String(u.id), selected: state.filters.assignee === String(u.id) }, `@${u.login}`)),
+          h("option", { value: "-", selected: state.filters.assignee === "-" }, t("payments.noAssignee")),
+        )
+      : null;
+  } else {
+    if (state.filters.assignee !== "me") state.filters.assignee = "";
+    assigneeControl = h(
+      "label",
+      { class: "check" },
+      h("input", { type: "checkbox", checked: state.filters.assignee === "me", onchange: (e) => { state.filters.assignee = e.target.checked ? "me" : ""; reload().catch(report); } }),
+      t("payments.mine"),
+    );
+  }
+
   const toolbar = h(
     "div",
     { class: "toolbar" },
@@ -2119,6 +2301,8 @@ async function paymentsView(main) {
       (v) => { state.filters.scope = v; reload().catch(report); },
     ),
     currencySelect,
+    categorySelect,
+    assigneeControl,
     h(
       "label",
       { class: "check" },
@@ -2215,6 +2399,9 @@ function occurrenceActions(o, reload) {
   const actions = [receiptsButton(o, reload)];
   if (o.payment_deleted) return actions;
   if (o.status === "unpaid") {
+    if (o.pay_url) {
+      actions.push(h("a", { class: "btn btn-sm", href: o.pay_url, target: "_blank", rel: "noopener noreferrer", title: o.pay_details || o.pay_url }, t("act.pay")));
+    }
     actions.push(h("button", { class: "btn btn-sm btn-accent", onclick: () => payDialog(o, reload, false) }, t("act.markPaid")));
   } else {
     actions.push(
@@ -2238,7 +2425,13 @@ function occurrenceRow(o, reload) {
   return h(
     "tr",
     { class: rowClass },
-    h("td", { class: "title-cell" }, h("div", { class: "cell-title" }, o.name), o.payment_deleted ? h("div", { class: "cell-sub" }, t("payments.stopped")) : null),
+    h(
+      "td",
+      { class: "title-cell" },
+      h("div", { class: "cell-title" }, o.name),
+      paymentMeta(o) ? h("div", { class: "cell-sub" }, paymentMeta(o)) : null,
+      o.payment_deleted ? h("div", { class: "cell-sub" }, t("payments.stopped")) : null,
+    ),
     h("td", { class: "right", "data-label": t("col.amount") }, h("span", { class: "amount num" }, money(o.amount, o.currency))),
     h("td", { "data-label": t("col.due") }, h("div", {}, h("div", { class: "num" }, fmtDate(o.due_date)), note ? h("div", { class: `cell-sub ${note.bad ? "bad" : ""}` }, note.text) : null)),
     h("td", { "data-label": t("col.status") }, h("span", { class: `badge ${status.cls}` }, status.text)),
@@ -2250,7 +2443,7 @@ function occurrenceRow(o, reload) {
 function payDialog(o, reload, editing) {
   openDialog({
     title: editing ? t("pay.titleEdit") : t("pay.title"),
-    description: t("pay.desc", { name: o.name, date: fmtDate(o.due_date), amount: money(o.amount, o.currency) }),
+    description: t("pay.desc", { name: o.name, date: fmtDate(o.due_date), amount: money(o.amount, o.currency) }) + (o.pay_details ? ` ${t("field.pay_details")}: ${o.pay_details}` : ""),
     confirmLabel: editing ? t("common.save") : t("pay.confirm"),
     fields: [
       field({
@@ -2456,14 +2649,20 @@ function periodHint(p) {
 
 async function recurringView(main) {
   const listBox = h("div", { class: "table-card" }, skeletonRows(3));
+  const categoryOptions = h("datalist", { id: "category-options" });
+  const assigneeSlot = h("div", { class: "field-slot" }, assigneeField([]));
 
   async function reload() {
-    const [payments, unpaid] = await Promise.all([
+    const [payments, unpaid, users] = await Promise.all([
       api("/recurring-payments"),
       api("/payment-occurrences", { params: { status: "unpaid", limit: 1000 } }),
+      api("/users"),
     ]);
+    state.recurringUsers = users;
+    assigneeSlot.replaceChildren(assigneeField(users, Number(assigneeSlot.querySelector("select")?.value) || null));
     const nextDue = new Map();
     for (const o of unpaid) if (!nextDue.has(o.recurring_id)) nextDue.set(o.recurring_id, o.due_date);
+    categoryOptions.replaceChildren(...categoriesOf(payments).map((c) => h("option", { value: c })));
 
     listBox.replaceChildren(
       payments.length
@@ -2479,14 +2678,29 @@ async function recurringView(main) {
                 return h(
                   "tr",
                   {},
-                  h("td", { class: "title-cell" }, h("div", { class: "cell-title" }, p.name), h("div", { class: "cell-sub" }, t("rec.firstDue", { date: fmtDate(p.first_due_date) }))),
+                  h(
+                    "td",
+                    { class: "title-cell" },
+                    h("div", { class: "cell-title" }, p.name),
+                    h("div", { class: "cell-sub" }, paymentMeta(p) ? `${paymentMeta(p)} · ` : "", t("rec.firstDue", { date: fmtDate(p.first_due_date) })),
+                    p.pay_url ? h("a", { class: "cell-link", href: p.pay_url, target: "_blank", rel: "noopener noreferrer", title: p.pay_details || p.pay_url }, t("rec.payLink")) : null,
+                  ),
                   h("td", { class: "right", "data-label": t("col.amount") }, h("span", { class: "amount num" }, money(p.amount, p.currency))),
-                  h("td", { "data-label": t("rec.colPeriod") }, h("div", {}, periodLabel(p.period)), h("div", { class: "cell-sub" }, periodHint(p))),
+                  h(
+                    "td",
+                    { "data-label": t("rec.colPeriod") },
+                    h("div", {}, periodLabel(p.period)),
+                    h("div", { class: "cell-sub" }, periodHint(p)),
+                    p.is_paused || p.paused_from ? h("span", { class: "badge late" }, p.paused_until ? t("rec.pausedUntil", { date: fmtDate(p.paused_until) }) : t("rec.paused")) : null,
+                  ),
                   h("td", { "data-label": t("rec.colNextShort"), class: "num" }, next ? fmtDate(next) : "—"),
                   h(
                     "td",
                     { class: "actions" },
                     h("button", { class: "btn btn-sm", onclick: () => editPaymentDialog(p, reload) }, t("common.edit")),
+                    p.is_paused || p.paused_from
+                      ? h("button", { class: "btn btn-sm btn-accent", onclick: () => resumePayment(p, reload).catch(report) }, t("rec.resume"))
+                      : h("button", { class: "btn btn-sm", onclick: () => pauseDialog(p, reload) }, t("rec.pause")),
                     h("button", { class: "btn btn-sm btn-danger", onclick: () => deletePaymentDialog(p, reload) }, t("rec.stop")),
                   ),
                 );
@@ -2509,8 +2723,13 @@ async function recurringView(main) {
       selectField(t("field.currency"), "currency", CURRENCIES.map((c) => h("option", { value: c }, c))),
       selectField(t("field.period"), "period", periodOptions("monthly")),
       field({ label: t("field.first_due_date"), name: "first_due_date", type: "date", value: state.asOf }),
+      field({ label: t("field.pay_url"), name: "pay_url", type: "url", required: false, maxlength: "500", placeholder: t("rec.payUrlPlaceholder") }),
+      field({ label: t("field.pay_details"), name: "pay_details", required: false, maxlength: "1000", placeholder: t("rec.payDetailsPlaceholder") }),
+      categoryField(),
+      assigneeSlot,
       h("button", { type: "submit", class: "btn btn-primary" }, t("rec.add")),
     ),
+    categoryOptions,
     h("p", { class: "form-error", role: "alert" }),
   );
 
@@ -2527,10 +2746,12 @@ async function recurringView(main) {
       const firstDue = String(data.get("first_due_date"));
       if (!firstDue) throw new Error(t("check.firstDue"));
       setBusy(submit, true);
-      await api("/recurring-payments", { method: "POST", body: { name, amount, currency: data.get("currency"), period: data.get("period"), first_due_date: firstDue } });
+      const link = payLinkFields(data);
+      const category = String(data.get("category") || "").trim() || null;
+      const body = { name, amount, currency: data.get("currency"), period: data.get("period"), first_due_date: firstDue, category, assignee_id: assigneeValue(data), ...link };
+      await api("/recurring-payments", { method: "POST", body });
       toast(t("rec.added", { name }));
-      form.querySelector("[name=name]").value = "";
-      form.querySelector("[name=amount]").value = "";
+      for (const key of ["name", "amount", "pay_url", "pay_details", "category"]) form.querySelector(`[name=${key}]`).value = "";
       await reload();
     } catch (err) {
       error.textContent = err.message;
@@ -2559,9 +2780,20 @@ function editPaymentDialog(p, reload) {
         min: state.asOf,
         hint: t("rec.newFirstDueHint"),
       }),
+      field({ label: t("field.pay_url"), name: "pay_url", type: "url", required: false, maxlength: "500", value: p.pay_url || "", placeholder: t("rec.payUrlPlaceholder") }),
+      field({ label: t("field.pay_details"), name: "pay_details", required: false, maxlength: "1000", value: p.pay_details || "", placeholder: t("rec.payDetailsPlaceholder") }),
+      categoryField(p.category || ""),
+      assigneeField(state.recurringUsers || [], p.assignee_id),
     ],
     onSubmit: async (data) => {
       const body = {};
+      const assignee = assigneeValue(data);
+      if (assignee !== (p.assignee_id ?? null)) body.assignee_id = assignee;
+      const category = String(data.get("category") || "").trim().replace(/\s+/g, " ") || null;
+      if (category !== (p.category || null)) body.category = category;
+      const link = payLinkFields(data);
+      if (link.pay_url !== (p.pay_url || null)) body.pay_url = link.pay_url;
+      if (link.pay_details !== (p.pay_details || null)) body.pay_details = link.pay_details;
       const name = String(data.get("name")).trim();
       if (!name) throw new Error(t("check.name"));
       if (name !== p.name) body.name = name;
@@ -2578,6 +2810,28 @@ function editPaymentDialog(p, reload) {
       await reload();
     },
   });
+}
+
+function pauseDialog(p, reload) {
+  const tomorrow = new Date(Date.parse(`${state.asOf}T00:00:00Z`) + 86400000).toISOString().slice(0, 10);
+  openDialog({
+    title: t("rec.pauseTitle"),
+    description: t("rec.pauseDesc", { name: p.name }),
+    confirmLabel: t("rec.pause"),
+    fields: [field({ label: t("rec.pauseUntil"), name: "until", type: "date", required: false, min: tomorrow, hint: t("rec.pauseHint") })],
+    onSubmit: async (data) => {
+      const until = String(data.get("until") || "") || null;
+      await api(`/recurring-payments/${p.id}/pause`, { method: "POST", body: { until } });
+      toast(t("rec.pausedDone", { name: p.name }));
+      await reload();
+    },
+  });
+}
+
+async function resumePayment(p, reload) {
+  await api(`/recurring-payments/${p.id}/resume`, { method: "POST" });
+  toast(t("rec.resumed", { name: p.name }));
+  await reload();
 }
 
 function deletePaymentDialog(p, reload) {
@@ -2874,6 +3128,8 @@ async function budgetView(main) {
   if (!state.budgetYear) state.budgetYear = Number(state.asOf.slice(0, 4));
   const cards = h("section", { class: "summary", "aria-label": t("tab.budget") }, skeletonTileList());
   const tableBox = h("div", { class: "table-card" }, skeletonRows());
+  const categoryBox = h("div", { class: "table-card" });
+  const categorySection = section(t("budget.byCategory"), categoryBox);
   const title = h("h3", { class: "cal-title" });
 
   // Стрелка на плитке: вкладка «Платежи» с периодами этой валюты
@@ -2945,6 +3201,40 @@ async function budgetView(main) {
           )
         : h("div", { class: "empty" }, h("strong", {}, t("budget.empty")), t("budget.emptyText")),
     );
+
+    // по категориям: только если хоть у одного платежа категория задана
+    const named = (data.categories || []).some((c) => c.category);
+    categorySection.hidden = !named || !active.length;
+    if (named && active.length) {
+      categoryBox.replaceChildren(
+        h(
+          "table",
+          {},
+          h("thead", {}, h("tr", {}, h("th", {}, t("budget.category")), active.map((cur) => h("th", { class: "right" }, cur)))),
+          h(
+            "tbody",
+            {},
+            data.categories.map((row) =>
+              h(
+                "tr",
+                {},
+                h("td", { class: "title-cell" }, h("div", { class: "cell-title" }, row.category || t("payments.noCategory"))),
+                active.map((cur) => {
+                  const c = row.currencies.find((x) => x.currency === cur);
+                  return h(
+                    "td",
+                    { class: "right num", "data-label": cur },
+                    c.count_planned
+                      ? h("div", {}, h("div", { class: "amount" }, money(c.planned, cur)), h("div", { class: "cell-sub" }, c.paid === c.planned ? t("budget.paidAll") : t("budget.paidPart", { amount: money(c.paid, cur) })))
+                      : h("span", { class: "muted" }, "—"),
+                  );
+                }),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
   }
 
   function openMonth(year, month) {
@@ -2964,6 +3254,7 @@ async function budgetView(main) {
       h("button", { class: "btn btn-sm", type: "button", "aria-label": t("budget.next"), title: t("budget.next"), onclick: () => shift(1) }, icon("chevronRight")),
     ),
     cards,
+    categorySection,
     section(t("budget.byMonth"), tableBox),
   );
   await reload();
@@ -2993,6 +3284,9 @@ function auditSummary(e) {
         d.amount_before ? t("audit.amountChanged", { before: money(d.amount_before, d.currency), after: money(d.amount, d.currency) }) : "",
         d.first_due_date_before ? t("audit.scheduleChanged", { period: periodLabel(d.period).toLowerCase(), date: fmtDate(d.first_due_date) }) : "",
       ].filter(Boolean).join(", ");
+    case "payment.pause":
+      return [d.name, d.until ? t("audit.until", { date: fmtDate(d.until) }) : ""].filter(Boolean).join(", ");
+    case "payment.resume":
     case "payment.delete":
       return d.name;
     case "user.create":

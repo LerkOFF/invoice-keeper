@@ -3,7 +3,7 @@ from decimal import Decimal
 
 from sqlalchemy.orm import Session
 
-from app.models import OccurrenceStatus, Period, RecurringPayment
+from app.models import OccurrenceStatus, PaymentPause, Period, RecurringPayment, Role, User
 from app.services.periods import ensure_occurrences, period_due_date
 
 _UNPAID = OccurrenceStatus.UNPAID.value
@@ -86,3 +86,57 @@ def update_payment(
         ensure_occurrences(db, payment, today)
 
     return changes
+
+
+EXTRA_FIELDS = ("pay_url", "pay_details", "category", "assignee_id")
+
+
+def check_assignee(db: Session, assignee_id: int | None) -> None:
+    """Ответственным может быть только обычный пользователь: админ живёт в .env и в базе его нет."""
+    if assignee_id is None:
+        return
+    user = db.get(User, assignee_id)
+    if user is None or user.role != Role.USER.value:
+        raise PaymentRuleError("Ответственный: такого пользователя нет")
+
+
+def update_payment_extras(payment: RecurringPayment, fields: dict) -> dict:
+    """Ссылка на оплату, реквизиты и категория. В `fields` только переданные поля: None убирает значение."""
+    changes: dict = {}
+    for field in EXTRA_FIELDS:
+        if field in fields and fields[field] != getattr(payment, field):
+            changes[f"{field}_before"] = getattr(payment, field)
+            setattr(payment, field, fields[field])
+    return changes
+
+
+def pause_payment(db: Session, payment: RecurringPayment, today: date, until: date | None) -> PaymentPause:
+    """Пауза с сегодняшнего дня до `until` (не включая) или до ручного возобновления.
+
+    Неоплаченные периоды внутри паузы без чеков убираются; оплаченные, прошлые долги и история остаются.
+    Уже открытую паузу продлевает или сокращает. Коммит остаётся за вызывающим.
+    """
+    if until is not None and until <= today:
+        raise PaymentRuleError("Пауза: дата окончания должна быть позже сегодняшней")
+    pause = payment.open_pause(today)
+    if pause is None:
+        pause = PaymentPause(paused_from=today, paused_until=until)
+        payment.pauses.append(pause)
+    else:
+        pause.paused_until = until
+    for occurrence in list(payment.occurrences):
+        if occurrence.status == _UNPAID and pause.covers(occurrence.due_date) and not occurrence.receipts:
+            payment.occurrences.remove(occurrence)
+    db.flush()
+    ensure_occurrences(db, payment, today)
+    return pause
+
+
+def resume_payment(db: Session, payment: RecurringPayment, today: date) -> None:
+    """Снимает паузу с сегодняшнего дня: сроки с сегодня снова создаются и напоминают."""
+    pause = payment.open_pause(today)
+    if pause is None:
+        raise PaymentRuleError("Платёж не на паузе")
+    pause.paused_until = max(today, pause.paused_from)
+    db.flush()
+    ensure_occurrences(db, payment, today)

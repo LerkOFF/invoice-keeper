@@ -36,6 +36,11 @@ def to_out(occurrence: PaymentOccurrence, today: date) -> OccurrenceOut:
         reminded_at=occurrence.reminded_at,
         payment_deleted=payment.deleted_at is not None,
         receipts_count=len(occurrence.receipts),
+        pay_url=payment.pay_url,
+        pay_details=payment.pay_details,
+        category=payment.category,
+        assignee_id=payment.assignee_id,
+        assignee_login=payment.assignee_login,
     )
 
 
@@ -47,6 +52,7 @@ def _get_or_404(db, occurrence_id: int) -> PaymentOccurrence:
 
 
 def occurrence_filter(
+    principal: CurrentPrincipal,
     status_filter: Annotated[OccurrenceStatus | None, Query(alias="status")] = None,
     overdue: Annotated[bool | None, Query(description="Только просроченные или только без просрочки")] = None,
     currency: Currency | None = None,
@@ -55,9 +61,18 @@ def occurrence_filter(
     due_to: date | None = None,
     include_deleted: Annotated[bool, Query(description="Показать историю прекращённых платежей")] = False,
     q: Annotated[str | None, Query(max_length=100, description="Поиск по названию платежа без учёта регистра")] = None,
+    category: Annotated[str | None, Query(max_length=60, description="Категория платежа; «-» — платежи без категории")] = None,
+    assignee: Annotated[
+        str | None,
+        Query(max_length=16, pattern=r"^(me|-|\d+)$", description="Ответственный: id пользователя, «me» — мои платежи, «-» — без ответственного"),
+    ] = None,
 ) -> OccurrenceFilter:
     return OccurrenceFilter(
         q=q,
+        category=category,
+        # у админа из .env id нет: «мои» для него пусто
+        assignee_id=(principal.id if principal.id is not None else -1) if assignee == "me" else int(assignee) if assignee and assignee.isdigit() else None,
+        no_assignee=assignee == "-",
         status=status_filter,
         overdue=overdue,
         currency=currency,

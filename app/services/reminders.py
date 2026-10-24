@@ -33,7 +33,12 @@ def _money(occurrence: PaymentOccurrence) -> str:
 def build_message(occurrence: PaymentOccurrence, today: date, html: bool = False) -> str:
     """Напоминание о сроке. Обычный текст для webhook, html=True для Telegram и MAX."""
     return wording.reminder_message(
-        occurrence.recurring_payment.name, _money(occurrence), occurrence.due_date, (occurrence.due_date - today).days, html=html
+        occurrence.recurring_payment.name,
+        _money(occurrence),
+        occurrence.due_date,
+        (occurrence.due_date - today).days,
+        html=html,
+        details=occurrence.recurring_payment.pay_details,
     )
 
 
@@ -45,6 +50,7 @@ def build_overdue_message(occurrence: PaymentOccurrence, today: date, html: bool
         (occurrence.due_date - today).days,
         overdue_notice=True,
         html=html,
+        details=occurrence.recurring_payment.pay_details,
     )
 
 
@@ -87,7 +93,11 @@ def _pending_overdue(db: Session, today: date, timezone: str) -> list[PaymentOcc
         )
         .order_by(PaymentOccurrence.due_date, PaymentOccurrence.id)
     )
-    return [o for o in db.scalars(stmt).unique() if _local_date(o.reminded_at, timezone) <= o.due_date]
+    return [
+        o
+        for o in db.scalars(stmt).unique()
+        if _local_date(o.reminded_at, timezone) <= o.due_date and not o.recurring_payment.is_paused_on(o.due_date)
+    ]
 
 
 def _pending(db: Session, today: date, reminder_days: int) -> list[PaymentOccurrence]:
@@ -110,7 +120,7 @@ def _pending(db: Session, today: date, reminder_days: int) -> list[PaymentOccurr
         )
         .order_by(PaymentOccurrence.due_date, PaymentOccurrence.id)
     )
-    occurrences = list(db.scalars(stmt).unique())
+    occurrences = [o for o in db.scalars(stmt).unique() if not o.recurring_payment.is_paused_on(o.due_date)]
     if not any(o.due_date < today for o in occurrences):
         return occurrences
     # самый свежий неоплаченный просроченный период, напоминали по нему или нет
@@ -137,6 +147,8 @@ def build_reminder(occurrence: PaymentOccurrence, today: date, overdue_notice: b
         text=build_overdue_message(occurrence, today) if overdue_notice else build_message(occurrence, today),
         html=build_overdue_message(occurrence, today, html=True) if overdue_notice else build_message(occurrence, today, html=True),
         overdue_notice=overdue_notice,
+        pay_url=payment.pay_url,
+        pay_details=payment.pay_details,
     )
 
 
@@ -196,6 +208,8 @@ def _deliver(
     # свежий запрос, а не связь у периода: сессия могла пережить прошлый проход
     delivered = set(db.scalars(select(kind.delivery.channel).where(kind.delivery.occurrence_id == occurrence.id)))
     progressed = False
+    # личный канал может не касаться платежа (у платежа другой ответственный): его пропускаем и не ждём
+    channels = [c for c in channels if getattr(c, "applies_to", None) is None or c.applies_to(occurrence.recurring_payment)]
 
     for channel in channels:
         if channel.name in delivered or channel.name in down:

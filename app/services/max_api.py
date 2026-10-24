@@ -89,23 +89,31 @@ class MaxNotifier(MaxApi):
 
     def send(self, reminder: Reminder) -> None:
         if reminder.html:
-            self.send_text(reminder.html, pay_button_for=reminder.occurrence_id, html=True)
+            self.send_text(reminder.html, pay_button_for=reminder.occurrence_id, html=True, pay_url=reminder.pay_url)
         else:
-            self.send_text(reminder.text, pay_button_for=reminder.occurrence_id)
+            self.send_text(reminder.text, pay_button_for=reminder.occurrence_id, pay_url=reminder.pay_url)
 
-    def send_text(self, text: str, *, pay_button_for: int | None = None, html: bool = False) -> None:
+    def send_text(
+        self, text: str, *, pay_button_for: int | None = None, html: bool = False, pay_url: str | None = None
+    ) -> None:
         body: dict[str, Any] = {"text": text}
         if html:
             body["format"] = "html"
-        if pay_button_for is not None and self._settings.max_buttons_enabled:
-            body["attachments"] = [pay_keyboard(pay_button_for)]
+        paid_button = pay_button_for if self._settings.max_buttons_enabled else None
+        if keyboard := pay_keyboard(paid_button, pay_url):
+            body["attachments"] = [keyboard]
         query = {"chat_id": self.chat_id_number(), "disable_link_preview": "true"}
         self.call("POST", "/messages", query=query, body=body)
 
 
-def pay_keyboard(occurrence_id: int) -> dict[str, Any]:
-    button = {"type": "callback", "text": "✅ Оплачено", "payload": f"{PAY_CALLBACK_PREFIX}{occurrence_id}"}
-    return {"type": "inline_keyboard", "payload": {"buttons": [[button]]}}
+def pay_keyboard(occurrence_id: int | None, pay_url: str | None = None) -> dict[str, Any] | None:
+    """Кнопка «Оплачено» (если включена) и ссылка «Оплатить» (если у платежа есть). Ни того, ни другого: None."""
+    rows: list[list[dict[str, str]]] = []
+    if occurrence_id is not None:
+        rows.append([{"type": "callback", "text": "✅ Оплачено", "payload": f"{PAY_CALLBACK_PREFIX}{occurrence_id}"}])
+    if pay_url:
+        rows.append([{"type": "link", "text": "💳 Оплатить", "url": pay_url}])
+    return {"type": "inline_keyboard", "payload": {"buttons": rows}} if rows else None
 
 
 def discover_chats(api: MaxApi, timeout: int = 0) -> list[dict[str, Any]]:

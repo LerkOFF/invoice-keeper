@@ -6,6 +6,7 @@ from fastapi import APIRouter, Query
 from app.api.deps import CurrentPrincipal, DbDep, TodayDep
 from app.schemas.payments import CurrencySummaryOut, SummaryOut
 from app.schemas.planning import (
+    BudgetCategoryOut,
     BudgetLineOut,
     BudgetMonthOut,
     BudgetOut,
@@ -108,6 +109,10 @@ def payments_budget(
             for m, lines in sorted(budget.months.items())
         ]
         or None,
+        categories=[
+            BudgetCategoryOut(category=name, currencies=[_line(line) for line in lines.values()])
+            for name, lines in sorted(budget.categories.items(), key=lambda item: (item[0] is None, (item[0] or "").casefold()))
+        ],
     )
 
 

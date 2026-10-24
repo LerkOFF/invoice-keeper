@@ -309,6 +309,69 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/recurring-payments/{id}/pause:
+    post:
+      tags:
+      - recurring-payments
+      summary: Пауза платежа (администратор)
+      description: 'С сегодняшнего дня до `until` (не включая) или до возобновления: новые периоды не
+        создаются, напоминаний нет. Неоплаченные периоды внутри паузы без чеков убираются, оплаченные
+        и прошлые долги остаются. Повторный вызов меняет дату окончания действующей паузы.'
+      operationId: pause_recurring_payment
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          title: Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PauseRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecurringPaymentOut'
+        '404':
+          description: Платёж не найден или прекращён
+        '422':
+          description: Дата окончания не позже сегодня
+  /api/v1/recurring-payments/{id}/resume:
+    post:
+      tags:
+      - recurring-payments
+      summary: Снятие паузы (администратор)
+      description: Сроки с сегодняшнего дня снова создаются и напоминают. Пропущенные на паузе месяцы
+        просрочкой не становятся.
+      operationId: resume_recurring_payment
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          title: Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecurringPaymentOut'
+        '404':
+          description: Платёж не найден или прекращён
+        '422':
+          description: Платёж не на паузе
   /api/v1/payment-occurrences:
     get:
       tags:
@@ -407,6 +470,29 @@ paths:
           description: Поиск по названию платежа без учёта регистра
           title: Q
         description: Поиск по названию платежа без учёта регистра
+      - name: category
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            maxLength: 60
+          - type: 'null'
+          description: Категория платежа; «-» — платежи без категории
+          title: Category
+        description: Категория платежа; «-» — платежи без категории
+      - name: assignee
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            maxLength: 16
+            pattern: ^(me|-|\d+)$
+          - type: 'null'
+          description: 'Ответственный: id пользователя, «me» — мои платежи, «-» — без ответственного'
+          title: Assignee
+        description: 'Ответственный: id пользователя, «me» — мои платежи, «-» — без ответственного'
       responses:
         '200':
           description: Successful Response
@@ -506,6 +592,29 @@ paths:
           description: Поиск по названию платежа без учёта регистра
           title: Q
         description: Поиск по названию платежа без учёта регистра
+      - name: category
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            maxLength: 60
+          - type: 'null'
+          description: Категория платежа; «-» — платежи без категории
+          title: Category
+        description: Категория платежа; «-» — платежи без категории
+      - name: assignee
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            maxLength: 16
+            pattern: ^(me|-|\d+)$
+          - type: 'null'
+          description: 'Ответственный: id пользователя, «me» — мои платежи, «-» — без ответственного'
+          title: Assignee
+        description: 'Ответственный: id пользователя, «me» — мои платежи, «-» — без ответственного'
       responses:
         '200':
           description: CSV-файл
@@ -1477,6 +1586,24 @@ components:
       required:
       - file
       title: Body_add_file
+    BudgetCategoryOut:
+      properties:
+        category:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Category
+          description: Категория; пусто у платежей без категории
+        currencies:
+          items:
+            $ref: '#/components/schemas/BudgetLineOut'
+          type: array
+          title: Currencies
+      type: object
+      required:
+      - category
+      - currencies
+      title: BudgetCategoryOut
     BudgetLineOut:
       properties:
         currency:
@@ -1552,6 +1679,13 @@ components:
           - type: 'null'
           title: Months
           description: Разбивка по месяцам, только для года
+        categories:
+          items:
+            $ref: '#/components/schemas/BudgetCategoryOut'
+          type: array
+          title: Categories
+          description: 'Разбивка по категориям: по алфавиту, платежи без категории последними'
+          default: []
       type: object
       required:
       - year
@@ -2017,6 +2151,36 @@ components:
           title: Receipts Count
           description: Сколько чеков и ссылок прикреплено к этому периоду
           default: 0
+        pay_url:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Pay Url
+          description: Ссылка на оплату платежа
+        pay_details:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Pay Details
+          description: Реквизиты платежа
+        category:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Category
+          description: Категория платежа
+        assignee_id:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Assignee Id
+          description: Ответственный за платёж
+        assignee_login:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Assignee Login
+          description: Логин ответственного
       type: object
       required:
       - id
@@ -2084,6 +2248,18 @@ components:
       required:
       - ended_sessions
       title: PasswordChangeOut
+    PauseRequest:
+      properties:
+        until:
+          anyOf:
+          - type: string
+            format: date
+          - type: 'null'
+          title: Until
+          description: Последний день паузы не включается; пусто — до ручного возобновления
+      additionalProperties: false
+      type: object
+      title: PauseRequest
     Period:
       type: string
       enum:
@@ -2212,6 +2388,39 @@ components:
           format: date
           title: First Due Date
           description: Дата ближайшей оплаты, от неё считаются все периоды
+        pay_url:
+          anyOf:
+          - type: string
+            maxLength: 500
+          - type: 'null'
+          title: Pay Url
+          description: 'Ссылка на оплату: личный кабинет, счёт, страница оплаты'
+          examples:
+          - https://my.aeza.ru
+        pay_details:
+          anyOf:
+          - type: string
+            maxLength: 1000
+          - type: 'null'
+          title: Pay Details
+          description: Реквизиты или подсказка, как платить
+          examples:
+          - Счёт по договору 42, ИНН 7700000000
+        category:
+          anyOf:
+          - type: string
+            maxLength: 60
+          - type: 'null'
+          title: Category
+          description: Категория платежа для фильтра и бюджета
+          examples:
+          - Аренда
+        assignee_id:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Assignee Id
+          description: 'Ответственный: id обычного пользователя'
         period:
           $ref: '#/components/schemas/Period'
           description: monthly (каждый месяц), quarterly (раз в квартал), yearly (раз в год). Сроки считаются
@@ -2255,6 +2464,55 @@ components:
           - type: 'null'
           title: Deleted At
           description: Заполнено у прекращённого платежа
+        pay_url:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Pay Url
+          description: Ссылка на оплату
+        pay_details:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Pay Details
+          description: Реквизиты
+        category:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Category
+          description: Категория
+        assignee_id:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Assignee Id
+          description: Ответственный
+        assignee_login:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Assignee Login
+          description: Логин ответственного
+        is_paused:
+          type: boolean
+          title: Is Paused
+          description: Платёж сейчас на паузе
+          default: false
+        paused_from:
+          anyOf:
+          - type: string
+            format: date
+          - type: 'null'
+          title: Paused From
+          description: С какого дня действует пауза
+        paused_until:
+          anyOf:
+          - type: string
+            format: date
+          - type: 'null'
+          title: Paused Until
+          description: До какого дня пауза (не включая); пусто — до возобновления
       type: object
       required:
       - id
@@ -2300,6 +2558,39 @@ components:
           title: First Due Date
           description: Дата ближайшей оплаты по новому графику, не раньше сегодня. Нужна, если меняется
             график
+        pay_url:
+          anyOf:
+          - type: string
+            maxLength: 500
+          - type: 'null'
+          title: Pay Url
+          description: Новая ссылка на оплату; null или пустая строка убирают её
+          examples:
+          - https://my.aeza.ru
+        pay_details:
+          anyOf:
+          - type: string
+            maxLength: 1000
+          - type: 'null'
+          title: Pay Details
+          description: Новые реквизиты; null или пустая строка убирают их
+          examples:
+          - Счёт по договору 42, ИНН 7700000000
+        category:
+          anyOf:
+          - type: string
+            maxLength: 60
+          - type: 'null'
+          title: Category
+          description: Новая категория; null или пустая строка убирают её
+          examples:
+          - Аренда
+        assignee_id:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Assignee Id
+          description: Новый ответственный; null снимает его
       additionalProperties: false
       type: object
       title: RecurringPaymentUpdate

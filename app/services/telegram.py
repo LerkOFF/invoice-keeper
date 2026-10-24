@@ -58,21 +58,30 @@ class TelegramNotifier(TelegramApi):
 
     def send(self, reminder: Reminder) -> None:
         if reminder.html:
-            self.send_text(reminder.html, pay_button_for=reminder.occurrence_id, html=True)
+            self.send_text(reminder.html, pay_button_for=reminder.occurrence_id, html=True, pay_url=reminder.pay_url)
         else:
-            self.send_text(reminder.text, pay_button_for=reminder.occurrence_id)
+            self.send_text(reminder.text, pay_button_for=reminder.occurrence_id, pay_url=reminder.pay_url)
 
-    def send_text(self, text: str, *, pay_button_for: int | None = None, html: bool = False) -> None:
+    def send_text(
+        self, text: str, *, pay_button_for: int | None = None, html: bool = False, pay_url: str | None = None
+    ) -> None:
         payload: dict[str, Any] = {"chat_id": self.chat_id, "text": text, "disable_web_page_preview": True}
         if html:
             payload["parse_mode"] = "HTML"
-        if pay_button_for is not None and self._settings.telegram_buttons_enabled:
-            payload["reply_markup"] = pay_keyboard(pay_button_for)
+        paid_button = pay_button_for if self._settings.telegram_buttons_enabled else None
+        if markup := pay_keyboard(paid_button, pay_url):
+            payload["reply_markup"] = markup
         self.call("sendMessage", payload)
 
 
-def pay_keyboard(occurrence_id: int) -> dict[str, Any]:
-    return {"inline_keyboard": [[{"text": "✅ Оплачено", "callback_data": f"{PAY_CALLBACK_PREFIX}{occurrence_id}"}]]}
+def pay_keyboard(occurrence_id: int | None, pay_url: str | None = None) -> dict[str, Any] | None:
+    """Кнопка «Оплачено» (если включена) и ссылка «Оплатить» (если у платежа есть). Ни того, ни другого: None."""
+    rows: list[list[dict[str, str]]] = []
+    if occurrence_id is not None:
+        rows.append([{"text": "✅ Оплачено", "callback_data": f"{PAY_CALLBACK_PREFIX}{occurrence_id}"}])
+    if pay_url:
+        rows.append([{"text": "💳 Оплатить", "url": pay_url}])
+    return {"inline_keyboard": rows} if rows else None
 
 
 def build_notifier(settings: Settings) -> Notifier:

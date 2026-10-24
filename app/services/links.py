@@ -174,6 +174,11 @@ class PersonalNotifier:
         self._settings = settings
         self._api = api
 
+    def applies_to(self, payment: Any) -> bool:
+        """Платёж с ответственным напоминает лично ему и администратору, без ответственного — всем привязанным."""
+        assignee = getattr(payment, "assignee_id", None)
+        return assignee is None or self._link.is_admin or self._link.user_id == assignee
+
     @property
     def configured(self) -> bool:
         s = self._settings
@@ -199,8 +204,9 @@ class PersonalNotifier:
             payload: dict[str, Any] = {"chat_id": self._link.chat_id, "text": reminder.html or reminder.text, "disable_web_page_preview": True}
             if reminder.html:
                 payload["parse_mode"] = "HTML"
-            if self._settings.telegram_buttons_enabled:
-                payload["reply_markup"] = pay_keyboard(reminder.occurrence_id)
+            paid_button = reminder.occurrence_id if self._settings.telegram_buttons_enabled else None
+            if markup := pay_keyboard(paid_button, reminder.pay_url):
+                payload["reply_markup"] = markup
             api.call("sendMessage", payload)
         else:
             from app.services.max_api import pay_keyboard as max_keyboard
@@ -208,8 +214,9 @@ class PersonalNotifier:
             body: dict[str, Any] = {"text": reminder.html or reminder.text}
             if reminder.html:
                 body["format"] = "html"
-            if self._settings.max_buttons_enabled:
-                body["attachments"] = [max_keyboard(reminder.occurrence_id)]
+            paid_button = reminder.occurrence_id if self._settings.max_buttons_enabled else None
+            if keyboard := max_keyboard(paid_button, reminder.pay_url):
+                body["attachments"] = [keyboard]
             api.call("POST", "/messages", query={"chat_id": int(self._link.chat_id), "disable_link_preview": "true"}, body=body)
 
 

@@ -21,11 +21,19 @@ class BudgetMonthOut(BaseModel):
     currencies: list[BudgetLineOut]
 
 
+class BudgetCategoryOut(BaseModel):
+    category: str | None = Field(description="Категория; пусто у платежей без категории")
+    currencies: list[BudgetLineOut]
+
+
 class BudgetOut(BaseModel):
     year: int
     month: int | None = Field(description="Пусто, если бюджет считается на год")
     currencies: list[BudgetLineOut] = Field(description="Итог за выбранный месяц или за год, всегда все три валюты")
     months: list[BudgetMonthOut] | None = Field(default=None, description="Разбивка по месяцам, только для года")
+    categories: list[BudgetCategoryOut] = Field(
+        default=[], description="Разбивка по категориям: по алфавиту, платежи без категории последними"
+    )
 
 
 class CalendarItemOut(BaseModel):

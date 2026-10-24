@@ -61,11 +61,22 @@ def _rows(name: str, money: str, due: date, days_left: int | None, html: bool) -
     return [f"Платёж: {e(name)}", f"Сумма: {amount}", f"Срок оплаты: {when}"]
 
 
-def reminder_message(name: str, money: str, due: date, days_left: int, overdue_notice: bool = False, html: bool = True) -> str:
+def reminder_message(
+    name: str,
+    money: str,
+    due: date,
+    days_left: int,
+    overdue_notice: bool = False,
+    html: bool = True,
+    details: str | None = None,
+) -> str:
     """Напоминание для мессенджера. html=False даёт ту же структуру обычным текстом (для webhook)."""
     w = describe(days_left, overdue_notice)
     title = f"<b>{escape(w.title)}</b>" if html else w.title
-    return "\n".join([f"{DOTS[w.status]} {w.chip}", title, w.lead, "", *_rows(name, money, due, days_left, html)])
+    rows = _rows(name, money, due, days_left, html)
+    if details:
+        rows.append(f"Реквизиты: {escape(details) if html else details}")
+    return "\n".join([f"{DOTS[w.status]} {w.chip}", title, w.lead, "", *rows])
 
 
 def paid_message(name: str, money: str, due: date, paid_at: date | None, who: str | None) -> str:

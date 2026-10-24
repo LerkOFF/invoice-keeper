@@ -17,6 +17,8 @@ HEADER = [
     "Периодичность",
     "Платёж прекращён",
     "Чеков и ссылок",
+    "Категория",
+    "Ответственный",
 ]
 PERIOD_LABELS = {"monthly": "ежемесячно", "quarterly": "раз в квартал", "yearly": "раз в год"}
 
@@ -53,6 +55,8 @@ def occurrences_csv(items: list[PaymentOccurrence], today: date) -> str:
                 PERIOD_LABELS.get(payment.period, payment.period),
                 "да" if payment.deleted_at is not None else "",
                 len(occurrence.receipts),
+                _cell(payment.category or ""),
+                payment.assignee_login or "",
             ]
         )
     return "﻿" + buffer.getvalue()

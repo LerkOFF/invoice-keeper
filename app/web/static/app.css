@@ -353,6 +353,7 @@ select option { background: var(--block); color: var(--title); }
 .user-panel { display: flex; flex-direction: column; min-width: 0; border: 1px solid var(--panel-line); border-radius: 24px; flex: none; }
 .user-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 12px; min-width: 0; color: var(--title); }
 .user-row:first-child { border-bottom: 1px solid var(--panel-line); }
+.user-actions { display: flex; align-items: center; gap: 6px; flex: none; }
 .user-login { font-size: 18px; line-height: 24px; font-style: italic; font-weight: 400; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .user-today { display: flex; flex-direction: column; min-width: 0; }
 .user-today small { font-size: 12px; line-height: 16px; color: var(--subtitle); font-weight: 400; }
@@ -908,3 +909,7 @@ td code { font-size: 13px; color: var(--title); }
 .faq-item summary .ic { width: 18px; height: 18px; color: var(--subtext); transition: transform 0.3s ease-in-out; }
 .faq-item[open] summary .ic { transform: rotate(90deg); }
 .faq-answer { padding: 0 16px 16px; color: var(--subtitle); font-size: 14px; line-height: 22px; }
+
+.cell-link { display: inline-block; margin-top: 2px; font-size: 14px; line-height: 20px; color: var(--orange-ink); text-decoration: none; }
+.cell-link:hover { text-decoration: underline; }
+.field-slot { display: contents; }
