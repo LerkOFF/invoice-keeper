@@ -10,7 +10,7 @@ const state = {
   me: null,
   asOf: null, // «сегодня» по часовому поясу сервера
   tab: "payments",
-  filters: { status: "all", currency: "", category: "", scope: "all", deleted: false, on: "", q: "" },
+  filters: { status: "all", currency: "", category: "", assignee: "", scope: "all", deleted: false, on: "", q: "" },
   sort: { key: "due", dir: 1 },
   cal: null, // { year, month, selected }
   budgetYear: null,
@@ -61,6 +61,11 @@ const I18N = {
     "rec.categoryPlaceholder": "аренда, IT, подписки",
     "payments.allCategories": "Все категории",
     "payments.noCategory": "Без категории",
+    "field.assignee_id": "Ответственный",
+    "rec.noAssignee": "— не назначен —",
+    "payments.mine": "Только мои",
+    "payments.allAssignees": "Все ответственные",
+    "payments.noAssignee": "Без ответственного",
     "budget.byCategory": "по категориям",
     "budget.category": "Категория",
     "field.pay_details": "Реквизиты",
@@ -500,6 +505,11 @@ const I18N = {
     "rec.categoryPlaceholder": "rent, IT, subscriptions",
     "payments.allCategories": "All categories",
     "payments.noCategory": "No category",
+    "field.assignee_id": "Responsible",
+    "rec.noAssignee": "— not assigned —",
+    "payments.mine": "Only mine",
+    "payments.allAssignees": "Anyone responsible",
+    "payments.noAssignee": "No one responsible",
     "budget.byCategory": "by category",
     "budget.category": "Category",
     "field.pay_details": "Payment details",
@@ -1322,6 +1332,24 @@ function categoriesOf(payments) {
   return [...new Set(payments.map((p) => p.category).filter(Boolean))].sort((a, b) => a.localeCompare(b, locale()));
 }
 
+function assigneeField(users, value = null) {
+  return selectField(
+    t("field.assignee_id"),
+    "assignee_id",
+    [h("option", { value: "" }, t("rec.noAssignee")), ...users.map((u) => h("option", { value: String(u.id), selected: u.id === value }, `@${u.login}`))],
+  );
+}
+
+function assigneeValue(data) {
+  const raw = String(data.get("assignee_id") || "");
+  return raw ? Number(raw) : null;
+}
+
+// Подпись под названием: категория и ответственный
+function paymentMeta(p) {
+  return [p.category, p.assignee_login ? `@${p.assignee_login}` : null].filter(Boolean).join(" · ");
+}
+
 function categoryField(value = "") {
   return field({ label: t("field.category"), name: "category", required: false, maxlength: "60", value, list: "category-options", placeholder: t("rec.categoryPlaceholder") });
 }
@@ -1927,6 +1955,7 @@ async function paymentsView(main) {
       overdue: f.status === "overdue" ? "true" : undefined,
       currency: f.currency,
       category: f.category || undefined,
+      assignee: f.assignee || undefined,
       include_deleted: f.deleted ? "true" : undefined,
       q: f.q.trim() || undefined,
       ...range,
@@ -1982,6 +2011,30 @@ async function paymentsView(main) {
       )
     : null;
 
+  // ответственный: у пользователя переключатель «Только мои», у админа выбор пользователя
+  let assigneeControl;
+  if (state.me.role === "admin") {
+    const users = await api("/users");
+    if (state.filters.assignee && !["-", ...users.map((u) => String(u.id))].includes(state.filters.assignee)) state.filters.assignee = "";
+    assigneeControl = users.length
+      ? h(
+          "select",
+          { "aria-label": t("field.assignee_id"), onchange: (e) => { state.filters.assignee = e.target.value; reload().catch(report); } },
+          h("option", { value: "" }, t("payments.allAssignees")),
+          users.map((u) => h("option", { value: String(u.id), selected: state.filters.assignee === String(u.id) }, `@${u.login}`)),
+          h("option", { value: "-", selected: state.filters.assignee === "-" }, t("payments.noAssignee")),
+        )
+      : null;
+  } else {
+    if (state.filters.assignee !== "me") state.filters.assignee = "";
+    assigneeControl = h(
+      "label",
+      { class: "check" },
+      h("input", { type: "checkbox", checked: state.filters.assignee === "me", onchange: (e) => { state.filters.assignee = e.target.checked ? "me" : ""; reload().catch(report); } }),
+      t("payments.mine"),
+    );
+  }
+
   const toolbar = h(
     "div",
     { class: "toolbar" },
@@ -2006,6 +2059,7 @@ async function paymentsView(main) {
     ),
     currencySelect,
     categorySelect,
+    assigneeControl,
     h(
       "label",
       { class: "check" },
@@ -2132,7 +2186,7 @@ function occurrenceRow(o, reload) {
       "td",
       { class: "title-cell" },
       h("div", { class: "cell-title" }, o.name),
-      o.category ? h("div", { class: "cell-sub" }, o.category) : null,
+      paymentMeta(o) ? h("div", { class: "cell-sub" }, paymentMeta(o)) : null,
       o.payment_deleted ? h("div", { class: "cell-sub" }, t("payments.stopped")) : null,
     ),
     h("td", { class: "right", "data-label": t("col.amount") }, h("span", { class: "amount num" }, money(o.amount, o.currency))),
@@ -2353,12 +2407,16 @@ function periodHint(p) {
 async function recurringView(main) {
   const listBox = h("div", { class: "table-card" }, skeletonRows(3));
   const categoryOptions = h("datalist", { id: "category-options" });
+  const assigneeSlot = h("div", { class: "field-slot" }, assigneeField([]));
 
   async function reload() {
-    const [payments, unpaid] = await Promise.all([
+    const [payments, unpaid, users] = await Promise.all([
       api("/recurring-payments"),
       api("/payment-occurrences", { params: { status: "unpaid", limit: 1000 } }),
+      api("/users"),
     ]);
+    state.recurringUsers = users;
+    assigneeSlot.replaceChildren(assigneeField(users, Number(assigneeSlot.querySelector("select")?.value) || null));
     const nextDue = new Map();
     for (const o of unpaid) if (!nextDue.has(o.recurring_id)) nextDue.set(o.recurring_id, o.due_date);
     categoryOptions.replaceChildren(...categoriesOf(payments).map((c) => h("option", { value: c })));
@@ -2381,7 +2439,7 @@ async function recurringView(main) {
                     "td",
                     { class: "title-cell" },
                     h("div", { class: "cell-title" }, p.name),
-                    h("div", { class: "cell-sub" }, p.category ? `${p.category} · ` : "", t("rec.firstDue", { date: fmtDate(p.first_due_date) })),
+                    h("div", { class: "cell-sub" }, paymentMeta(p) ? `${paymentMeta(p)} · ` : "", t("rec.firstDue", { date: fmtDate(p.first_due_date) })),
                     p.pay_url ? h("a", { class: "cell-link", href: p.pay_url, target: "_blank", rel: "noopener noreferrer", title: p.pay_details || p.pay_url }, t("rec.payLink")) : null,
                   ),
                   h("td", { class: "right", "data-label": t("col.amount") }, h("span", { class: "amount num" }, money(p.amount, p.currency))),
@@ -2416,6 +2474,7 @@ async function recurringView(main) {
       field({ label: t("field.pay_url"), name: "pay_url", type: "url", required: false, maxlength: "500", placeholder: t("rec.payUrlPlaceholder") }),
       field({ label: t("field.pay_details"), name: "pay_details", required: false, maxlength: "1000", placeholder: t("rec.payDetailsPlaceholder") }),
       categoryField(),
+      assigneeSlot,
       h("button", { type: "submit", class: "btn btn-primary" }, t("rec.add")),
     ),
     categoryOptions,
@@ -2437,7 +2496,8 @@ async function recurringView(main) {
       setBusy(submit, true);
       const link = payLinkFields(data);
       const category = String(data.get("category") || "").trim() || null;
-      await api("/recurring-payments", { method: "POST", body: { name, amount, currency: data.get("currency"), period: data.get("period"), first_due_date: firstDue, category, ...link } });
+      const body = { name, amount, currency: data.get("currency"), period: data.get("period"), first_due_date: firstDue, category, assignee_id: assigneeValue(data), ...link };
+      await api("/recurring-payments", { method: "POST", body });
       toast(t("rec.added", { name }));
       for (const key of ["name", "amount", "pay_url", "pay_details", "category"]) form.querySelector(`[name=${key}]`).value = "";
       await reload();
@@ -2471,9 +2531,12 @@ function editPaymentDialog(p, reload) {
       field({ label: t("field.pay_url"), name: "pay_url", type: "url", required: false, maxlength: "500", value: p.pay_url || "", placeholder: t("rec.payUrlPlaceholder") }),
       field({ label: t("field.pay_details"), name: "pay_details", required: false, maxlength: "1000", value: p.pay_details || "", placeholder: t("rec.payDetailsPlaceholder") }),
       categoryField(p.category || ""),
+      assigneeField(state.recurringUsers || [], p.assignee_id),
     ],
     onSubmit: async (data) => {
       const body = {};
+      const assignee = assigneeValue(data);
+      if (assignee !== (p.assignee_id ?? null)) body.assignee_id = assignee;
       const category = String(data.get("category") || "").trim().replace(/\s+/g, " ") || null;
       if (category !== (p.category || null)) body.category = category;
       const link = payLinkFields(data);

@@ -904,3 +904,4 @@ dialog:has(.rc-dialog) { width: min(580px, calc(100vw - 32px)); }
 
 .cell-link { display: inline-block; margin-top: 2px; font-size: 14px; line-height: 20px; color: var(--orange-ink); text-decoration: none; }
 .cell-link:hover { text-decoration: underline; }
+.field-slot { display: contents; }
