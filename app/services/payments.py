@@ -88,10 +88,13 @@ def update_payment(
     return changes
 
 
-def update_payment_link(payment: RecurringPayment, fields: dict) -> dict:
-    """Ссылка на оплату и реквизиты. В `fields` только переданные поля: None убирает значение."""
+EXTRA_FIELDS = ("pay_url", "pay_details", "category")
+
+
+def update_payment_extras(payment: RecurringPayment, fields: dict) -> dict:
+    """Ссылка на оплату, реквизиты и категория. В `fields` только переданные поля: None убирает значение."""
     changes: dict = {}
-    for field in ("pay_url", "pay_details"):
+    for field in EXTRA_FIELDS:
         if field in fields and fields[field] != getattr(payment, field):
             changes[f"{field}_before"] = getattr(payment, field)
             setattr(payment, field, fields[field])

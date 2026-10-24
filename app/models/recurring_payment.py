@@ -29,6 +29,8 @@ class RecurringPayment(Base):
     # Куда платить: ссылка на кабинет или счёт и реквизиты, попадают в напоминания
     pay_url: Mapped[str | None] = mapped_column(String(500))
     pay_details: Mapped[str | None] = mapped_column(String(1000))
+    # Категория для фильтра и бюджета: «Аренда», «IT», «Подписки»
+    category: Mapped[str | None] = mapped_column(String(60))
 
     occurrences: Mapped[list["PaymentOccurrence"]] = relationship(
         back_populates="recurring_payment",

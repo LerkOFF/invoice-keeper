@@ -30,6 +30,17 @@ PayUrl = Annotated[
     Field(max_length=500, description="Ссылка на оплату: личный кабинет, счёт, страница оплаты", examples=["https://my.aeza.ru"]),
     AfterValidator(_http_url),
 ]
+def _category(value: str | None) -> str | None:
+    """Категория: лишние пробелы убираются, пустая строка значит «без категории»."""
+    value = " ".join((value or "").split())
+    return value or None
+
+
+Category = Annotated[
+    str | None,
+    Field(max_length=60, description="Категория платежа для фильтра и бюджета", examples=["Аренда"]),
+    AfterValidator(_category),
+]
 PayDetails = Annotated[
     str | None,
     Field(max_length=1000, description="Реквизиты или подсказка, как платить", examples=["Счёт по договору 42, ИНН 7700000000"]),
@@ -46,6 +57,7 @@ class RecurringPaymentCreate(BaseModel):
     first_due_date: date = Field(description="Дата ближайшей оплаты, от неё считаются все периоды")
     pay_url: PayUrl = None
     pay_details: PayDetails = None
+    category: Category = None
     period: Period = Field(
         default=Period.MONTHLY,
         description="monthly (каждый месяц), quarterly (раз в квартал), yearly (раз в год). Сроки считаются от первой даты",
@@ -69,6 +81,7 @@ class RecurringPaymentUpdate(BaseModel):
     )
     pay_url: PayUrl = Field(default=None, description="Новая ссылка на оплату; null или пустая строка убирают её")
     pay_details: PayDetails = Field(default=None, description="Новые реквизиты; null или пустая строка убирают их")
+    category: Category = Field(default=None, description="Новая категория; null или пустая строка убирают её")
 
 
 class RecurringPaymentOut(BaseModel):
@@ -84,6 +97,7 @@ class RecurringPaymentOut(BaseModel):
     deleted_at: UtcDateTime | None = Field(description="Заполнено у прекращённого платежа")
     pay_url: str | None = Field(default=None, description="Ссылка на оплату")
     pay_details: str | None = Field(default=None, description="Реквизиты")
+    category: str | None = Field(default=None, description="Категория")
 
 
 class OccurrenceOut(BaseModel):
@@ -102,6 +116,7 @@ class OccurrenceOut(BaseModel):
     receipts_count: int = Field(default=0, description="Сколько чеков и ссылок прикреплено к этому периоду")
     pay_url: str | None = Field(default=None, description="Ссылка на оплату платежа")
     pay_details: str | None = Field(default=None, description="Реквизиты платежа")
+    category: str | None = Field(default=None, description="Категория платежа")
 
 
 class OccurrenceUpdate(BaseModel):

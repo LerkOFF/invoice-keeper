@@ -38,6 +38,7 @@ def to_out(occurrence: PaymentOccurrence, today: date) -> OccurrenceOut:
         receipts_count=len(occurrence.receipts),
         pay_url=payment.pay_url,
         pay_details=payment.pay_details,
+        category=payment.category,
     )
 
 
@@ -57,9 +58,11 @@ def occurrence_filter(
     due_to: date | None = None,
     include_deleted: Annotated[bool, Query(description="Показать историю прекращённых платежей")] = False,
     q: Annotated[str | None, Query(max_length=100, description="Поиск по названию платежа без учёта регистра")] = None,
+    category: Annotated[str | None, Query(max_length=60, description="Категория платежа; «-» — платежи без категории")] = None,
 ) -> OccurrenceFilter:
     return OccurrenceFilter(
         q=q,
+        category=category,
         status=status_filter,
         overdue=overdue,
         currency=currency,

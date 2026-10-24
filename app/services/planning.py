@@ -111,6 +111,7 @@ class Budget:
     month: int | None
     total: dict[Currency, BudgetLine] = field(default_factory=_empty_lines)
     months: dict[int, dict[Currency, BudgetLine]] = field(default_factory=dict)
+    categories: dict[str | None, dict[Currency, BudgetLine]] = field(default_factory=dict)
 
 
 def build_budget(db: Session, year: int, month: int | None, include_deleted: bool = False) -> Budget:
@@ -121,6 +122,7 @@ def build_budget(db: Session, year: int, month: int | None, include_deleted: boo
         budget.months = {m: _empty_lines() for m in range(1, 13)}
     for period in load_periods(db, start, end, include_deleted):
         _add(budget.total, period)
+        _add(budget.categories.setdefault(period.payment.category, _empty_lines()), period)
         if month is None:
             _add(budget.months[period.due_date.month], period)
     return budget

@@ -331,6 +331,17 @@ paths:
           description: Поиск по названию платежа без учёта регистра
           title: Q
         description: Поиск по названию платежа без учёта регистра
+      - name: category
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            maxLength: 60
+          - type: 'null'
+          description: Категория платежа; «-» — платежи без категории
+          title: Category
+        description: Категория платежа; «-» — платежи без категории
       responses:
         '200':
           description: Successful Response
@@ -430,6 +441,17 @@ paths:
           description: Поиск по названию платежа без учёта регистра
           title: Q
         description: Поиск по названию платежа без учёта регистра
+      - name: category
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            maxLength: 60
+          - type: 'null'
+          description: Категория платежа; «-» — платежи без категории
+          title: Category
+        description: Категория платежа; «-» — платежи без категории
       responses:
         '200':
           description: CSV-файл
@@ -1201,6 +1223,24 @@ components:
       required:
       - file
       title: Body_add_file
+    BudgetCategoryOut:
+      properties:
+        category:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Category
+          description: Категория; пусто у платежей без категории
+        currencies:
+          items:
+            $ref: '#/components/schemas/BudgetLineOut'
+          type: array
+          title: Currencies
+      type: object
+      required:
+      - category
+      - currencies
+      title: BudgetCategoryOut
     BudgetLineOut:
       properties:
         currency:
@@ -1276,6 +1316,13 @@ components:
           - type: 'null'
           title: Months
           description: Разбивка по месяцам, только для года
+        categories:
+          items:
+            $ref: '#/components/schemas/BudgetCategoryOut'
+          type: array
+          title: Categories
+          description: 'Разбивка по категориям: по алфавиту, платежи без категории последними'
+          default: []
       type: object
       required:
       - year
@@ -1733,6 +1780,12 @@ components:
           - type: 'null'
           title: Pay Details
           description: Реквизиты платежа
+        category:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Category
+          description: Категория платежа
       type: object
       required:
       - id
@@ -1937,6 +1990,15 @@ components:
           description: Реквизиты или подсказка, как платить
           examples:
           - Счёт по договору 42, ИНН 7700000000
+        category:
+          anyOf:
+          - type: string
+            maxLength: 60
+          - type: 'null'
+          title: Category
+          description: Категория платежа для фильтра и бюджета
+          examples:
+          - Аренда
         period:
           $ref: '#/components/schemas/Period'
           description: monthly (каждый месяц), quarterly (раз в квартал), yearly (раз в год). Сроки считаются
@@ -1992,6 +2054,12 @@ components:
           - type: 'null'
           title: Pay Details
           description: Реквизиты
+        category:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Category
+          description: Категория
       type: object
       required:
       - id
@@ -2055,6 +2123,15 @@ components:
           description: Новые реквизиты; null или пустая строка убирают их
           examples:
           - Счёт по договору 42, ИНН 7700000000
+        category:
+          anyOf:
+          - type: string
+            maxLength: 60
+          - type: 'null'
+          title: Category
+          description: Новая категория; null или пустая строка убирают её
+          examples:
+          - Аренда
       additionalProperties: false
       type: object
       title: RecurringPaymentUpdate
