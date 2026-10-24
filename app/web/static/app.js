@@ -56,6 +56,13 @@ const I18N = {
     "field.file": "Файл",
     "field.title": "Название",
     "field.q": "Поиск",
+    "field.pay_url": "Ссылка на оплату",
+    "field.pay_details": "Реквизиты",
+    "rec.payUrlPlaceholder": "https://…",
+    "rec.payDetailsPlaceholder": "договор, счёт, ИНН",
+    "rec.payLink": "ссылка на оплату ↗",
+    "act.pay": "Оплатить",
+    "check.payUrl": "Ссылка на оплату: начните с http:// или https://",
 
     "valid.string_too_short": "слишком короткое значение",
     "valid.string_too_long": "слишком длинное значение",
@@ -482,6 +489,13 @@ const I18N = {
     "field.file": "File",
     "field.title": "Title",
     "field.q": "Search",
+    "field.pay_url": "Payment link",
+    "field.pay_details": "Payment details",
+    "rec.payUrlPlaceholder": "https://…",
+    "rec.payDetailsPlaceholder": "contract, invoice, tax ID",
+    "rec.payLink": "payment link ↗",
+    "act.pay": "Pay",
+    "check.payUrl": "Payment link: start with http:// or https://",
 
     "valid.string_too_short": "too short",
     "valid.string_too_long": "too long",
@@ -1291,6 +1305,12 @@ function checkLogin(login) {
   if (!/^[A-Za-z0-9._@-]{3,64}$/.test(login)) throw new Error(t("check.login"));
 }
 
+function payLinkFields(data) {
+  const url = String(data.get("pay_url") || "").trim();
+  if (url && !/^https?:\/\/\S+$/i.test(url)) throw new Error(t("check.payUrl"));
+  return { pay_url: url || null, pay_details: String(data.get("pay_details") || "").trim() || null };
+}
+
 function checkPassword(password) {
   if (password.length < 8 || password.length > 128) throw new Error(t("check.password"));
 }
@@ -2047,6 +2067,9 @@ function occurrenceActions(o, reload) {
   const actions = [receiptsButton(o, reload)];
   if (o.payment_deleted) return actions;
   if (o.status === "unpaid") {
+    if (o.pay_url) {
+      actions.push(h("a", { class: "btn btn-sm", href: o.pay_url, target: "_blank", rel: "noopener noreferrer", title: o.pay_details || o.pay_url }, t("act.pay")));
+    }
     actions.push(h("button", { class: "btn btn-sm btn-accent", onclick: () => payDialog(o, reload, false) }, t("act.markPaid")));
   } else {
     actions.push(
@@ -2082,7 +2105,7 @@ function occurrenceRow(o, reload) {
 function payDialog(o, reload, editing) {
   openDialog({
     title: editing ? t("pay.titleEdit") : t("pay.title"),
-    description: t("pay.desc", { name: o.name, date: fmtDate(o.due_date), amount: money(o.amount, o.currency) }),
+    description: t("pay.desc", { name: o.name, date: fmtDate(o.due_date), amount: money(o.amount, o.currency) }) + (o.pay_details ? ` ${t("field.pay_details")}: ${o.pay_details}` : ""),
     confirmLabel: editing ? t("common.save") : t("pay.confirm"),
     fields: [
       field({
@@ -2311,7 +2334,13 @@ async function recurringView(main) {
                 return h(
                   "tr",
                   {},
-                  h("td", { class: "title-cell" }, h("div", { class: "cell-title" }, p.name), h("div", { class: "cell-sub" }, t("rec.firstDue", { date: fmtDate(p.first_due_date) }))),
+                  h(
+                    "td",
+                    { class: "title-cell" },
+                    h("div", { class: "cell-title" }, p.name),
+                    h("div", { class: "cell-sub" }, t("rec.firstDue", { date: fmtDate(p.first_due_date) })),
+                    p.pay_url ? h("a", { class: "cell-link", href: p.pay_url, target: "_blank", rel: "noopener noreferrer", title: p.pay_details || p.pay_url }, t("rec.payLink")) : null,
+                  ),
                   h("td", { class: "right", "data-label": t("col.amount") }, h("span", { class: "amount num" }, money(p.amount, p.currency))),
                   h("td", { "data-label": t("rec.colPeriod") }, h("div", {}, periodLabel(p.period)), h("div", { class: "cell-sub" }, periodHint(p))),
                   h("td", { "data-label": t("rec.colNextShort"), class: "num" }, next ? fmtDate(next) : "—"),
@@ -2341,6 +2370,8 @@ async function recurringView(main) {
       selectField(t("field.currency"), "currency", CURRENCIES.map((c) => h("option", { value: c }, c))),
       selectField(t("field.period"), "period", periodOptions("monthly")),
       field({ label: t("field.first_due_date"), name: "first_due_date", type: "date", value: state.asOf }),
+      field({ label: t("field.pay_url"), name: "pay_url", type: "url", required: false, maxlength: "500", placeholder: t("rec.payUrlPlaceholder") }),
+      field({ label: t("field.pay_details"), name: "pay_details", required: false, maxlength: "1000", placeholder: t("rec.payDetailsPlaceholder") }),
       h("button", { type: "submit", class: "btn btn-primary" }, t("rec.add")),
     ),
     h("p", { class: "form-error", role: "alert" }),
@@ -2359,10 +2390,10 @@ async function recurringView(main) {
       const firstDue = String(data.get("first_due_date"));
       if (!firstDue) throw new Error(t("check.firstDue"));
       setBusy(submit, true);
-      await api("/recurring-payments", { method: "POST", body: { name, amount, currency: data.get("currency"), period: data.get("period"), first_due_date: firstDue } });
+      const link = payLinkFields(data);
+      await api("/recurring-payments", { method: "POST", body: { name, amount, currency: data.get("currency"), period: data.get("period"), first_due_date: firstDue, ...link } });
       toast(t("rec.added", { name }));
-      form.querySelector("[name=name]").value = "";
-      form.querySelector("[name=amount]").value = "";
+      for (const key of ["name", "amount", "pay_url", "pay_details"]) form.querySelector(`[name=${key}]`).value = "";
       await reload();
     } catch (err) {
       error.textContent = err.message;
@@ -2391,9 +2422,14 @@ function editPaymentDialog(p, reload) {
         min: state.asOf,
         hint: t("rec.newFirstDueHint"),
       }),
+      field({ label: t("field.pay_url"), name: "pay_url", type: "url", required: false, maxlength: "500", value: p.pay_url || "", placeholder: t("rec.payUrlPlaceholder") }),
+      field({ label: t("field.pay_details"), name: "pay_details", required: false, maxlength: "1000", value: p.pay_details || "", placeholder: t("rec.payDetailsPlaceholder") }),
     ],
     onSubmit: async (data) => {
       const body = {};
+      const link = payLinkFields(data);
+      if (link.pay_url !== (p.pay_url || null)) body.pay_url = link.pay_url;
+      if (link.pay_details !== (p.pay_details || null)) body.pay_details = link.pay_details;
       const name = String(data.get("name")).trim();
       if (!name) throw new Error(t("check.name"));
       if (name !== p.name) body.name = name;
